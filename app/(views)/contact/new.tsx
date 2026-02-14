@@ -60,7 +60,7 @@ export default function NewContactScreen() {
         <Text style={[styles.title, { color: colors.text }]}>新建联系人</Text>
 
         <TouchableOpacity onPress={handleSave}>
-          <Text style={[styles.saveButton, { color: colors.primary }]}保存</Text>
+          <Text style={[styles.saveButton, { color: colors.primary }]}>保存</Text>
         </TouchableOpacity>
       </View>
 

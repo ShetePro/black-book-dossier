@@ -228,18 +228,10 @@ i18n
   .init({
     resources,
     lng: getDeviceLanguage(),
-    fallbackLng: {
-      'zh': 'zh-CN',
-      'zh-Hans': 'zh-CN',
-      'zh-Hant': 'zh-CN',
-      'en': 'en-US',
-      'default': ['zh-CN'],
-    },
+    fallbackLng: ['zh-CN'],
     interpolation: {
       escapeValue: false,
     },
-    // 添加调试模式（开发时启用）
-    debug: __DEV__,
   });
 
 export default i18n;

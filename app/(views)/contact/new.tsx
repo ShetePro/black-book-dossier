@@ -82,7 +82,7 @@ export default function NewContactScreen() {
 
         {/* 基本信息 */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}基本信息</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>基本信息</Text>
 
           <View
             style={[styles.inputCard, { backgroundColor: colors.surface }]}
@@ -122,7 +122,7 @@ export default function NewContactScreen() {
 
         {/* 联系方式 */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}联系方式</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>联系方式</Text>
 
           <View
             style={[styles.inputCard, { backgroundColor: colors.surface }]}
@@ -154,7 +154,7 @@ export default function NewContactScreen() {
 
         {/* 标签 */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}标签</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>标签</Text>
 
           <View style={[styles.tagCard, { backgroundColor: colors.surface }]}>
             <View style={styles.tagInputRow}>
@@ -208,7 +208,7 @@ export default function NewContactScreen() {
 
         {/* 备注 */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}备注</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>备注</Text>
 
           <View style={[styles.notesCard, { backgroundColor: colors.surface }]}>
             <TextInput

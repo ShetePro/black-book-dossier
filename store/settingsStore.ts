@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { getStorageItemAsync, setStorageItemAsync } from "@/hooks/useStorageState";
 import { colorScheme as nativeWindColorScheme } from "nativewind";
-import i18n from "@/utils/i18n";
+import i18n from "@/locales/i18n";
 
 // ==================== 类型定义 ====================
 

@@ -132,7 +132,7 @@ export default function SettingsScreen() {
   const handleKillSwitch = () => {
     Alert.alert(
       "⚠️ 危险操作",
-      "此操作将永久删除所有数据，无法恢复。\n\n请输入 "DELETE" 确认",
+      '此操作将永久删除所有数据，无法恢复。\n\n请输入 "DELETE" 确认',
       [
         { text: "取消", style: "cancel" },
         {

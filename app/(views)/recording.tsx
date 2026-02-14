@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import {
   View,
   Text,
@@ -17,7 +17,6 @@ import Animated, {
   withSpring,
   withSequence,
   withTiming,
-  runOnJS,
   withRepeat,
 } from "react-native-reanimated";
 import { useThemeColor } from "@/hooks/useThemeColor";
@@ -37,6 +36,38 @@ export default function RecordingScreen() {
   const pulseScale = useSharedValue(1);
   const micScale = useSharedValue(1);
   const waveAnimation = useSharedValue(0);
+  
+  // 5个波形条的动画值
+  const waveValues = Array.from({ length: 5 }, () => useSharedValue(1));
+
+  // 波形条动画样式
+  const getWaveBarStyle = (index: number) => {
+    return useAnimatedStyle(() => ({
+      transform: [{ scaleY: waveValues[index].value }],
+      height: 40 + index * 10,
+    }));
+  };
+
+  // 启动波形动画
+  const startWaveAnimation = useCallback(() => {
+    waveValues.forEach((value, index) => {
+      value.value = withRepeat(
+        withSequence(
+          withTiming(0.5 + Math.random() * 0.3, { duration: 300 + index * 50 }),
+          withTiming(1.2 + Math.random() * 0.3, { duration: 300 + index * 50 })
+        ),
+        -1,
+        true
+      );
+    });
+  }, []);
+
+  // 停止波形动画
+  const stopWaveAnimation = useCallback(() => {
+    waveValues.forEach((value) => {
+      value.value = withTiming(1);
+    });
+  }, []);
 
   // 开始录音动画
   const startRecordingAnimation = useCallback(() => {
@@ -53,13 +84,15 @@ export default function RecordingScreen() {
       -1,
       false
     );
-  }, []);
+    startWaveAnimation();
+  }, [startWaveAnimation]);
 
   // 停止录音动画
   const stopRecordingAnimation = useCallback(() => {
     pulseScale.value = withTiming(1);
     waveAnimation.value = 0;
-  }, []);
+    stopWaveAnimation();
+  }, [stopWaveAnimation]);
 
   // 处理录音按钮按下
   const handlePressIn = () => {
@@ -92,6 +125,17 @@ export default function RecordingScreen() {
       setRecordingDuration(0);
     }
   };
+
+  // 录音时长计时器
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isRecording) {
+      interval = setInterval(() => {
+        setRecordingDuration((prev) => prev + 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [isRecording]);
 
   const pulseStyle = useAnimatedStyle(() => ({
     transform: [{ scale: pulseScale.value }],
@@ -145,30 +189,21 @@ export default function RecordingScreen() {
           <>
             {/* 录音波形可视化 */}
             <View style={styles.waveContainer}>
-              {[...Array(5)].map((_, i) => (
-                <Animated.View
-                  key={i}
-                  style={[
-                    styles.waveBar,
-                    {
-                      backgroundColor: isRecording ? colors.primary : colors.surface,
-                      height: isRecording ? 40 + Math.random() * 60 : 20,
-                    },
-                    isRecording && {
-                      transform: [{
-                        scaleY: withRepeat(
-                          withSequence(
-                            withTiming(0.5 + Math.random() * 0.5, { duration: 300 + i * 50 }),
-                            withTiming(1, { duration: 300 + i * 50 })
-                          ),
-                          -1,
-                          true
-                        )
-                      }]
-                    }
-                  ]}
-                />
-              ))}
+              {Array.from({ length: 5 }, (_, i) => {
+                const waveBarStyle = getWaveBarStyle(i);
+                return (
+                  <Animated.View
+                    key={i}
+                    style={[
+                      styles.waveBar,
+                      {
+                        backgroundColor: isRecording ? colors.primary : colors.surface,
+                      },
+                      isRecording && waveBarStyle,
+                    ]}
+                  />
+                );
+              })}
             </View>
 
             {/* 录音提示文字 */}
@@ -296,6 +331,7 @@ const styles = StyleSheet.create({
   waveBar: {
     width: 8,
     borderRadius: 4,
+    height: 40,
   },
   hint: {
     fontSize: 16,

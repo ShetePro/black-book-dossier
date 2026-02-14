@@ -205,15 +205,41 @@ const resources = {
   },
 };
 
+// 获取设备语言并映射到支持的语种
+const getDeviceLanguage = () => {
+  const locale = Localization.getLocales()[0]?.languageTag || 'zh-CN';
+  
+  // 支持中文变体
+  if (locale.startsWith('zh')) {
+    return 'zh-CN';
+  }
+  
+  // 支持英文变体
+  if (locale.startsWith('en')) {
+    return 'en-US';
+  }
+  
+  // 默认回退中文
+  return 'zh-CN';
+};
+
 i18n
   .use(initReactI18next)
   .init({
     resources,
-    lng: Localization.getLocales()[0]?.languageTag || 'zh-CN',
-    fallbackLng: 'zh-CN',
+    lng: getDeviceLanguage(),
+    fallbackLng: {
+      'zh': 'zh-CN',
+      'zh-Hans': 'zh-CN',
+      'zh-Hant': 'zh-CN',
+      'en': 'en-US',
+      'default': ['zh-CN'],
+    },
     interpolation: {
       escapeValue: false,
     },
+    // 添加调试模式（开发时启用）
+    debug: __DEV__,
   });
 
 export default i18n;

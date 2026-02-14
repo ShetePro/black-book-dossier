@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-void text-elite;
+  }
+}
+
+@layer components {
+  .card-void {
+    @apply bg-void-light border border-void-border rounded-2xl;
+  }
+  
+  .text-serif {
+    font-family: Georgia, 'Times New Roman', serif;
+  }
+  
+  .btn-primary {
+    @apply bg-accent text-void px-6 py-3 rounded-xl font-semibold active:opacity-80;
+  }
+  
+  .btn-danger {
+    @apply bg-danger text-white px-6 py-3 rounded-xl font-semibold active:opacity-80;
+  }
+  
+  .btn-ghost {
+    @apply bg-transparent border border-elite-dim text-elite px-6 py-3 rounded-xl font-semibold active:bg-void-lighter;
+  }
+  
+  .input-dark {
+    @apply bg-void-lighter border border-void-border rounded-xl px-4 py-3 text-elite placeholder-elite-dim focus:border-accent focus:outline-none;
+  }
+  
+  .kill-switch {
+    @apply bg-danger/10 border border-danger/30 rounded-xl p-4;
+  }
+}

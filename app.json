@@ -1,0 +1,69 @@
+{
+  "expo": {
+    "name": "Black Book",
+    "slug": "black-book",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "blackbook",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "Black Book 使用 Face ID 保护您的私密人脉数据，确保只有您本人可以访问。",
+        "NSMicrophoneUsageDescription": "Black Book 需要访问麦克风来录制语音备忘录，所有数据仅存储在本地设备。"
+      },
+      "bundleIdentifier": "com.blackbook.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/icon.png",
+        "backgroundColor": "#0a0a0a"
+      },
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT"
+      ],
+      "package": "com.blackbook.app"
+    },
+    "updates": {
+      "enabled": false
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/images/icon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-sqlite",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/icon.png",
+          "imageWidth": 120,
+          "resizeMode": "contain",
+          "backgroundColor": "#0a0a0a"
+        }
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "允许 Black Book 使用 Face ID 进行身份验证。"
+        }
+      ],
+      [
+        "expo-av",
+        {
+          "microphonePermission": "Black Book 需要麦克风权限来录制语音备忘录。"
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

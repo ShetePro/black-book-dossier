@@ -63,15 +63,16 @@ export default function TabBarButton({
   });
 
   const animatedTextStyle = useAnimatedStyle(() => {
-    const opacity = interpolate(
+    // 选中时标签稍微放大，未选中时保持正常
+    const scaleValue = interpolate(
       scale.value,
       [0, 1],
-      [1, 0],
+      [1, 1.05],
       Extrapolate.CLAMP
     );
     
     return {
-      opacity,
+      transform: [{ scale: scaleValue }],
     };
   });
 

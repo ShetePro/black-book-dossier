@@ -42,9 +42,20 @@ const SMOOTHING_FACTOR = 0.3;
 // 音频电平转换为条高度
 const meteringToBarHeight = (metering: number): number => {
   // metering 范围 -160 到 0 dB
-  const normalized = Math.max(0, (metering + 160) / 160);
-  // 使用指数曲线让小声更明显
-  const amplified = Math.pow(normalized, 0.6);
+  // 设置实际可听阈值 -50dB 以下视为静音
+  const threshold = -50;
+  
+  if (metering < threshold) {
+    return 0; // 低于阈值不显示
+  }
+  
+  // 将有效范围映射到 0-1
+  const normalized = (metering - threshold) / (0 - threshold);
+  
+  // 使用高次指数曲线增强动态对比
+  // 指数越大，小声越不明显，大声越明显
+  const amplified = Math.pow(normalized, 2.5);
+  
   return MIN_BAR_HEIGHT + amplified * (MAX_BAR_HEIGHT - MIN_BAR_HEIGHT);
 };
 

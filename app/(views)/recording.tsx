@@ -28,84 +28,46 @@ import Svg, { Path, Defs, LinearGradient, Stop } from "react-native-svg";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 // 波形配置
-const WAVE_POINTS = 40; // 波形点数
-const WAVE_WIDTH = SCREEN_WIDTH * 0.85; // 波形总宽度
-const WAVE_HEIGHT = 120; // 波形最大高度
-const CENTER_GAP = 40; // 中心间隙
+const WAVE_POINTS = 60; // 波形点数（更多点更流畅）
+const WAVE_WIDTH = SCREEN_WIDTH * 0.9; // 波形总宽度
+const WAVE_HEIGHT = 100; // 波形最大高度
 const UPDATE_INTERVAL = 30; // 更新频率 30ms
 
-// 生成平滑的贝塞尔曲线路径
+// 生成连续流畅的波形路径（像一条飘动的丝带）
 const generateWavePath = (points: number[]): string => {
   const width = WAVE_WIDTH;
   const height = WAVE_HEIGHT;
-  const centerX = width / 2;
-  const barWidth = (width - CENTER_GAP) / 2 / points.length;
+  const stepX = width / (points.length - 1);
   
-  let path = "";
+  // 上半部分（从左到右）
+  let path = `M 0 ${height / 2} `;
   
-  // 左半边（从中心向左）
   for (let i = 0; i < points.length; i++) {
-    const x = centerX - CENTER_GAP / 2 - (i + 1) * barWidth + barWidth / 2;
+    const x = i * stepX;
     const barHeight = points[i];
-    const topY = height / 2 - barHeight / 2;
-    const bottomY = height / 2 + barHeight / 2;
+    const y = height / 2 - barHeight / 2;
     
     if (i === 0) {
-      path += `M ${x} ${topY} `;
+      path = `M ${x} ${y} `;
     } else {
-      const prevX = centerX - CENTER_GAP / 2 - i * barWidth + barWidth / 2;
-      const prevHeight = points[i - 1];
+      const prevX = (i - 1) * stepX;
       const controlX = (prevX + x) / 2;
-      path += `Q ${controlX} ${topY} ${x} ${topY} `;
+      path += `Q ${controlX} ${y} ${x} ${y} `;
     }
   }
   
-  // 左半边底部（返回中心）
+  // 下半部分（从右到左，形成闭合）
   for (let i = points.length - 1; i >= 0; i--) {
-    const x = centerX - CENTER_GAP / 2 - (i + 1) * barWidth + barWidth / 2;
+    const x = i * stepX;
     const barHeight = points[i];
-    const bottomY = height / 2 + barHeight / 2;
+    const y = height / 2 + barHeight / 2;
     
     if (i === points.length - 1) {
-      path += `L ${x} ${bottomY} `;
+      path += `L ${x} ${y} `;
     } else {
-      const nextX = centerX - CENTER_GAP / 2 - (i + 2) * barWidth + barWidth / 2;
+      const nextX = (i + 1) * stepX;
       const controlX = (x + nextX) / 2;
-      path += `Q ${controlX} ${bottomY} ${nextX} ${bottomY} `;
-    }
-  }
-  
-  // 中心连接
-  path += `L ${centerX - CENTER_GAP / 2} ${height / 2} `;
-  path += `L ${centerX + CENTER_GAP / 2} ${height / 2} `;
-  
-  // 右半边（从中心向右）
-  for (let i = 0; i < points.length; i++) {
-    const x = centerX + CENTER_GAP / 2 + (i + 1) * barWidth - barWidth / 2;
-    const barHeight = points[i];
-    const topY = height / 2 - barHeight / 2;
-    
-    if (i === 0) {
-      path += `L ${x} ${topY} `;
-    } else {
-      const prevX = centerX + CENTER_GAP / 2 + i * barWidth - barWidth / 2;
-      const controlX = (prevX + x) / 2;
-      path += `Q ${controlX} ${topY} ${x} ${topY} `;
-    }
-  }
-  
-  // 右半边底部（返回中心）
-  for (let i = points.length - 1; i >= 0; i--) {
-    const x = centerX + CENTER_GAP / 2 + (i + 1) * barWidth - barWidth / 2;
-    const barHeight = points[i];
-    const bottomY = height / 2 + barHeight / 2;
-    
-    if (i === points.length - 1) {
-      path += `L ${x} ${bottomY} `;
-    } else {
-      const nextX = centerX + CENTER_GAP / 2 + (i + 2) * barWidth - barWidth / 2;
-      const controlX = (x + nextX) / 2;
-      path += `Q ${controlX} ${bottomY} ${nextX} ${bottomY} `;
+      path += `Q ${controlX} ${y} ${x} ${y} `;
     }
   }
   
@@ -122,9 +84,9 @@ export default function RecordingScreen() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
   
-  // 波形数据 - 左右对称
+    // 波形数据 - 连续波形
   const [waveData, setWaveData] = useState<number[]>(
-    Array(WAVE_POINTS).fill(10)
+    Array(WAVE_POINTS).fill(15)
   );
   
   // 波形整体缩放（呼吸效果）
@@ -145,22 +107,28 @@ export default function RecordingScreen() {
   const waveAnimation = useSharedValue(0);
   const cancelOpacity = useSharedValue(0);
 
-  // 将音频电平转换为波形高度，使用平滑曲线
+  // 将音频电平转换为连续波形高度
   const meteringToWaveData = (metering: number): number[] => {
     const normalized = Math.max(0, (metering + 160) / 160);
+    const baseAmplitude = 15 + normalized * 70; // 基础振幅 15-85
     
     return Array.from({ length: WAVE_POINTS }, (_, i) => {
-      // 中心点最高，向两边递减（高斯分布效果）
-      const position = i / WAVE_POINTS;
-      const centerFactor = Math.exp(-Math.pow((position - 0.5) * 3, 2));
+      // 使用多个正弦波叠加，创造有机的波形效果
+      const time = Date.now() / 300;
+      const pos = i / WAVE_POINTS;
       
-      // 基础高度
-      const baseHeight = 10 + normalized * 80 * centerFactor;
+      // 主波形
+      const wave1 = Math.sin(time + pos * Math.PI * 4) * 0.5;
+      // 次级波形
+      const wave2 = Math.sin(time * 1.5 + pos * Math.PI * 8) * 0.3;
+      // 细节波形
+      const wave3 = Math.sin(time * 2 + pos * Math.PI * 12) * 0.2;
       
-      // 添加轻微随机变化
-      const variation = Math.sin(Date.now() / 100 + i * 0.3) * 5;
+      // 组合波形
+      const waveFactor = 1 + (wave1 + wave2 + wave3) * 0.3;
+      const height = baseAmplitude * waveFactor;
       
-      return Math.max(5, Math.min(100, baseHeight + variation));
+      return Math.max(8, Math.min(90, height));
     });
   };
 
@@ -274,7 +242,7 @@ export default function RecordingScreen() {
     pulseScale.value = withTiming(1);
     waveAnimation.value = 0;
     cancelOpacity.value = withTiming(0);
-    setWaveData(Array(WAVE_POINTS).fill(10));
+    setWaveData(Array(WAVE_POINTS).fill(15));
     setWaveScale(1);
   }, []);
 
@@ -547,16 +515,11 @@ export default function RecordingScreen() {
                 <Path
                   d={wavePath}
                   fill="url(#goldGradient)"
-                  stroke={isRecording ? colors.primary : `${colors.primary}50`}
-                  strokeWidth={2}
-                  opacity={isRecording ? 1 : 0.3}
+                  stroke={isRecording ? colors.primary : `${colors.primary}40`}
+                  strokeWidth={isRecording ? 1.5 : 1}
+                  opacity={isRecording ? 1 : 0.4}
                 />
               </Svg>
-              
-              {/* 装饰性中心圆点 */}
-              {isRecording && (
-                <View style={[styles.centerDot, { backgroundColor: colors.primary }]} />
-              )}
             </View>
 
             {/* 录音提示文字 */}
@@ -754,17 +717,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 40,
-  },
-  centerDot: {
-    position: "absolute",
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    shadowColor: "#c9a962",
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 10,
-    elevation: 10,
   },
   hint: {
     fontSize: 16,

@@ -23,14 +23,95 @@ import Animated, {
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { StatusBar } from "expo-status-bar";
 import { Audio } from "expo-av";
+import Svg, { Path, Defs, LinearGradient, Stop } from "react-native-svg";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
-// 音频可视化配置
-const WAVE_BAR_COUNT = 5;
-const MIN_BAR_HEIGHT = 20;
-const MAX_BAR_HEIGHT = 100;
-const UPDATE_INTERVAL = 50; // 更新频率 50ms
+// 波形配置
+const WAVE_POINTS = 40; // 波形点数
+const WAVE_WIDTH = SCREEN_WIDTH * 0.85; // 波形总宽度
+const WAVE_HEIGHT = 120; // 波形最大高度
+const CENTER_GAP = 40; // 中心间隙
+const UPDATE_INTERVAL = 30; // 更新频率 30ms
+
+// 生成平滑的贝塞尔曲线路径
+const generateWavePath = (points: number[]): string => {
+  const width = WAVE_WIDTH;
+  const height = WAVE_HEIGHT;
+  const centerX = width / 2;
+  const barWidth = (width - CENTER_GAP) / 2 / points.length;
+  
+  let path = "";
+  
+  // 左半边（从中心向左）
+  for (let i = 0; i < points.length; i++) {
+    const x = centerX - CENTER_GAP / 2 - (i + 1) * barWidth + barWidth / 2;
+    const barHeight = points[i];
+    const topY = height / 2 - barHeight / 2;
+    const bottomY = height / 2 + barHeight / 2;
+    
+    if (i === 0) {
+      path += `M ${x} ${topY} `;
+    } else {
+      const prevX = centerX - CENTER_GAP / 2 - i * barWidth + barWidth / 2;
+      const prevHeight = points[i - 1];
+      const controlX = (prevX + x) / 2;
+      path += `Q ${controlX} ${topY} ${x} ${topY} `;
+    }
+  }
+  
+  // 左半边底部（返回中心）
+  for (let i = points.length - 1; i >= 0; i--) {
+    const x = centerX - CENTER_GAP / 2 - (i + 1) * barWidth + barWidth / 2;
+    const barHeight = points[i];
+    const bottomY = height / 2 + barHeight / 2;
+    
+    if (i === points.length - 1) {
+      path += `L ${x} ${bottomY} `;
+    } else {
+      const nextX = centerX - CENTER_GAP / 2 - (i + 2) * barWidth + barWidth / 2;
+      const controlX = (x + nextX) / 2;
+      path += `Q ${controlX} ${bottomY} ${nextX} ${bottomY} `;
+    }
+  }
+  
+  // 中心连接
+  path += `L ${centerX - CENTER_GAP / 2} ${height / 2} `;
+  path += `L ${centerX + CENTER_GAP / 2} ${height / 2} `;
+  
+  // 右半边（从中心向右）
+  for (let i = 0; i < points.length; i++) {
+    const x = centerX + CENTER_GAP / 2 + (i + 1) * barWidth - barWidth / 2;
+    const barHeight = points[i];
+    const topY = height / 2 - barHeight / 2;
+    
+    if (i === 0) {
+      path += `L ${x} ${topY} `;
+    } else {
+      const prevX = centerX + CENTER_GAP / 2 + i * barWidth - barWidth / 2;
+      const controlX = (prevX + x) / 2;
+      path += `Q ${controlX} ${topY} ${x} ${topY} `;
+    }
+  }
+  
+  // 右半边底部（返回中心）
+  for (let i = points.length - 1; i >= 0; i--) {
+    const x = centerX + CENTER_GAP / 2 + (i + 1) * barWidth - barWidth / 2;
+    const barHeight = points[i];
+    const bottomY = height / 2 + barHeight / 2;
+    
+    if (i === points.length - 1) {
+      path += `L ${x} ${bottomY} `;
+    } else {
+      const nextX = centerX + CENTER_GAP / 2 + (i + 2) * barWidth - barWidth / 2;
+      const controlX = (x + nextX) / 2;
+      path += `Q ${controlX} ${bottomY} ${nextX} ${bottomY} `;
+    }
+  }
+  
+  path += "Z";
+  return path;
+};
 
 export default function RecordingScreen() {
   const router = useRouter();
@@ -40,39 +121,47 @@ export default function RecordingScreen() {
   const [isRecording, setIsRecording] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
-  const [waveHeights, setWaveHeights] = useState(
-    Array(WAVE_BAR_COUNT).fill(40)
+  
+  // 波形数据 - 左右对称
+  const [waveData, setWaveData] = useState<number[]>(
+    Array(WAVE_POINTS).fill(10)
   );
   
-  // 录音模式：true = 按住说话，false = 切换说话
-  const [isHoldMode, setIsHoldMode] = useState(true);
+  // 波形整体缩放（呼吸效果）
+  const [waveScale, setWaveScale] = useState(1);
   
-  // 是否在取消区域
+  // 录音模式
+  const [isHoldMode, setIsHoldMode] = useState(true);
   const [isInCancelZone, setIsInCancelZone] = useState(false);
   
-  // 音频录制引用
+  // 引用
   const recordingRef = useRef<Audio.Recording | null>(null);
   const meteringIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const cancelZoneLayout = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
   
-  // 取消区域的布局信息
-  const cancelZoneLayout = useRef<{ 
-    x: number; 
-    y: number; 
-    width: number; 
-    height: number 
-  } | null>(null);
-  
+  // 动画值
   const pulseScale = useSharedValue(1);
   const micScale = useSharedValue(1);
   const waveAnimation = useSharedValue(0);
   const cancelOpacity = useSharedValue(0);
 
-  // 将音频电平转换为波形高度
-  const meteringToHeight = (metering: number): number => {
-    // metering 范围通常是 -160 到 0 dB
-    // 将其映射到 MIN_BAR_HEIGHT 到 MAX_BAR_HEIGHT
-    const normalized = Math.max(0, (metering + 160) / 160); // 0 到 1
-    return MIN_BAR_HEIGHT + normalized * (MAX_BAR_HEIGHT - MIN_BAR_HEIGHT);
+  // 将音频电平转换为波形高度，使用平滑曲线
+  const meteringToWaveData = (metering: number): number[] => {
+    const normalized = Math.max(0, (metering + 160) / 160);
+    
+    return Array.from({ length: WAVE_POINTS }, (_, i) => {
+      // 中心点最高，向两边递减（高斯分布效果）
+      const position = i / WAVE_POINTS;
+      const centerFactor = Math.exp(-Math.pow((position - 0.5) * 3, 2));
+      
+      // 基础高度
+      const baseHeight = 10 + normalized * 80 * centerFactor;
+      
+      // 添加轻微随机变化
+      const variation = Math.sin(Date.now() / 100 + i * 0.3) * 5;
+      
+      return Math.max(5, Math.min(100, baseHeight + variation));
+    });
   };
 
   // 请求麦克风权限
@@ -89,36 +178,31 @@ export default function RecordingScreen() {
   // 开始音频录制
   const startAudioRecording = async () => {
     try {
-      // 设置音频模式
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: true,
         playsInSilentModeIOS: true,
       });
 
-      // 创建录音实例
       const { recording } = await Audio.Recording.createAsync(
         Audio.RecordingOptionsPresets.HIGH_QUALITY,
         undefined,
-        100 // 每100ms更新一次metering
+        50
       );
 
       recordingRef.current = recording;
 
-      // 开始实时获取音频电平
+      // 实时获取音频电平
       meteringIntervalRef.current = setInterval(async () => {
         if (recordingRef.current) {
           const status = await recordingRef.current.getStatusAsync();
           if (status.isRecording) {
             const metering = status.metering ?? -160;
-            const baseHeight = meteringToHeight(metering);
+            const newWaveData = meteringToWaveData(metering);
+            setWaveData(newWaveData);
             
-            // 为每个波形条生成略有不同的高度，形成波浪效果
-            const newHeights = Array.from({ length: WAVE_BAR_COUNT }, (_, i) => {
-              const variation = Math.sin(Date.now() / 200 + i * 0.5) * 10;
-              return Math.max(MIN_BAR_HEIGHT, Math.min(MAX_BAR_HEIGHT, baseHeight + variation));
-            });
-            
-            setWaveHeights(newHeights);
+            // 根据音量调整整体缩放
+            const normalized = Math.max(0, (metering + 160) / 160);
+            setWaveScale(0.9 + normalized * 0.2);
           }
         }
       }, UPDATE_INTERVAL);
@@ -133,7 +217,6 @@ export default function RecordingScreen() {
   // 停止音频录制
   const stopAudioRecording = async (): Promise<string | null> => {
     try {
-      // 清除metering定时器
       if (meteringIntervalRef.current) {
         clearInterval(meteringIntervalRef.current);
         meteringIntervalRef.current = null;
@@ -191,8 +274,8 @@ export default function RecordingScreen() {
     pulseScale.value = withTiming(1);
     waveAnimation.value = 0;
     cancelOpacity.value = withTiming(0);
-    // 重置波形
-    setWaveHeights(Array(WAVE_BAR_COUNT).fill(40));
+    setWaveData(Array(WAVE_POINTS).fill(10));
+    setWaveScale(1);
   }, []);
 
   // 开始录音
@@ -222,8 +305,6 @@ export default function RecordingScreen() {
     
     if (uri) {
       setIsAnalyzing(true);
-      
-      // 模拟 AI 分析
       setTimeout(() => {
         setIsAnalyzing(false);
         router.push("/(views)/contact/new");
@@ -258,7 +339,7 @@ export default function RecordingScreen() {
     }
   };
 
-  // 创建 PanResponder 用于按住模式的拖动检测
+  // PanResponder 用于按住模式
   const panResponder = useMemo(() => {
     return PanResponder.create({
       onStartShouldSetPanResponder: () => isHoldMode && !isRecording,
@@ -338,6 +419,9 @@ export default function RecordingScreen() {
     };
   }, []);
 
+  // 生成SVG路径
+  const wavePath = useMemo(() => generateWavePath(waveData), [waveData]);
+
   const pulseStyle = useAnimatedStyle(() => ({
     transform: [{ scale: pulseScale.value }],
     opacity: 0.3 + (pulseScale.value - 1) * 0.5,
@@ -357,15 +441,14 @@ export default function RecordingScreen() {
     transform: [{ scale: isInCancelZone ? 1.2 : 1 }],
   }));
 
-  // 获取提示文字
   const getHintText = () => {
     if (isRecording) {
       if (isHoldMode) {
-        return isInCancelZone ? t("recording.releaseToCancel") : t("recording.releaseToComplete");
+        return isInCancelZone ? "松开取消" : "松手完成";
       }
-      return t("recording.recording");
+      return "录音中...";
     }
-    return isHoldMode ? t("recording.holdToRecord") : t("recording.tapToRecord");
+    return isHoldMode ? "按住说话" : "点击录音";
   };
 
   return (
@@ -383,10 +466,10 @@ export default function RecordingScreen() {
         
         <Text style={[styles.title, { color: colors.text }]}>
           {isAnalyzing 
-            ? t("recording.aiAnalyzing") 
+            ? "AI分析中..." 
             : isRecording 
-              ? t("recording.listening") 
-              : t("recording.recordIntelligence")
+              ? "聆听中..." 
+              : "记录情报"
           }
         </Text>
         
@@ -444,26 +527,47 @@ export default function RecordingScreen() {
           <View style={styles.analyzingContainer}>
             <ActivityIndicator size="large" color={colors.primary} />
             <Text style={[styles.analyzingText, { color: colors.textSecondary }]}>
-              {t("recording.aiAnalyzing")}
+              AI正在分析...
             </Text>
           </View>
         ) : (
           <>
-            {/* 录音波形可视化 - 真实音频 */}
-            <View style={styles.waveContainer}>
-              {waveHeights.map((height, i) => (
-                <Animated.View
-                  key={i}
-                  style={[
-                    styles.waveBar,
-                    {
-                      backgroundColor: isRecording ? colors.primary : colors.surface,
-                      height: height,
-                      transform: [{ scaleY: isRecording ? 1 : 0.3 }],
-                    },
-                  ]}
+            {/* 波形可视化 */}
+            <View style={[styles.waveContainer, { transform: [{ scale: waveScale }] }]}>
+              <Svg width={WAVE_WIDTH} height={WAVE_HEIGHT} viewBox={`0 0 ${WAVE_WIDTH} ${WAVE_HEIGHT}`}>
+                <Defs>
+                  {/* 金色渐变 */}
+                  <LinearGradient id="goldGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <Stop offset="0%" stopColor={isRecording ? "#d4b978" : colors.primary} stopOpacity="0.9" />
+                    <Stop offset="50%" stopColor={isRecording ? "#c9a962" : colors.primary} stopOpacity="0.6" />
+                    <Stop offset="100%" stopColor={isRecording ? "#a88b4a" : colors.primary} stopOpacity="0.3" />
+                  </LinearGradient>
+                  
+                  {/* 发光滤镜 */}
+                  <Defs>
+                    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+                      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                      <feMerge>
+                        <feMergeNode in="coloredBlur"/>
+                        <feMergeNode in="SourceGraphic"/>
+                      </feMerge>
+                    </filter>
+                  </Defs>
+                </Defs>
+                
+                <Path
+                  d={wavePath}
+                  fill="url(#goldGradient)"
+                  stroke={isRecording ? colors.primary : `${colors.primary}50`}
+                  strokeWidth={2}
+                  opacity={isRecording ? 1 : 0.3}
                 />
-              ))}
+              </Svg>
+              
+              {/* 装饰性中心圆点 */}
+              {isRecording && (
+                <View style={[styles.centerDot, { backgroundColor: colors.primary }]} />
+              )}
             </View>
 
             {/* 录音提示文字 */}
@@ -510,7 +614,7 @@ export default function RecordingScreen() {
               <Text style={[styles.cancelText, { 
                 color: isInCancelZone ? colors.danger : `${colors.danger}80` 
               }]}>
-                {t("recording.dragToCancel")}
+                拖动到此处取消
               </Text>
             </Animated.View>
           )}
@@ -523,7 +627,7 @@ export default function RecordingScreen() {
             >
               <Ionicons name="close" size={24} color={colors.danger} />
               <Text style={[styles.cancelButtonText, { color: colors.danger }]}>
-                {t("common.cancel")}
+                取消
               </Text>
             </TouchableOpacity>
           )}
@@ -645,7 +749,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 40,
+    paddingHorizontal: 20,
   },
   analyzingContainer: {
     alignItems: "center",
@@ -656,22 +760,28 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   waveContainer: {
-    flexDirection: "row",
+    width: WAVE_WIDTH,
+    height: WAVE_HEIGHT,
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
-    height: 120,
     marginBottom: 40,
   },
-  waveBar: {
+  centerDot: {
+    position: "absolute",
     width: 8,
+    height: 8,
     borderRadius: 4,
-    minHeight: 20,
+    shadowColor: "#c9a962",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 10,
+    elevation: 10,
   },
   hint: {
     fontSize: 16,
     textAlign: "center",
     marginBottom: 20,
+    fontWeight: "500",
   },
   duration: {
     fontSize: 48,

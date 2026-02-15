@@ -6,9 +6,7 @@ import {
   StyleSheet,
   Dimensions,
   ActivityIndicator,
-  GestureResponderEvent,
   PanResponder,
-  ViewStyle,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -24,8 +22,15 @@ import Animated, {
 } from "react-native-reanimated";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { StatusBar } from "expo-status-bar";
+import { Audio } from "expo-av";
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+
+// 音频可视化配置
+const WAVE_BAR_COUNT = 5;
+const MIN_BAR_HEIGHT = 20;
+const MAX_BAR_HEIGHT = 100;
+const UPDATE_INTERVAL = 50; // 更新频率 50ms
 
 export default function RecordingScreen() {
   const router = useRouter();
@@ -35,7 +40,9 @@ export default function RecordingScreen() {
   const [isRecording, setIsRecording] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
-  const [waveHeights, setWaveHeights] = useState([40, 50, 35, 55, 45]);
+  const [waveHeights, setWaveHeights] = useState(
+    Array(WAVE_BAR_COUNT).fill(40)
+  );
   
   // 录音模式：true = 按住说话，false = 切换说话
   const [isHoldMode, setIsHoldMode] = useState(true);
@@ -43,28 +50,124 @@ export default function RecordingScreen() {
   // 是否在取消区域
   const [isInCancelZone, setIsInCancelZone] = useState(false);
   
+  // 音频录制引用
+  const recordingRef = useRef<Audio.Recording | null>(null);
+  const meteringIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  
   // 取消区域的布局信息
-  const cancelZoneLayout = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
+  const cancelZoneLayout = useRef<{ 
+    x: number; 
+    y: number; 
+    width: number; 
+    height: number 
+  } | null>(null);
   
   const pulseScale = useSharedValue(1);
   const micScale = useSharedValue(1);
   const waveAnimation = useSharedValue(0);
   const cancelOpacity = useSharedValue(0);
 
-  // 波形动画效果
-  useEffect(() => {
-    let interval: ReturnType<typeof setInterval>;
-    if (isRecording) {
-      interval = setInterval(() => {
-        setWaveHeights(
-          Array.from({ length: 5 }, () => 30 + Math.random() * 50)
-        );
-      }, 200);
-    } else {
-      setWaveHeights([40, 50, 35, 55, 45]);
+  // 将音频电平转换为波形高度
+  const meteringToHeight = (metering: number): number => {
+    // metering 范围通常是 -160 到 0 dB
+    // 将其映射到 MIN_BAR_HEIGHT 到 MAX_BAR_HEIGHT
+    const normalized = Math.max(0, (metering + 160) / 160); // 0 到 1
+    return MIN_BAR_HEIGHT + normalized * (MAX_BAR_HEIGHT - MIN_BAR_HEIGHT);
+  };
+
+  // 请求麦克风权限
+  const requestPermissions = async (): Promise<boolean> => {
+    try {
+      const { status } = await Audio.requestPermissionsAsync();
+      return status === "granted";
+    } catch (error) {
+      console.error("请求麦克风权限失败:", error);
+      return false;
     }
-    return () => clearInterval(interval);
-  }, [isRecording]);
+  };
+
+  // 开始音频录制
+  const startAudioRecording = async () => {
+    try {
+      // 设置音频模式
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+      });
+
+      // 创建录音实例
+      const { recording } = await Audio.Recording.createAsync(
+        Audio.RecordingOptionsPresets.HIGH_QUALITY,
+        undefined,
+        100 // 每100ms更新一次metering
+      );
+
+      recordingRef.current = recording;
+
+      // 开始实时获取音频电平
+      meteringIntervalRef.current = setInterval(async () => {
+        if (recordingRef.current) {
+          const status = await recordingRef.current.getStatusAsync();
+          if (status.isRecording) {
+            const metering = status.metering ?? -160;
+            const baseHeight = meteringToHeight(metering);
+            
+            // 为每个波形条生成略有不同的高度，形成波浪效果
+            const newHeights = Array.from({ length: WAVE_BAR_COUNT }, (_, i) => {
+              const variation = Math.sin(Date.now() / 200 + i * 0.5) * 10;
+              return Math.max(MIN_BAR_HEIGHT, Math.min(MAX_BAR_HEIGHT, baseHeight + variation));
+            });
+            
+            setWaveHeights(newHeights);
+          }
+        }
+      }, UPDATE_INTERVAL);
+
+      return true;
+    } catch (error) {
+      console.error("开始录音失败:", error);
+      return false;
+    }
+  };
+
+  // 停止音频录制
+  const stopAudioRecording = async (): Promise<string | null> => {
+    try {
+      // 清除metering定时器
+      if (meteringIntervalRef.current) {
+        clearInterval(meteringIntervalRef.current);
+        meteringIntervalRef.current = null;
+      }
+
+      if (recordingRef.current) {
+        await recordingRef.current.stopAndUnloadAsync();
+        const uri = recordingRef.current.getURI();
+        recordingRef.current = null;
+        return uri;
+      }
+      return null;
+    } catch (error) {
+      console.error("停止录音失败:", error);
+      return null;
+    }
+  };
+
+  // 取消音频录制
+  const cancelAudioRecording = async () => {
+    try {
+      if (meteringIntervalRef.current) {
+        clearInterval(meteringIntervalRef.current);
+        meteringIntervalRef.current = null;
+      }
+
+      if (recordingRef.current) {
+        await recordingRef.current.stopAndUnloadAsync();
+        recordingRef.current = null;
+      }
+    } catch (error) {
+      console.error("取消录音失败:", error);
+    }
+  };
 
   // 开始录音动画
   const startRecordingAnimation = useCallback(() => {
@@ -88,53 +191,65 @@ export default function RecordingScreen() {
     pulseScale.value = withTiming(1);
     waveAnimation.value = 0;
     cancelOpacity.value = withTiming(0);
+    // 重置波形
+    setWaveHeights(Array(WAVE_BAR_COUNT).fill(40));
   }, []);
 
   // 开始录音
-  const startRecording = useCallback(() => {
-    setIsRecording(true);
-    startRecordingAnimation();
-    setRecordingDuration(0);
-    if (isHoldMode) {
-      cancelOpacity.value = withTiming(1);
+  const startRecording = useCallback(async () => {
+    const hasPermission = await requestPermissions();
+    if (!hasPermission) {
+      alert("需要麦克风权限才能录音");
+      return;
+    }
+
+    const started = await startAudioRecording();
+    if (started) {
+      setIsRecording(true);
+      startRecordingAnimation();
+      setRecordingDuration(0);
+      if (isHoldMode) {
+        cancelOpacity.value = withTiming(1);
+      }
     }
   }, [startRecordingAnimation, isHoldMode, cancelOpacity]);
 
   // 停止录音并保存
-  const stopRecording = useCallback(() => {
+  const stopRecording = useCallback(async () => {
+    const uri = await stopAudioRecording();
     setIsRecording(false);
     stopRecordingAnimation();
-    setIsAnalyzing(true);
     
-    // 模拟 AI 分析
-    setTimeout(() => {
-      setIsAnalyzing(false);
-      router.push("/(views)/contact/new");
-    }, 2000);
+    if (uri) {
+      setIsAnalyzing(true);
+      
+      // 模拟 AI 分析
+      setTimeout(() => {
+        setIsAnalyzing(false);
+        router.push("/(views)/contact/new");
+      }, 2000);
+    }
   }, [stopRecordingAnimation, router]);
 
   // 取消录音
-  const cancelRecording = useCallback(() => {
+  const cancelRecording = useCallback(async () => {
+    await cancelAudioRecording();
     setIsRecording(false);
     setIsInCancelZone(false);
     stopRecordingAnimation();
     setRecordingDuration(0);
   }, [stopRecordingAnimation]);
 
-  // 检查是否在取消区域 - 使用静态坐标
+  // 检查是否在取消区域
   const checkInCancelZone = useCallback((pageX: number, pageY: number) => {
     if (!cancelZoneLayout.current) return false;
     
     const { x, y, width, height } = cancelZoneLayout.current;
-    const inZone = pageX >= x && pageX <= x + width && pageY >= y && pageY <= y + height;
-    
-    return inZone;
+    return pageX >= x && pageX <= x + width && pageY >= y && pageY <= y + height;
   }, []);
 
   // 处理取消区域布局变化
   const onCancelZoneLayout = (event: any) => {
-    const { x, y, width, height } = event.nativeEvent.layout;
-    // 转换为绝对坐标
     const viewRef = event.target;
     if (viewRef) {
       viewRef.measure((fx: number, fy: number, w: number, h: number, px: number, py: number) => {
@@ -156,11 +271,7 @@ export default function RecordingScreen() {
       },
       onPanResponderMove: (_, gestureState) => {
         if (isHoldMode && isRecording) {
-          // 计算绝对位置
-          const touchX = gestureState.moveX;
-          const touchY = gestureState.moveY;
-          
-          const inCancelZone = checkInCancelZone(touchX, touchY);
+          const inCancelZone = checkInCancelZone(gestureState.moveX, gestureState.moveY);
           setIsInCancelZone(inCancelZone);
         }
       },
@@ -168,9 +279,7 @@ export default function RecordingScreen() {
         if (isHoldMode && isRecording) {
           micScale.value = withSpring(1, { damping: 20 });
           
-          const touchX = gestureState.moveX;
-          const touchY = gestureState.moveY;
-          const inCancelZone = checkInCancelZone(touchX, touchY);
+          const inCancelZone = checkInCancelZone(gestureState.moveX, gestureState.moveY);
           
           if (inCancelZone) {
             cancelRecording();
@@ -216,6 +325,18 @@ export default function RecordingScreen() {
     }
     return () => clearInterval(interval);
   }, [isRecording]);
+
+  // 组件卸载时清理
+  useEffect(() => {
+    return () => {
+      if (meteringIntervalRef.current) {
+        clearInterval(meteringIntervalRef.current);
+      }
+      if (recordingRef.current) {
+        recordingRef.current.stopAndUnloadAsync();
+      }
+    };
+  }, []);
 
   const pulseStyle = useAnimatedStyle(() => ({
     transform: [{ scale: pulseScale.value }],
@@ -328,16 +449,17 @@ export default function RecordingScreen() {
           </View>
         ) : (
           <>
-            {/* 录音波形可视化 */}
+            {/* 录音波形可视化 - 真实音频 */}
             <View style={styles.waveContainer}>
               {waveHeights.map((height, i) => (
-                <View
+                <Animated.View
                   key={i}
                   style={[
                     styles.waveBar,
                     {
                       backgroundColor: isRecording ? colors.primary : colors.surface,
                       height: height,
+                      transform: [{ scaleY: isRecording ? 1 : 0.3 }],
                     },
                   ]}
                 />
@@ -544,6 +666,7 @@ const styles = StyleSheet.create({
   waveBar: {
     width: 8,
     borderRadius: 4,
+    minHeight: 20,
   },
   hint: {
     fontSize: 16,

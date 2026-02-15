@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from "react";
+import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import {
   View,
   Text,
@@ -7,8 +7,8 @@ import {
   Dimensions,
   ActivityIndicator,
   GestureResponderEvent,
-  Animated as RNAnimated,
   PanResponder,
+  ViewStyle,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -43,14 +43,13 @@ export default function RecordingScreen() {
   // 是否在取消区域
   const [isInCancelZone, setIsInCancelZone] = useState(false);
   
+  // 取消区域的布局信息
+  const cancelZoneLayout = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
+  
   const pulseScale = useSharedValue(1);
   const micScale = useSharedValue(1);
   const waveAnimation = useSharedValue(0);
   const cancelOpacity = useSharedValue(0);
-  
-  // 取消区域的 ref
-  const cancelZoneRef = useRef<View>(null);
-  const micButtonRef = useRef<View>(null);
 
   // 波形动画效果
   useEffect(() => {
@@ -120,56 +119,76 @@ export default function RecordingScreen() {
     setIsInCancelZone(false);
     stopRecordingAnimation();
     setRecordingDuration(0);
-    // 显示取消提示
-    // 可以在这里添加一个 toast 提示
   }, [stopRecordingAnimation]);
 
-  // 检查是否在取消区域
-  const checkInCancelZone = (event: GestureResponderEvent) => {
-    const { pageX, pageY } = event.nativeEvent;
+  // 检查是否在取消区域 - 使用静态坐标
+  const checkInCancelZone = useCallback((pageX: number, pageY: number) => {
+    if (!cancelZoneLayout.current) return false;
     
-    cancelZoneRef.current?.measure((fx, fy, width, height, px, py) => {
-      if (
-        pageX >= px &&
-        pageX <= px + width &&
-        pageY >= py &&
-        pageY <= py + height
-      ) {
-        setIsInCancelZone(true);
-      } else {
-        setIsInCancelZone(false);
-      }
+    const { x, y, width, height } = cancelZoneLayout.current;
+    const inZone = pageX >= x && pageX <= x + width && pageY >= y && pageY <= y + height;
+    
+    return inZone;
+  }, []);
+
+  // 处理取消区域布局变化
+  const onCancelZoneLayout = (event: any) => {
+    const { x, y, width, height } = event.nativeEvent.layout;
+    // 转换为绝对坐标
+    const viewRef = event.target;
+    if (viewRef) {
+      viewRef.measure((fx: number, fy: number, w: number, h: number, px: number, py: number) => {
+        cancelZoneLayout.current = { x: px, y: py, width: w, height: h };
+      });
+    }
+  };
+
+  // 创建 PanResponder 用于按住模式的拖动检测
+  const panResponder = useMemo(() => {
+    return PanResponder.create({
+      onStartShouldSetPanResponder: () => isHoldMode && !isRecording,
+      onMoveShouldSetPanResponder: () => isHoldMode && isRecording,
+      onPanResponderGrant: () => {
+        if (isHoldMode && !isRecording) {
+          startRecording();
+          micScale.value = withSpring(0.9, { damping: 20 });
+        }
+      },
+      onPanResponderMove: (_, gestureState) => {
+        if (isHoldMode && isRecording) {
+          // 计算绝对位置
+          const touchX = gestureState.moveX;
+          const touchY = gestureState.moveY;
+          
+          const inCancelZone = checkInCancelZone(touchX, touchY);
+          setIsInCancelZone(inCancelZone);
+        }
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        if (isHoldMode && isRecording) {
+          micScale.value = withSpring(1, { damping: 20 });
+          
+          const touchX = gestureState.moveX;
+          const touchY = gestureState.moveY;
+          const inCancelZone = checkInCancelZone(touchX, touchY);
+          
+          if (inCancelZone) {
+            cancelRecording();
+          } else {
+            stopRecording();
+          }
+        }
+      },
+      onPanResponderTerminate: () => {
+        if (isHoldMode && isRecording) {
+          micScale.value = withSpring(1, { damping: 20 });
+          cancelRecording();
+        }
+      },
     });
-  };
+  }, [isHoldMode, isRecording, startRecording, stopRecording, cancelRecording, checkInCancelZone, micScale]);
 
-  // 处理录音按钮按下（按住说话模式）
-  const handlePressIn = () => {
-    micScale.value = withSpring(0.9, { damping: 20 });
-    if (isHoldMode && !isRecording) {
-      startRecording();
-    }
-  };
-
-  // 处理录音按钮松开（按住说话模式）
-  const handlePressOut = () => {
-    micScale.value = withSpring(1, { damping: 20 });
-    if (isHoldMode && isRecording) {
-      if (isInCancelZone) {
-        cancelRecording();
-      } else {
-        stopRecording();
-      }
-    }
-  };
-
-  // 处理拖动（按住说话模式）
-  const handleMove = (event: GestureResponderEvent) => {
-    if (isHoldMode && isRecording) {
-      checkInCancelZone(event);
-    }
-  };
-
-  // 切换说话模式：点击切换录音状态
+  // 处理录音按钮按下（切换模式）
   const handleTogglePress = () => {
     if (!isHoldMode) {
       if (isRecording) {
@@ -221,7 +240,7 @@ export default function RecordingScreen() {
   const getHintText = () => {
     if (isRecording) {
       if (isHoldMode) {
-        return isInCancelZone ? "松开取消" : t("recording.releaseToComplete");
+        return isInCancelZone ? t("recording.releaseToCancel") : t("recording.releaseToComplete");
       }
       return t("recording.recording");
     }
@@ -349,7 +368,7 @@ export default function RecordingScreen() {
           {/* 取消区域 - 仅在按住模式录音时显示 */}
           {isHoldMode && isRecording && (
             <Animated.View 
-              ref={cancelZoneRef}
+              onLayout={onCancelZoneLayout}
               style={[
                 styles.cancelZone,
                 { 
@@ -369,7 +388,7 @@ export default function RecordingScreen() {
               <Text style={[styles.cancelText, { 
                 color: isInCancelZone ? colors.danger : `${colors.danger}80` 
               }]}>
-                拖动到此处取消
+                {t("recording.dragToCancel")}
               </Text>
             </Animated.View>
           )}
@@ -382,7 +401,7 @@ export default function RecordingScreen() {
             >
               <Ionicons name="close" size={24} color={colors.danger} />
               <Text style={[styles.cancelButtonText, { color: colors.danger }]}>
-                取消
+                {t("common.cancel")}
               </Text>
             </TouchableOpacity>
           )}
@@ -411,16 +430,9 @@ export default function RecordingScreen() {
             )}
             
             {/* 录音按钮 */}
-            <Animated.View 
-              style={micStyle}
-              onTouchMove={handleMove}
-            >
-              <TouchableOpacity
-                ref={micButtonRef}
-                onPress={handleTogglePress}
-                onPressIn={handlePressIn}
-                onPressOut={handlePressOut}
-                activeOpacity={0.8}
+            <Animated.View style={micStyle}>
+              <View
+                {...(isHoldMode ? panResponder.panHandlers : {})}
                 style={[
                   styles.micButton,
                   {
@@ -433,12 +445,19 @@ export default function RecordingScreen() {
                   },
                 ]}
               >
-                <Ionicons
-                  name={isRecording ? "stop" : "mic"}
-                  size={36}
-                  color="#0a0a0a"
-                />
-              </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={handleTogglePress}
+                  disabled={isHoldMode}
+                  activeOpacity={0.8}
+                  style={styles.micButtonInner}
+                >
+                  <Ionicons
+                    name={isRecording ? "stop" : "mic"}
+                    size={36}
+                    color="#0a0a0a"
+                  />
+                </TouchableOpacity>
+              </View>
             </Animated.View>
           </View>
         </View>
@@ -599,5 +618,11 @@ const styles = StyleSheet.create({
     elevation: 10,
     borderWidth: 3,
     borderColor: "rgba(255, 255, 255, 0.2)",
+  },
+  micButtonInner: {
+    width: '100%',
+    height: '100%',
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

@@ -56,6 +56,7 @@ const resources = {
       // 录音
       recording: {
         holdToRecord: '按住说话',
+        tapToRecord: '点击开始录音',
         recording: '录音中...',
         releaseToComplete: '松手完成',
         recordIntelligence: '记录情报',
@@ -122,6 +123,7 @@ const resources = {
       // Recording
       recording: {
         holdToRecord: 'Hold to Record',
+        tapToRecord: 'Tap to Record',
         recording: 'Recording...',
         releaseToComplete: 'Release to Complete',
         recordIntelligence: 'Record Intelligence',

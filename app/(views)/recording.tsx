@@ -27,52 +27,25 @@ import Svg, { Path, Defs, LinearGradient, Stop } from "react-native-svg";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
-// 波形配置
-const WAVE_POINTS = 60; // 波形点数（更多点更流畅）
-const WAVE_WIDTH = SCREEN_WIDTH * 0.9; // 波形总宽度
-const WAVE_HEIGHT = 100; // 波形最大高度
-const UPDATE_INTERVAL = 30; // 更新频率 30ms
+// 波形配置 - 独立的音频条
+const WAVE_BAR_COUNT = 30; // 波形条数量
+const WAVE_WIDTH = SCREEN_WIDTH * 0.85; // 波形总宽度
+const BAR_WIDTH = 4; // 单个条宽度
+const BAR_GAP = 3; // 条间距
+const MIN_BAR_HEIGHT = 6; // 最小高度
+const MAX_BAR_HEIGHT = 120; // 最大高度（更大更明显）
+const UPDATE_INTERVAL = 50; // 更新频率 50ms
 
-// 生成连续流畅的波形路径（像一条飘动的丝带）
-const generateWavePath = (points: number[]): string => {
-  const width = WAVE_WIDTH;
-  const height = WAVE_HEIGHT;
-  const stepX = width / (points.length - 1);
-  
-  // 上半部分（从左到右）
-  let path = `M 0 ${height / 2} `;
-  
-  for (let i = 0; i < points.length; i++) {
-    const x = i * stepX;
-    const barHeight = points[i];
-    const y = height / 2 - barHeight / 2;
-    
-    if (i === 0) {
-      path = `M ${x} ${y} `;
-    } else {
-      const prevX = (i - 1) * stepX;
-      const controlX = (prevX + x) / 2;
-      path += `Q ${controlX} ${y} ${x} ${y} `;
-    }
-  }
-  
-  // 下半部分（从右到左，形成闭合）
-  for (let i = points.length - 1; i >= 0; i--) {
-    const x = i * stepX;
-    const barHeight = points[i];
-    const y = height / 2 + barHeight / 2;
-    
-    if (i === points.length - 1) {
-      path += `L ${x} ${y} `;
-    } else {
-      const nextX = (i + 1) * stepX;
-      const controlX = (x + nextX) / 2;
-      path += `Q ${controlX} ${y} ${x} ${y} `;
-    }
-  }
-  
-  path += "Z";
-  return path;
+// 平滑因子 - 用于平滑过渡
+const SMOOTHING_FACTOR = 0.3;
+
+// 音频电平转换为条高度
+const meteringToBarHeight = (metering: number): number => {
+  // metering 范围 -160 到 0 dB
+  const normalized = Math.max(0, (metering + 160) / 160);
+  // 使用指数曲线让小声更明显
+  const amplified = Math.pow(normalized, 0.6);
+  return MIN_BAR_HEIGHT + amplified * (MAX_BAR_HEIGHT - MIN_BAR_HEIGHT);
 };
 
 export default function RecordingScreen() {
@@ -84,13 +57,13 @@ export default function RecordingScreen() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
   
-    // 波形数据 - 连续波形
-  const [waveData, setWaveData] = useState<number[]>(
-    Array(WAVE_POINTS).fill(15)
+    // 波形条数据 - 每个条独立
+  const [barHeights, setBarHeights] = useState<number[]>(
+    Array(WAVE_BAR_COUNT).fill(MIN_BAR_HEIGHT)
   );
   
-  // 波形整体缩放（呼吸效果）
-  const [waveScale, setWaveScale] = useState(1);
+  // 目标高度（用于平滑过渡）
+  const targetHeightsRef = useRef<number[]>(Array(WAVE_BAR_COUNT).fill(MIN_BAR_HEIGHT));
   
   // 录音模式
   const [isHoldMode, setIsHoldMode] = useState(true);
@@ -107,28 +80,37 @@ export default function RecordingScreen() {
   const waveAnimation = useSharedValue(0);
   const cancelOpacity = useSharedValue(0);
 
-  // 将音频电平转换为连续波形高度
-  const meteringToWaveData = (metering: number): number[] => {
-    const normalized = Math.max(0, (metering + 160) / 160);
-    const baseAmplitude = 15 + normalized * 70; // 基础振幅 15-85
+  // 更新波形条高度 - 根据音频电平，每条独立变化
+  const updateBarHeights = (metering: number) => {
+    const targetHeight = meteringToBarHeight(metering);
     
-    return Array.from({ length: WAVE_POINTS }, (_, i) => {
-      // 使用多个正弦波叠加，创造有机的波形效果
-      const time = Date.now() / 300;
-      const pos = i / WAVE_POINTS;
+    // 为每个条设置不同的目标高度，创造自然的波形效果
+    const newTargets = Array.from({ length: WAVE_BAR_COUNT }, (_, i) => {
+      // 中间位置的条变化最大，两边的变化较小
+      const centerOffset = Math.abs(i - WAVE_BAR_COUNT / 2) / (WAVE_BAR_COUNT / 2);
+      const dampening = 1 - centerOffset * 0.4; // 两边最多减少40%
       
-      // 主波形
-      const wave1 = Math.sin(time + pos * Math.PI * 4) * 0.5;
-      // 次级波形
-      const wave2 = Math.sin(time * 1.5 + pos * Math.PI * 8) * 0.3;
-      // 细节波形
-      const wave3 = Math.sin(time * 2 + pos * Math.PI * 12) * 0.2;
+      // 添加随机变化，让波形更自然
+      const randomVariation = (Math.random() - 0.5) * 20;
       
-      // 组合波形
-      const waveFactor = 1 + (wave1 + wave2 + wave3) * 0.3;
-      const height = baseAmplitude * waveFactor;
-      
-      return Math.max(8, Math.min(90, height));
+      return Math.max(
+        MIN_BAR_HEIGHT,
+        Math.min(MAX_BAR_HEIGHT, targetHeight * dampening + randomVariation)
+      );
+    });
+    
+    targetHeightsRef.current = newTargets;
+  };
+  
+  // 平滑过渡动画帧
+  const animateBars = () => {
+    setBarHeights((prev) => {
+      return prev.map((current, i) => {
+        const target = targetHeightsRef.current[i];
+        // 线性插值平滑过渡
+        const smoothed = current + (target - current) * SMOOTHING_FACTOR;
+        return smoothed;
+      });
     });
   };
 
@@ -160,20 +142,24 @@ export default function RecordingScreen() {
       recordingRef.current = recording;
 
       // 实时获取音频电平
+      // 1. 更新目标高度（根据音频电平）
       meteringIntervalRef.current = setInterval(async () => {
         if (recordingRef.current) {
           const status = await recordingRef.current.getStatusAsync();
           if (status.isRecording) {
             const metering = status.metering ?? -160;
-            const newWaveData = meteringToWaveData(metering);
-            setWaveData(newWaveData);
-            
-            // 根据音量调整整体缩放
-            const normalized = Math.max(0, (metering + 160) / 160);
-            setWaveScale(0.9 + normalized * 0.2);
+            updateBarHeights(metering);
           }
         }
       }, UPDATE_INTERVAL);
+      
+      // 2. 平滑动画（独立的高频更新）
+      const animationInterval = setInterval(() => {
+        animateBars();
+      }, 16); // ~60fps
+      
+      // 保存动画interval以便清理
+      (recordingRef as any).animationInterval = animationInterval;
 
       return true;
     } catch (error) {
@@ -188,6 +174,11 @@ export default function RecordingScreen() {
       if (meteringIntervalRef.current) {
         clearInterval(meteringIntervalRef.current);
         meteringIntervalRef.current = null;
+      }
+      
+      // 清理动画interval
+      if ((recordingRef as any).animationInterval) {
+        clearInterval((recordingRef as any).animationInterval);
       }
 
       if (recordingRef.current) {
@@ -209,6 +200,11 @@ export default function RecordingScreen() {
       if (meteringIntervalRef.current) {
         clearInterval(meteringIntervalRef.current);
         meteringIntervalRef.current = null;
+      }
+      
+      // 清理动画interval
+      if ((recordingRef as any).animationInterval) {
+        clearInterval((recordingRef as any).animationInterval);
       }
 
       if (recordingRef.current) {
@@ -242,8 +238,9 @@ export default function RecordingScreen() {
     pulseScale.value = withTiming(1);
     waveAnimation.value = 0;
     cancelOpacity.value = withTiming(0);
-    setWaveData(Array(WAVE_POINTS).fill(15));
-    setWaveScale(1);
+    // 重置波形条高度
+    setBarHeights(Array(WAVE_BAR_COUNT).fill(MIN_BAR_HEIGHT));
+    targetHeightsRef.current = Array(WAVE_BAR_COUNT).fill(MIN_BAR_HEIGHT);
   }, []);
 
   // 开始录音
@@ -381,14 +378,16 @@ export default function RecordingScreen() {
       if (meteringIntervalRef.current) {
         clearInterval(meteringIntervalRef.current);
       }
+      if ((recordingRef as any).animationInterval) {
+        clearInterval((recordingRef as any).animationInterval);
+      }
       if (recordingRef.current) {
         recordingRef.current.stopAndUnloadAsync();
       }
     };
   }, []);
 
-  // 生成SVG路径
-  const wavePath = useMemo(() => generateWavePath(waveData), [waveData]);
+
 
   const pulseStyle = useAnimatedStyle(() => ({
     transform: [{ scale: pulseScale.value }],
@@ -500,26 +499,25 @@ export default function RecordingScreen() {
           </View>
         ) : (
           <>
-            {/* 波形可视化 */}
-            <View style={[styles.waveContainer, { transform: [{ scale: waveScale }] }]}>
-              <Svg width={WAVE_WIDTH} height={WAVE_HEIGHT} viewBox={`0 0 ${WAVE_WIDTH} ${WAVE_HEIGHT}`}>
-                <Defs>
-                  {/* 金色渐变 */}
-                  <LinearGradient id="goldGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                    <Stop offset="0%" stopColor={isRecording ? "#d4b978" : colors.primary} stopOpacity="0.9" />
-                    <Stop offset="50%" stopColor={isRecording ? "#c9a962" : colors.primary} stopOpacity="0.6" />
-                    <Stop offset="100%" stopColor={isRecording ? "#a88b4a" : colors.primary} stopOpacity="0.3" />
-                  </LinearGradient>
-                </Defs>
-                
-                <Path
-                  d={wavePath}
-                  fill="url(#goldGradient)"
-                  stroke={isRecording ? colors.primary : `${colors.primary}40`}
-                  strokeWidth={isRecording ? 1.5 : 1}
-                  opacity={isRecording ? 1 : 0.4}
+            {/* 波形可视化 - 独立的音频条 */}
+            <View style={styles.waveContainer}>
+              {barHeights.map((height, index) => (
+                <View
+                  key={index}
+                  style={[
+                    styles.waveBar,
+                    {
+                      height: height,
+                      backgroundColor: isRecording 
+                        ? colors.primary 
+                        : `${colors.primary}50`,
+                      opacity: isRecording 
+                        ? 0.8 + (index % 3) * 0.07 // 微妙的 staggered opacity
+                        : 0.4,
+                    },
+                  ]}
                 />
-              </Svg>
+              ))}
             </View>
 
             {/* 录音提示文字 */}
@@ -713,10 +711,17 @@ const styles = StyleSheet.create({
   },
   waveContainer: {
     width: WAVE_WIDTH,
-    height: WAVE_HEIGHT,
+    height: MAX_BAR_HEIGHT,
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    gap: BAR_GAP,
     marginBottom: 40,
+  },
+  waveBar: {
+    width: BAR_WIDTH,
+    borderRadius: BAR_WIDTH / 2,
+    backgroundColor: "#c9a962",
   },
   hint: {
     fontSize: 16,

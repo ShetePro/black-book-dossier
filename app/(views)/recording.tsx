@@ -542,17 +542,6 @@ export default function RecordingScreen() {
                     <Stop offset="50%" stopColor={isRecording ? "#c9a962" : colors.primary} stopOpacity="0.6" />
                     <Stop offset="100%" stopColor={isRecording ? "#a88b4a" : colors.primary} stopOpacity="0.3" />
                   </LinearGradient>
-                  
-                  {/* 发光滤镜 */}
-                  <Defs>
-                    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-                      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
-                      <feMerge>
-                        <feMergeNode in="coloredBlur"/>
-                        <feMergeNode in="SourceGraphic"/>
-                      </feMerge>
-                    </filter>
-                  </Defs>
                 </Defs>
                 
                 <Path

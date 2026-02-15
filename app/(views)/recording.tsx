@@ -34,13 +34,16 @@ export default function RecordingScreen() {
   const [recordingDuration, setRecordingDuration] = useState(0);
   const [waveHeights, setWaveHeights] = useState([40, 50, 35, 55, 45]);
   
+  // 录音模式：true = 按住说话，false = 切换说话
+  const [isHoldMode, setIsHoldMode] = useState(true);
+  
   const pulseScale = useSharedValue(1);
   const micScale = useSharedValue(1);
   const waveAnimation = useSharedValue(0);
 
   // 波形动画效果
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+    let interval: ReturnType<typeof setInterval>;
     if (isRecording) {
       interval = setInterval(() => {
         setWaveHeights(
@@ -76,41 +79,56 @@ export default function RecordingScreen() {
     waveAnimation.value = 0;
   }, []);
 
-  // 处理录音按钮按下
+  // 开始录音
+  const startRecording = useCallback(() => {
+    setIsRecording(true);
+    startRecordingAnimation();
+    setRecordingDuration(0);
+  }, [startRecordingAnimation]);
+
+  // 停止录音
+  const stopRecording = useCallback(() => {
+    setIsRecording(false);
+    stopRecordingAnimation();
+    setIsAnalyzing(true);
+    
+    // 模拟 AI 分析
+    setTimeout(() => {
+      setIsAnalyzing(false);
+      router.push("/(views)/contact/new");
+    }, 2000);
+  }, [stopRecordingAnimation, router]);
+
+  // 处理录音按钮按下（按住说话模式）
   const handlePressIn = () => {
     micScale.value = withSpring(0.9, { damping: 20 });
+    if (isHoldMode && !isRecording) {
+      startRecording();
+    }
   };
 
-  // 处理录音按钮松开
+  // 处理录音按钮松开（按住说话模式）
   const handlePressOut = () => {
     micScale.value = withSpring(1, { damping: 20 });
+    if (isHoldMode && isRecording) {
+      stopRecording();
+    }
   };
 
-  // 开始/停止录音
-  const toggleRecording = async () => {
-    if (isRecording) {
-      // 停止录音
-      setIsRecording(false);
-      stopRecordingAnimation();
-      setIsAnalyzing(true);
-      
-      // 模拟 AI 分析
-      setTimeout(() => {
-        setIsAnalyzing(false);
-        // 导航到联系人详情或创建页面
-        router.push("/(views)/contact/new");
-      }, 2000);
-    } else {
-      // 开始录音
-      setIsRecording(true);
-      startRecordingAnimation();
-      setRecordingDuration(0);
+  // 切换说话模式：点击切换录音状态
+  const handleTogglePress = () => {
+    if (!isHoldMode) {
+      if (isRecording) {
+        stopRecording();
+      } else {
+        startRecording();
+      }
     }
   };
 
   // 录音时长计时器
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+    let interval: ReturnType<typeof setInterval>;
     if (isRecording) {
       interval = setInterval(() => {
         setRecordingDuration((prev) => prev + 1);
@@ -132,6 +150,14 @@ export default function RecordingScreen() {
     transform: [{ scale: 1 + waveAnimation.value * 0.5 }],
     opacity: 1 - waveAnimation.value,
   }));
+
+  // 获取提示文字
+  const getHintText = () => {
+    if (isRecording) {
+      return isHoldMode ? t("recording.releaseToComplete") : t("recording.recording");
+    }
+    return isHoldMode ? t("recording.holdToRecord") : t("recording.tapToRecord");
+  };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
@@ -157,6 +183,51 @@ export default function RecordingScreen() {
         
         <View style={styles.placeholder} />
       </View>
+
+      {/* 模式切换按钮 */}
+      {!isRecording && !isAnalyzing && (
+        <View style={styles.modeContainer}>
+          <TouchableOpacity
+            style={[
+              styles.modeButton,
+              isHoldMode && [styles.modeButtonActive, { backgroundColor: colors.primary }]
+            ]}
+            onPress={() => setIsHoldMode(true)}
+          >
+            <Ionicons 
+              name="hand-left" 
+              size={16} 
+              color={isHoldMode ? "#0a0a0a" : colors.text} 
+            />
+            <Text style={[
+              styles.modeText,
+              isHoldMode && { color: "#0a0a0a", fontWeight: "600" }
+            ]}>
+              按住说话
+            </Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={[
+              styles.modeButton,
+              !isHoldMode && [styles.modeButtonActive, { backgroundColor: colors.primary }]
+            ]}
+            onPress={() => setIsHoldMode(false)}
+          >
+            <Ionicons 
+              name="toggle" 
+              size={16} 
+              color={!isHoldMode ? "#0a0a0a" : colors.text} 
+            />
+            <Text style={[
+              styles.modeText,
+              !isHoldMode && { color: "#0a0a0a", fontWeight: "600" }
+            ]}>
+              点击切换
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* 录音状态显示 */}
       <View style={styles.content}>
@@ -187,10 +258,7 @@ export default function RecordingScreen() {
 
             {/* 录音提示文字 */}
             <Text style={[styles.hint, { color: colors.textMuted }]}>
-              {isRecording 
-                ? t("recording.releaseToComplete") 
-                : t("recording.holdToRecord")
-              }
+              {getHintText()}
             </Text>
 
             {/* 录音时长 */}
@@ -233,7 +301,7 @@ export default function RecordingScreen() {
             {/* 录音按钮 */}
             <Animated.View style={micStyle}>
               <TouchableOpacity
-                onPress={toggleRecording}
+                onPress={handleTogglePress}
                 onPressIn={handlePressIn}
                 onPressOut={handlePressOut}
                 activeOpacity={0.8}
@@ -284,6 +352,33 @@ const styles = StyleSheet.create({
   },
   placeholder: {
     width: 44,
+  },
+  modeContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 12,
+    paddingHorizontal: 20,
+    marginTop: 10,
+  },
+  modeButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    backgroundColor: "rgba(128, 128, 128, 0.2)",
+  },
+  modeButtonActive: {
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  modeText: {
+    fontSize: 14,
+    color: "#666",
   },
   content: {
     flex: 1,

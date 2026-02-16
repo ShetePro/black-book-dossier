@@ -229,6 +229,7 @@ export const useStreamingRecorder = (): UseStreamingRecorderReturn => {
       console.log('[Recording] Creating recording instance...');
       const { recording } = await Audio.Recording.createAsync(
         {
+          isMeteringEnabled: true, // 启用音频电平监测（iOS 必需）
           android: {
             extension: '.wav',
             outputFormat: Audio.AndroidOutputFormat.MPEG_4,
@@ -251,26 +252,64 @@ export const useStreamingRecorder = (): UseStreamingRecorderReturn => {
             mimeType: 'audio/webm',
             bitsPerSecond: 128000,
           },
-        },
-        (status) => {
-          // 使用进度回调来获取 metering
-          if (status.isRecording && status.metering !== undefined) {
-            const level = status.metering;
-            setAudioLevel(level);
-            // 每500ms左右记录一次（50ms * 10 = 500ms）
-            if (Math.random() < 0.1) {
-              console.log(`[Recording] Metering: ${level}dB, Duration: ${status.durationMillis}ms`);
-            }
-          }
-        },
-        50
+        }
       );
       console.log('[Recording] Recording instance created successfully');
 
       recordingRef.current = recording;
       setStatus('recording');
       
-      console.log('[Recording] Recording started with metering callback');
+      // 启动音频电平监测（使用轮询方式，兼容 iOS）
+      console.log('[Recording] Starting metering polling...');
+      let callCount = 0;
+      let meteringInterval = setInterval(async () => {
+        if (recordingRef.current) {
+          try {
+            callCount++;
+            const status = await recordingRef.current.getStatusAsync();
+            
+            // 详细诊断日志（前10次调用）
+            if (callCount <= 10) {
+              console.log(`[Recording-DEBUG] Call #${callCount}:`, {
+                isRecording: status.isRecording,
+                metering: status.metering,
+                meteringType: typeof status.metering,
+                durationMillis: status.durationMillis,
+                canRecord: status.canRecord,
+                isDoneRecording: status.isDoneRecording,
+                hasMetering: 'metering' in status,
+                fullStatus: JSON.stringify(status).substring(0, 200)
+              });
+            }
+            
+            // 每100次调用记录一次（约5秒一次）
+            if (callCount % 100 === 0) {
+              console.log(`[Recording] Call #${callCount}: metering=${status.metering}, isRecording=${status.isRecording}`);
+            }
+            
+            // 检查 metering 是否存在
+            if (status.metering === undefined) {
+              if (callCount === 1) {
+                console.error('[Recording-ERROR] metering field is undefined! iOS may not support audio metering with current config');
+              }
+            } else if (status.isRecording) {
+              const level = status.metering;
+              setAudioLevel(level);
+              // 每20次调用记录一次（约1秒一次）
+              if (callCount % 20 === 0) {
+                console.log(`[Recording] Metering: ${level}dB, Duration: ${status.durationMillis}ms`);
+              }
+            }
+          } catch (e) {
+            console.error('[Recording-ERROR] getStatusAsync failed:', e);
+          }
+        } else {
+          console.log('[Recording-DEBUG] No recording ref available');
+        }
+      }, 50);
+      
+      // 保存 interval 引用以便清理
+      (recordingRef as any).meteringInterval = meteringInterval;
 
       durationIntervalRef.current = setInterval(() => {
         const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
@@ -300,6 +339,12 @@ export const useStreamingRecorder = (): UseStreamingRecorderReturn => {
     if (transcribeTimeoutRef.current) {
       clearTimeout(transcribeTimeoutRef.current);
       transcribeTimeoutRef.current = null;
+    }
+    
+    // 清理音频电平监测
+    if ((recordingRef as any).meteringInterval) {
+      clearInterval((recordingRef as any).meteringInterval);
+      (recordingRef as any).meteringInterval = null;
     }
 
     try {
@@ -401,6 +446,12 @@ export const useStreamingRecorder = (): UseStreamingRecorderReturn => {
       clearTimeout(transcribeTimeoutRef.current);
       transcribeTimeoutRef.current = null;
     }
+    
+    // 清理音频电平监测
+    if ((recordingRef as any).meteringInterval) {
+      clearInterval((recordingRef as any).meteringInterval);
+      (recordingRef as any).meteringInterval = null;
+    }
 
     try {
       if (recordingRef.current) {
@@ -445,6 +496,9 @@ export const useStreamingRecorder = (): UseStreamingRecorderReturn => {
       }
       if (transcribeTimeoutRef.current) {
         clearTimeout(transcribeTimeoutRef.current);
+      }
+      if ((recordingRef as any).meteringInterval) {
+        clearInterval((recordingRef as any).meteringInterval);
       }
       if (recordingRef.current) {
         recordingRef.current.stopAndUnloadAsync().catch(() => {});

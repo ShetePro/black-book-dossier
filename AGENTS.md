@@ -6,10 +6,10 @@ Black Book is a React Native Expo app - a Local-First, AI-powered networking int
 
 ## Tech Stack
 
-- **Framework**: Expo SDK 54 + React Native 0.81
+- **Framework**: Expo SDK 54 + React Native 0.81 (New Architecture enabled)
 - **Language**: TypeScript (strict mode)
 - **Routing**: Expo Router (file-based)
-- **Styling**: NativeWind (Tailwind CSS)
+- **Styling**: NativeWind 4.x (Tailwind CSS)
 - **Database**: Expo SQLite
 - **State**: Zustand
 - **Animation**: React Native Reanimated 4.x
@@ -21,15 +21,16 @@ Black Book is a React Native Expo app - a Local-First, AI-powered networking int
 ```bash
 # Development
 npx expo start                    # Start Metro bundler
+npx expo start --clear            # Clear Metro cache
 npx expo run:ios                  # Build iOS (requires Xcode)
 npx expo run:android              # Build Android
 npx expo run:ios --clear          # Clean iOS build
-npx expo start --clear            # Clear Metro cache
 
 # Testing
 npm test                          # Run tests (watch mode)
-npx jest --testPathPattern="name" --no-coverage  # Single test file
-npx jest --testNamePattern="should"              # Tests by pattern
+npx jest --testPathPattern="Button" --no-coverage   # Single test file
+npx jest --testNamePattern="should render"          # Tests by pattern
+npx jest --coverage               # Run with coverage
 
 # Linting & Types
 npm run lint                      # Run ESLint
@@ -39,6 +40,7 @@ npx tsc --noEmit                  # Type check only
 # Native
 npx expo prebuild --clean         # Regenerate native directories
 cd ios && pod install             # Install iOS pods
+npx expo install --fix            # Fix dependency versions
 ```
 
 ## Code Style Guidelines
@@ -47,7 +49,7 @@ cd ios && pod install             # Install iOS pods
 
 - **Strict mode**: No `any` types
 - **Path aliases**: Use `@/` prefix (e.g., `@/components/Button`)
-- **Interfaces over types**: Prefer `interface` for objects
+- **Interfaces over types**: Prefer `interface` for object shapes
 - **Explicit return types**: Always declare function return types
 - **Destructured imports**: Use `import { useState } from 'react'` not `React.useState`
 
@@ -109,10 +111,11 @@ export const ContactCard: React.FC<Props> = ({ contactId, onPress }) => {
 
 ### Styling (NativeWind)
 
-Use Tailwind utility classes with custom colors:
-- Backgrounds: `bg-void`, `bg-void-light`
-- Text: `text-elite`, `text-elite-muted`
+Use Tailwind utility classes with custom colors from `constants/Colors.ts`:
+- Backgrounds: `bg-void`, `bg-surface`
+- Text: `text-elite`, `text-elite-muted`, `text-primary`
 - Actions: `text-accent`, `text-danger`
+- Components use `className` prop (e.g., `<View className="flex-1 bg-void">`)
 
 ### Error Handling
 
@@ -122,7 +125,7 @@ try {
   await createContact(db, contact);
 } catch (error) {
   console.error('Failed to create contact:', error);
-  throw error; // Re-throw if needed
+  throw error; // Re-throw if caller needs to handle
 }
 ```
 
@@ -159,3 +162,4 @@ t('contacts.count', { count: 5 });
 - iOS builds require Xcode and valid team ID
 - Use `expo-dev-client` for development builds
 - Clear Metro cache: `npx expo start --clear`
+- FileSystem API: Use `expo-file-system` (new) or `expo-file-system/legacy` (deprecated methods)

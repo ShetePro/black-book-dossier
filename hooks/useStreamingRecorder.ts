@@ -86,6 +86,8 @@ export const useStreamingRecorder = (): UseStreamingRecorderReturn => {
   const transcribeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const transcriptionBufferRef = useRef('');
   const tempFilesRef = useRef<string[]>([]); // 记录所有临时文件路径
+  const transcribeCurrentChunkRef = useRef<(() => Promise<void>) | null>(null); // 保存最新的函数引用
+  const isTranscribingRef = useRef(false); // 防止并发转录
 
   const initialize = useCallback(async () => {
     try {
@@ -102,8 +104,11 @@ export const useStreamingRecorder = (): UseStreamingRecorderReturn => {
 
   const processChunk = useCallback(async (chunkPath: string, chunkIndex: number) => {
     try {
+      console.log(`[Transcribe] =========================================`);
       console.log(`[Transcribe] Processing chunk ${chunkIndex}: ${chunkPath}`);
       const text = await transcribeAudio(chunkPath);
+      
+      console.log(`[Transcribe] Raw result for chunk ${chunkIndex}: "${text}"`);
       
       if (text && text.trim()) {
         chunksRef.current[chunkIndex] = text.trim();
@@ -112,21 +117,43 @@ export const useStreamingRecorder = (): UseStreamingRecorderReturn => {
           .filter(Boolean)
           .join('，');
         
+        console.log(`[Transcribe] Updating liveTranscription with: "${fullText}"`);
+        
         setLiveTranscription(fullText);
         transcriptionBufferRef.current = fullText;
-        console.log(`[Transcribe] Chunk ${chunkIndex} done: "${text.trim().substring(0, 30)}..."`);
+        console.log(`[Transcribe] Chunk ${chunkIndex} completed successfully`);
+        console.log(`[Transcribe] Full text so far: "${fullText}"`);
+      } else {
+        console.log(`[Transcribe] Chunk ${chunkIndex} returned empty or whitespace`);
       }
+      console.log(`[Transcribe] =========================================`);
     } catch (err) {
-      console.error(`[Transcribe] Error on chunk ${chunkIndex}:`, err);
+      console.error(`[Transcribe] ERROR on chunk ${chunkIndex}:`, err);
     }
     // 注意：文件不在此处删除，统一在录音结束时清理
   }, []);
 
   const transcribeCurrentChunk = useCallback(async () => {
+    console.log('[Transcribe] transcribeCurrentChunk called, isTranscribing:', isTranscribingRef.current);
+    
+    // 防止并发调用
+    if (isTranscribingRef.current) {
+      console.log('[Transcribe] SKIP: Already transcribing, scheduling next check');
+      // 重新安排下一次检查
+      if (recordingRef.current) {
+        transcribeTimeoutRef.current = setTimeout(() => {
+          transcribeCurrentChunkRef.current?.();
+        }, CHUNK_DURATION_MS);
+      }
+      return;
+    }
+    
     if (!recordingRef.current) {
       console.log('[Transcribe] No recording available, skipping');
       return;
     }
+
+    isTranscribingRef.current = true;
 
     try {
       await recordingRef.current.pauseAsync();
@@ -167,14 +194,9 @@ export const useStreamingRecorder = (): UseStreamingRecorderReturn => {
       await recordingRef.current.startAsync();
 
       // 转录（Whisper 层已处理队列）
-      processChunk(chunkPath, currentIndex);
-
-      // 安排下一次
-      if (recordingRef.current) {
-        transcribeTimeoutRef.current = setTimeout(() => {
-          transcribeCurrentChunk();
-        }, CHUNK_DURATION_MS);
-      }
+      console.log(`[Transcribe] Starting transcription for chunk ${currentIndex}`);
+      await processChunk(chunkPath, currentIndex);
+      console.log(`[Transcribe] Chunk ${currentIndex} transcription completed`);
 
     } catch (err) {
       console.error('[Transcribe] Chunk transcription error:', err);
@@ -189,8 +211,20 @@ export const useStreamingRecorder = (): UseStreamingRecorderReturn => {
       } catch (resumeErr) {
         console.error('[Transcribe] Failed to resume recording:', resumeErr);
       }
+    } finally {
+      isTranscribingRef.current = false;
+      
+      // 安排下一次（在 finally 中确保总是执行）
+      if (recordingRef.current) {
+        transcribeTimeoutRef.current = setTimeout(() => {
+          transcribeCurrentChunkRef.current?.();
+        }, CHUNK_DURATION_MS);
+      }
     }
   }, [processChunk]);
+
+  // 保存最新的 transcribeCurrentChunk 函数引用，避免 setTimeout 闭包问题
+  transcribeCurrentChunkRef.current = transcribeCurrentChunk;
 
   const startRecording = useCallback(async () => {
     try {
@@ -316,8 +350,9 @@ export const useStreamingRecorder = (): UseStreamingRecorderReturn => {
         setDuration(elapsed);
       }, 1000);
 
+      console.log('[Recording] Scheduling initial transcription');
       transcribeTimeoutRef.current = setTimeout(() => {
-        transcribeCurrentChunk();
+        transcribeCurrentChunkRef.current?.();
       }, CHUNK_DURATION_MS);
 
     } catch (err) {

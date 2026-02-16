@@ -1,12 +1,12 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import {
   View,
   Text,
   ScrollView,
   StyleSheet,
-  ActivityIndicator,
 } from 'react-native';
 import { useThemeColor } from '@/hooks/useThemeColor';
+import { LoadingDots } from './LoadingDots';
 
 interface TranscriptionTextProps {
   text: string;
@@ -21,25 +21,78 @@ export const TranscriptionText: React.FC<TranscriptionTextProps> = ({
 }) => {
   const colors = useThemeColor();
   const scrollViewRef = useRef<ScrollView>(null);
+  
+  // 打字机效果状态
+  const [displayText, setDisplayText] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
+  const typingIndexRef = useRef(0);
+  const typingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // 当文本变化时自动滚动到底部
+  // 打字机效果
   useEffect(() => {
-    if (text && scrollViewRef.current) {
-      scrollViewRef.current.scrollToEnd({ animated: true });
+    if (!text || text === displayText) {
+      setIsTyping(false);
+      return;
     }
+
+    // 清理之前的定时器
+    if (typingIntervalRef.current) {
+      clearInterval(typingIntervalRef.current);
+    }
+
+    // 智能续打：如果是追加，从当前位置继续
+    if (text.startsWith(displayText)) {
+      typingIndexRef.current = displayText.length;
+    } else {
+      // 否则重新开始
+      typingIndexRef.current = 0;
+      setDisplayText('');
+    }
+
+    setIsTyping(true);
+
+    // 开始打字
+    typingIntervalRef.current = setInterval(() => {
+      if (typingIndexRef.current >= text.length) {
+        // 完成
+        if (typingIntervalRef.current) {
+          clearInterval(typingIntervalRef.current);
+          typingIntervalRef.current = null;
+        }
+        setIsTyping(false);
+        return;
+      }
+
+      // 每次显示一个字符
+      typingIndexRef.current += 1;
+      setDisplayText(text.substring(0, typingIndexRef.current));
+    }, 50); // 50ms 每个字符
   }, [text]);
 
+  // 自动滚动
+  useEffect(() => {
+    if (displayText && scrollViewRef.current) {
+      scrollViewRef.current.scrollToEnd({ animated: true });
+    }
+  }, [displayText]);
+
+  // 清理
+  useEffect(() => {
+    return () => {
+      if (typingIntervalRef.current) {
+        clearInterval(typingIntervalRef.current);
+      }
+    };
+  }, []);
+
   const getStatusText = () => {
-    if (isTranscribing) {
-      return '正在转录...';
-    }
-    if (isRecording) {
-      return '正在聆听...';
-    }
+    if (isTranscribing) return '正在转录';
+    if (isRecording) return '正在聆听';
     return '';
   };
 
   const statusText = getStatusText();
+  const showLoading = isTyping || isTranscribing;
 
   return (
     <View
@@ -58,13 +111,7 @@ export const TranscriptionText: React.FC<TranscriptionTextProps> = ({
           <Text style={[styles.statusText, { color: colors.textMuted }]} >
             {statusText}
           </Text>
-          {isTranscribing && (
-            <ActivityIndicator
-              size="small"
-              color={colors.primary}
-              style={styles.spinner}
-            />
-          )}
+          {showLoading && <LoadingDots />}
         </View>
       )}
 
@@ -76,14 +123,13 @@ export const TranscriptionText: React.FC<TranscriptionTextProps> = ({
         showsVerticalScrollIndicator={true}
         scrollEnabled={true}
       >
-        {text ? (
+        {displayText ? (
           <Text style={[styles.transcriptionText, { color: colors.primary }]} >
-            {text}
-            {isRecording && <Text style={styles.cursor}>▋</Text>}
+            {displayText}
           </Text>
         ) : (
           <Text style={[styles.placeholderText, { color: colors.textMuted }]} >
-            {isRecording ? '等待语音输入...' : '点击麦克风开始录音'}
+            {isRecording ? '等待语音输入' : '点击麦克风开始录音'}
           </Text>
         )}
       </ScrollView>
@@ -117,9 +163,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     flex: 1,
   },
-  spinner: {
-    marginLeft: 8,
-  },
   scrollView: {
     flex: 1,
   },
@@ -131,9 +174,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 24,
     fontWeight: '400',
-  },
-  cursor: {
-    opacity: 0.7,
   },
   placeholderText: {
     fontSize: 15,

@@ -22,68 +22,27 @@ export const TranscriptionText: React.FC<TranscriptionTextProps> = ({
   const colors = useThemeColor();
   const scrollViewRef = useRef<ScrollView>(null);
   
-  // 打字机效果状态
+  // 用于平滑显示的文本
   const [displayText, setDisplayText] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
-  const typingIndexRef = useRef(0);
-  const typingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // 打字机效果
+  const prevTextRef = useRef('');
+  
+  // 实时更新显示文本（不再使用打字机效果，以支持流式输出）
   useEffect(() => {
-    if (!text || text === displayText) {
-      setIsTyping(false);
-      return;
+    if (text !== prevTextRef.current) {
+      setDisplayText(text);
+      prevTextRef.current = text;
     }
-
-    // 清理之前的定时器
-    if (typingIntervalRef.current) {
-      clearInterval(typingIntervalRef.current);
-    }
-
-    // 智能续打：如果是追加，从当前位置继续
-    if (text.startsWith(displayText)) {
-      typingIndexRef.current = displayText.length;
-    } else {
-      // 否则重新开始
-      typingIndexRef.current = 0;
-      setDisplayText('');
-    }
-
-    setIsTyping(true);
-
-    // 开始打字
-    typingIntervalRef.current = setInterval(() => {
-      if (typingIndexRef.current >= text.length) {
-        // 完成
-        if (typingIntervalRef.current) {
-          clearInterval(typingIntervalRef.current);
-          typingIntervalRef.current = null;
-        }
-        setIsTyping(false);
-        return;
-      }
-
-      // 每次显示一个字符
-      typingIndexRef.current += 1;
-      setDisplayText(text.substring(0, typingIndexRef.current));
-    }, 50); // 50ms 每个字符
   }, [text]);
 
-  // 自动滚动
+  // 自动滚动到底部
   useEffect(() => {
     if (displayText && scrollViewRef.current) {
-      scrollViewRef.current.scrollToEnd({ animated: true });
+      // 使用 setTimeout 确保在渲染完成后滚动
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 100);
     }
   }, [displayText]);
-
-  // 清理
-  useEffect(() => {
-    return () => {
-      if (typingIntervalRef.current) {
-        clearInterval(typingIntervalRef.current);
-      }
-    };
-  }, []);
 
   const getStatusText = () => {
     if (isTranscribing) return '正在转录';
@@ -92,7 +51,7 @@ export const TranscriptionText: React.FC<TranscriptionTextProps> = ({
   };
 
   const statusText = getStatusText();
-  const showLoading = isTyping || isTranscribing;
+  const showLoading = isRecording || isTranscribing;
 
   return (
     <View
@@ -129,7 +88,7 @@ export const TranscriptionText: React.FC<TranscriptionTextProps> = ({
           </Text>
         ) : (
           <Text style={[styles.placeholderText, { color: colors.textMuted }]} >
-            {isRecording ? '等待语音输入' : '点击麦克风开始录音'}
+            {isRecording ? '等待语音输入...' : '点击麦克风开始录音'}
           </Text>
         )}
       </ScrollView>
@@ -141,7 +100,7 @@ const styles = StyleSheet.create({
   container: {
     width: '100%',
     minHeight: 100,
-    maxHeight: 120, // 限制3行高度
+    maxHeight: 150, // 增加高度以显示更多内容
     borderRadius: 16,
     borderWidth: 1,
     padding: 16,

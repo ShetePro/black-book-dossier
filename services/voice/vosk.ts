@@ -1,10 +1,8 @@
 import * as Vosk from 'react-native-vosk';
 import { Platform } from 'react-native';
-import { Paths } from 'expo-file-system';
 
-// Vosk 模型配置
-const MODEL_FILE_NAME = 'vosk-model-small-cn-0.22';
-const MODEL_URL = 'https://alphacephei.com/vosk/models/vosk-model-small-cn-0.22.zip';
+// Vosk 模型名称（必须与 assets 目录名匹配）
+const MODEL_NAME = 'model-cn-cn';
 
 // 是否已初始化
 let isModelLoaded = false;
@@ -30,87 +28,32 @@ let currentFinalResultCallback: ResultCallback | null = null;
 let currentErrorCallback: ErrorCallback | null = null;
 
 /**
- * 获取存储目录
+ * 获取模型路径
+ * 
+ * 当使用 Expo Config Plugin 时，模型会被自动复制到：
+ * - iOS: Main Bundle 根目录
+ * - Android: assets 目录
+ * 
+ * react-native-vosk 可以直接使用模型名称从 Bundle/Assets 加载
  */
-const getStorageDirectory = (): string => {
-  const dir = Paths.document?.uri || Paths.cache?.uri;
-  if (!dir) {
-    throw new Error('No storage directory available');
-  }
-  return dir;
-};
-
-/**
- * 检查模型文件是否存在
- */
-const checkModelExists = async (): Promise<boolean> => {
-  try {
-    const { Directory } = await import('expo-file-system');
-    const baseDir = getStorageDirectory();
-    const modelPath = `${baseDir}${MODEL_FILE_NAME}`;
-    const dir = new Directory(modelPath);
-    return dir.exists;
-  } catch (error) {
-    console.error('[Vosk] Error checking model:', error);
-    return false;
-  }
-};
-
-/**
- * 下载 Vosk 模型文件
- */
-const downloadModel = async (onProgress?: (progress: number) => void): Promise<string> => {
-  const baseDir = getStorageDirectory();
-  const modelDir = `${baseDir}${MODEL_FILE_NAME}`;
-  const zipPath = `${baseDir}${MODEL_FILE_NAME}.zip`;
-
-  try {
-    const { Directory, File } = await import('expo-file-system');
-    
-    // 检查是否已存在
-    const dir = new Directory(modelDir);
-    if (dir.exists) {
-      console.log('[Vosk] Model already exists');
-      return modelDir;
-    }
-
-    // 下载模型
-    console.log('[Vosk] Downloading model...');
-    const FileSystemLegacy = await import('expo-file-system/legacy');
-    const downloadResumable = FileSystemLegacy.createDownloadResumable(
-      MODEL_URL,
-      zipPath,
-      {},
-      (downloadProgress) => {
-        const progress = downloadProgress.totalBytesWritten / downloadProgress.totalBytesExpectedToWrite;
-        onProgress?.(progress);
-      }
-    );
-
-    const result = await downloadResumable.downloadAsync();
-    if (!result) {
-      throw new Error('Model download failed');
-    }
-
-    // 解压模型
-    console.log('[Vosk] Extracting model...');
-    // 注意：需要安装 react-native-zip-archive 来解压
-    // 这里简化处理，实际使用时需要解压
-    
-    return modelDir;
-  } catch (error) {
-    console.error('[Vosk] Failed to download model:', error);
-    throw error;
-  }
+const getModelPath = (): string => {
+  // Expo Config Plugin 会将模型复制到原生项目的资源目录
+  // react-native-vosk 可以通过模型名称直接访问
+  return MODEL_NAME;
 };
 
 /**
  * 初始化 Vosk
+ * 
+ * 注意：使用 Expo Config Plugin 时，模型会在 prebuild 阶段自动复制到原生项目
+ * 首次使用前请确保：
+ * 1. 下载模型：wget https://alphacephei.com/vosk/models/vosk-model-small-cn-0.22.zip
+ * 2. 解压到 assets/model-cn-cn/ 目录
+ * 3. 运行 npx expo prebuild 重新生成原生项目
  */
-export const initializeVosk = async (
-  onProgress?: (progress: number) => void
-): Promise<void> => {
+export const initializeVosk = async (): Promise<void> => {
   if (isModelLoaded) {
+    console.log('[Vosk] Already initialized');
     return;
   }
 
@@ -122,26 +65,35 @@ export const initializeVosk = async (
 
   modelLoadPromise = (async () => {
     try {
-      // 检查并下载模型
-      const modelExists = await checkModelExists();
-      let modelPath: string;
+      console.log('[Vosk] Starting initialization...');
+      console.log('[Vosk] Platform:', Platform.OS);
       
-      if (modelExists) {
-        const baseDir = getStorageDirectory();
-        modelPath = `${baseDir}${MODEL_FILE_NAME}`;
-      } else {
-        modelPath = await downloadModel(onProgress);
-      }
-
+      // 获取模型路径
+      const modelPath = getModelPath();
+      console.log('[Vosk] Model name:', modelPath);
+      console.log('[Vosk] Make sure the model is downloaded to assets/' + MODEL_NAME + '/');
+      
       // 加载模型
-      console.log('[Vosk] Loading model from:', modelPath);
+      console.log('[Vosk] Loading model...');
       await Vosk.loadModel(modelPath);
+      
       isModelLoaded = true;
       console.log('[Vosk] Model loaded successfully');
 
     } catch (error) {
       console.error('[Vosk] Failed to initialize:', error);
-      throw error;
+      isModelLoaded = false;
+      
+      // 提供更详细的错误信息
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(
+        `Failed to load Vosk model: ${errorMessage}\n\n` +
+        `Please ensure:\n` +
+        `1. Download the model: wget https://alphacephei.com/vosk/models/vosk-model-small-cn-0.22.zip\n` +
+        `2. Extract to: assets/${MODEL_NAME}/\n` +
+        `3. Run: npx expo prebuild --clean\n` +
+        `4. Rebuild the app: npx expo run:ios (or run:android)`
+      );
     } finally {
       isModelLoading = false;
       modelLoadPromise = null;
@@ -178,21 +130,29 @@ export const startRecognition = async (
   currentErrorCallback = onError || null;
 
   try {
+    console.log('[Vosk] Setting up event listeners...');
+    
     // 设置事件监听器
     partialResultListener = Vosk.onPartialResult((res: string) => {
-      console.log('[Vosk] Partial result:', res);
-      currentPartialResultCallback?.(res);
+      if (res && res.trim()) {
+        console.log('[Vosk] Partial result:', res);
+        currentPartialResultCallback?.(res);
+      }
     });
 
     resultListener = Vosk.onResult((res: string) => {
-      console.log('[Vosk] Result:', res);
-      currentResultCallback?.(res);
+      if (res && res.trim()) {
+        console.log('[Vosk] Result:', res);
+        currentResultCallback?.(res);
+      }
     });
 
     if (onFinalResult) {
       finalResultListener = Vosk.onFinalResult((res: string) => {
-        console.log('[Vosk] Final result:', res);
-        currentFinalResultCallback?.(res);
+        if (res && res.trim()) {
+          console.log('[Vosk] Final result:', res);
+          currentFinalResultCallback?.(res);
+        }
       });
     }
 
@@ -218,8 +178,9 @@ export const startRecognition = async (
       startOptions.timeout = options.timeout;
     }
 
+    console.log('[Vosk] Starting recognition...');
     await Vosk.start(startOptions);
-    console.log('[Vosk] Recognition started');
+    console.log('[Vosk] Recognition started successfully');
 
   } catch (error) {
     console.error('[Vosk] Failed to start recognition:', error);
@@ -283,16 +244,10 @@ export const releaseVosk = (): void => {
   try {
     Vosk.unload();
     isModelLoaded = false;
+    console.log('[Vosk] Unloaded');
   } catch (error) {
     console.error('[Vosk] Error unloading:', error);
   }
-};
-
-/**
- * 检查模型是否已下载
- */
-export const isVoskModelReady = async (): Promise<boolean> => {
-  return await checkModelExists();
 };
 
 /**
@@ -300,4 +255,17 @@ export const isVoskModelReady = async (): Promise<boolean> => {
  */
 export const isVoskLoaded = (): boolean => {
   return isModelLoaded;
+};
+
+/**
+ * 获取 Vosk 初始化状态
+ */
+export const getVoskStatus = (): { 
+  isLoaded: boolean; 
+  isLoading: boolean;
+} => {
+  return {
+    isLoaded: isModelLoaded,
+    isLoading: isModelLoading,
+  };
 };

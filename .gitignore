@@ -47,3 +47,10 @@ android/
 
 # Build output
 build/
+
+# Vosk model files (large binary files, should not be committed)
+assets/model-cn-cn/*
+!assets/model-cn-cn/README.md
+*.zip
+*.mdl
+*.fst

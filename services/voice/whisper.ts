@@ -138,14 +138,15 @@ export const transcribeAudio = async (
     
     console.log('[Whisper] Transcribing:', audioPath);
     
-    const result = await whisperContext.transcribe(audioPath, {
+    // whisper.rn 返回可取消的操作对象，包含 promise 和 stop 函数
+    const { promise, stop } = await whisperContext.transcribe(audioPath, {
       language: 'zh',
     });
     
-    // 🔍 调试：打印完整的返回值结构
-    console.log('[Whisper] Result type:', typeof result);
-    console.log('[Whisper] Result value:', result);
-    console.log('[Whisper] Result keys:', result ? Object.keys(result) : 'null/undefined');
+    // 等待转录完成
+    const result = await promise;
+    
+    console.log('[Whisper] Transcription result:', result);
     
     // 尝试多种可能的属性名
     let transcription = null;

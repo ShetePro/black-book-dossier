@@ -26,7 +26,13 @@ import {
   downloadModel,
   deleteModel,
   formatFileSize,
-  MODEL_CONFIG,
+  AVAILABLE_MODELS,
+  getAllModels,
+  getRecommendedModel,
+  getDownloadedModels,
+  getTotalModelSize,
+  deleteAllModels,
+  type ModelId,
 } from "@/services/ai/modelManager";
 
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
@@ -133,10 +139,11 @@ export default function SettingsScreen() {
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
 
   // AI 模型状态
-  const [modelDownloaded, setModelDownloaded] = useState(false);
-  const [modelSize, setModelSize] = useState(0);
-  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadedModels, setDownloadedModels] = useState<ModelId[]>([]);
+  const [modelSizes, setModelSizes] = useState<Record<string, number>>({});
+  const [downloadingModel, setDownloadingModel] = useState<ModelId | null>(null);
   const [downloadProgress, setDownloadProgress] = useState(0);
+  const [showModelList, setShowModelList] = useState(false);
 
   // 获取当前语言显示
   const getLanguageLabel = () => {
@@ -151,33 +158,46 @@ export default function SettingsScreen() {
   }, []);
 
   const checkModelStatus = async () => {
-    const downloaded = await isModelDownloaded();
-    setModelDownloaded(downloaded);
-    if (downloaded) {
-      const size = await getModelFileSize();
-      setModelSize(size);
+    const downloaded = await getDownloadedModels();
+    setDownloadedModels(downloaded);
+    
+    // 获取每个模型的大小
+    const sizes: Record<ModelId, number> = {} as Record<ModelId, number>;
+    for (const modelId of downloaded) {
+      sizes[modelId] = await getModelFileSize(modelId);
+    }
+    setModelSizes(sizes);
+    
+    // 更新设置中的模型信息
+    if (downloaded.length > 0) {
+      const primaryModel = AVAILABLE_MODELS[downloaded[0]];
+      await updateSetting("ai.localModel.downloaded", true);
+      await updateSetting("ai.localModel.modelName", primaryModel.name);
+      await updateSetting("ai.localModel.modelSize", primaryModel.size);
     }
   };
 
   // 下载模型
-  const handleDownloadModel = () => {
+  const handleDownloadModel = (modelId: ModelId) => {
+    const config = AVAILABLE_MODELS[modelId];
     Alert.alert(
-      "下载 AI 模型",
-      `这将下载 ${MODEL_CONFIG.name} (${formatFileSize(MODEL_CONFIG.size * 1024 * 1024)}) 用于本地智能分析。\n\n建议在 Wi-Fi 环境下下载。`,
+      `下载 ${config.name}`,
+      `${config.description}\n\n大小: ${formatFileSize(config.size * 1024 * 1024)}\n\n建议在 Wi-Fi 环境下下载。`,
       [
         { text: "取消", style: "cancel" },
         {
           text: "下载",
           onPress: async () => {
-            setIsDownloading(true);
-            const result = await downloadModel((progress) => {
+            setDownloadingModel(modelId);
+            setDownloadProgress(0);
+            const result = await downloadModel(modelId, (progress) => {
               setDownloadProgress(progress.percentage);
             });
-            setIsDownloading(false);
+            setDownloadingModel(null);
 
             if (result.success) {
               await checkModelStatus();
-              Alert.alert("下载完成", "AI 模型已成功下载并启用");
+              Alert.alert("下载完成", `${config.name} 已成功下载并启用`);
             } else {
               Alert.alert("下载失败", result.error || "请检查网络连接后重试");
             }
@@ -188,20 +208,45 @@ export default function SettingsScreen() {
   };
 
   // 删除模型
-  const handleDeleteModel = () => {
+  const handleDeleteModel = (modelId: ModelId) => {
+    const config = AVAILABLE_MODELS[modelId];
     Alert.alert(
-      "删除 AI 模型",
-      "删除后将使用基础规则引擎进行语音分析。确定要删除吗？",
+      `删除 ${config.name}`,
+      "确定要删除此模型吗？",
       [
         { text: "取消", style: "cancel" },
         {
           text: "删除",
           style: "destructive",
           onPress: async () => {
-            const result = await deleteModel();
+            const result = await deleteModel(modelId);
             if (result.success) {
               await checkModelStatus();
-              Alert.alert("已删除", "AI 模型已删除");
+              Alert.alert("已删除", `${config.name} 已删除`);
+            } else {
+              Alert.alert("删除失败", result.error || "请重试");
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // 删除所有模型
+  const handleDeleteAllModels = () => {
+    Alert.alert(
+      "删除所有模型",
+      "确定要删除所有已下载的 AI 模型吗？这将释放所有存储空间。",
+      [
+        { text: "取消", style: "cancel" },
+        {
+          text: "全部删除",
+          style: "destructive",
+          onPress: async () => {
+            const result = await deleteAllModels();
+            if (result.success) {
+              await checkModelStatus();
+              Alert.alert("已删除", "所有 AI 模型已删除");
             } else {
               Alert.alert("删除失败", result.error || "请重试");
             }
@@ -395,27 +440,30 @@ export default function SettingsScreen() {
           </Text>
 
           <View style={styles.card}>
-            {/* 模型下载状态 */}
-            {isDownloading ? (
+            {/* 正在下载的模型 */}
+            {downloadingModel && (
               <View style={[styles.settingItem, { backgroundColor: colors.surface }]}>
                 <View style={[styles.iconContainer, { backgroundColor: `${colors.primary}15` }]}>
                   <ActivityIndicator size="small" color={colors.primary} />
                 </View>
                 <View style={styles.contentContainer}>
                   <Text style={[styles.title, { color: colors.text }]}>
-                    正在下载模型
+                    正在下载 {AVAILABLE_MODELS[downloadingModel].name}
                   </Text>
                   <Text style={[styles.subtitle, { color: colors.textMuted }]}>
                     {downloadProgress.toFixed(1)}%
                   </Text>
                 </View>
               </View>
-            ) : modelDownloaded ? (
+            )}
+
+            {/* 已下载的模型 */}
+            {downloadedModels.length > 0 && (
               <>
                 <SettingItem
                   icon="sparkles"
                   title="本地 AI 模型"
-                  subtitle={`${MODEL_CONFIG.name} · ${formatFileSize(modelSize)}`}
+                  subtitle={`${downloadedModels.length} 个模型已下载 · 使用 ${settings.ai.localModel.enabled ? '已启用' : '已禁用'}`}
                   toggle
                   toggleValue={settings.ai.localModel.enabled}
                   onToggle={(value) =>
@@ -423,22 +471,90 @@ export default function SettingsScreen() {
                   }
                   colors={colors}
                 />
+                
+                {/* 显示已下载的模型列表 */}
+                {downloadedModels.map((modelId) => {
+                  const config = AVAILABLE_MODELS[modelId];
+                  const size = modelSizes[modelId] || 0;
+                  return (
+                    <View key={modelId} style={[styles.modelItem, { backgroundColor: colors.elevated }]}>
+                      <View style={styles.modelInfo}>
+                        <Text style={[styles.modelName, { color: colors.text }]}>
+                          {config.name} {config.recommended && '⭐'}
+                        </Text>
+                        <Text style={[styles.modelDesc, { color: colors.textMuted }]}>
+                          {config.description}
+                        </Text>
+                        <Text style={[styles.modelSize, { color: colors.textSecondary }]}>
+                          {formatFileSize(size)} / {config.size} MB
+                        </Text>
+                      </View>
+                      <TouchableOpacity
+                        style={styles.deleteModelBtn}
+                        onPress={() => handleDeleteModel(modelId)}
+                      >
+                        <Ionicons name="trash-outline" size={20} color={colors.danger} />
+                      </TouchableOpacity>
+                    </View>
+                  );
+                })}
+                
                 <SettingItem
                   icon="trash"
-                  title="删除模型"
+                  title="删除所有模型"
                   subtitle="释放存储空间，使用基础规则引擎"
-                  onPress={handleDeleteModel}
+                  onPress={handleDeleteAllModels}
                   colors={colors}
                 />
               </>
+            )}
+
+            {/* 模型列表 */}
+            {showModelList ? (
+              <>
+                <Text style={[styles.modelSectionTitle, { color: colors.text }]}>
+                  可用模型（点击下载）
+                </Text>
+                {getAllModels()
+                  .filter(m => !downloadedModels.includes(m.id))
+                  .map((config) => (
+                    <TouchableOpacity
+                      key={config.id}
+                      style={[styles.modelCard, { backgroundColor: colors.elevated, borderColor: colors.border }]}
+                      onPress={() => handleDownloadModel(config.id)}
+                    >
+                      <View style={styles.modelCardHeader}>
+                        <Text style={[styles.modelCardName, { color: colors.text }]}>
+                          {config.name} {config.recommended && '⭐ 推荐'}
+                        </Text>
+                        <Text style={[styles.modelCardSize, { color: colors.primary }]}>
+                          {config.size} MB
+                        </Text>
+                      </View>
+                      <Text style={[styles.modelCardDesc, { color: colors.textMuted }]}>
+                        {config.description}
+                      </Text>
+                      <View style={styles.downloadBtn}>
+                        <Ionicons name="cloud-download" size={16} color={colors.primary} />
+                        <Text style={[styles.downloadBtnText, { color: colors.primary }]}>
+                          下载
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                <TouchableOpacity
+                  style={styles.hideModelsBtn}
+                  onPress={() => setShowModelList(false)}
+                >
+                  <Text style={{ color: colors.textMuted }}>收起</Text>
+                </TouchableOpacity>
+              </>
             ) : (
               <SettingItem
-                icon="cloud-download"
-                title="下载 AI 模型"
-                subtitle={`${MODEL_CONFIG.name} (${formatFileSize(
-                  MODEL_CONFIG.size * 1024 * 1024
-                )}) · 提升语音识别准确度`}
-                onPress={handleDownloadModel}
+                icon="add-circle"
+                title="下载更多模型"
+                subtitle={`${getAllModels().length - downloadedModels.length} 个可用模型`}
+                onPress={() => setShowModelList(true)}
                 colors={colors}
               />
             )}
@@ -672,5 +788,82 @@ const styles = StyleSheet.create({
   buildText: {
     fontSize: 12,
     marginTop: 4,
+  },
+  // AI Model related styles
+  modelItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    marginHorizontal: 16,
+    marginBottom: 8,
+    borderRadius: 12,
+  },
+  modelInfo: {
+    flex: 1,
+  },
+  modelName: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  modelDesc: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  modelSize: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  deleteModelBtn: {
+    padding: 8,
+  },
+  modelSectionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  modelCard: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  modelCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  modelCardName: {
+    fontSize: 15,
+    fontWeight: '600',
+    flex: 1,
+  },
+  modelCardSize: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  modelCardDesc: {
+    fontSize: 13,
+    marginTop: 4,
+  },
+  downloadBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    marginTop: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  downloadBtnText: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginLeft: 4,
+  },
+  hideModelsBtn: {
+    alignItems: 'center',
+    paddingVertical: 12,
   },
 });

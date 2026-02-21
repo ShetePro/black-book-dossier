@@ -192,10 +192,11 @@ export default function RecordingScreen() {
     
     if (finalTranscription) {
       setIsAnalyzing(true);
+      // 跳转到 AI Agent 确认页面进行分析和确认
       setTimeout(() => {
         setIsAnalyzing(false);
         router.push({
-          pathname: "/(views)/contact/new",
+          pathname: "/(views)/agent-review",
           params: { transcription: finalTranscription }
         });
       }, 500);

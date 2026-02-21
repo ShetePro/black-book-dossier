@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Switch,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -18,6 +19,15 @@ import Animated, {
   withSpring,
 } from "react-native-reanimated";
 import { useThemeColor } from "@/hooks/useThemeColor";
+import { useSettingsStore } from "@/store/settingsStore";
+import {
+  isModelDownloaded,
+  getModelFileSize,
+  downloadModel,
+  deleteModel,
+  formatFileSize,
+  MODEL_CONFIG,
+} from "@/services/ai/modelManager";
 
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
@@ -114,6 +124,7 @@ export default function SettingsScreen() {
   const router = useRouter();
   const { t, i18n } = useTranslation();
   const colors = useThemeColor();
+  const { settings, updateSetting } = useSettingsStore();
 
   // 设置状态
   const [biometricEnabled, setBiometricEnabled] = useState(true);
@@ -121,11 +132,83 @@ export default function SettingsScreen() {
   const [hapticEnabled, setHapticEnabled] = useState(true);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
 
+  // AI 模型状态
+  const [modelDownloaded, setModelDownloaded] = useState(false);
+  const [modelSize, setModelSize] = useState(0);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState(0);
+
   // 获取当前语言显示
   const getLanguageLabel = () => {
     const lang = i18n.language;
     if (lang.startsWith("zh")) return "中文";
     return "English";
+  };
+
+  // 检查模型状态
+  useEffect(() => {
+    checkModelStatus();
+  }, []);
+
+  const checkModelStatus = async () => {
+    const downloaded = await isModelDownloaded();
+    setModelDownloaded(downloaded);
+    if (downloaded) {
+      const size = await getModelFileSize();
+      setModelSize(size);
+    }
+  };
+
+  // 下载模型
+  const handleDownloadModel = () => {
+    Alert.alert(
+      "下载 AI 模型",
+      `这将下载 ${MODEL_CONFIG.name} (${formatFileSize(MODEL_CONFIG.size * 1024 * 1024)}) 用于本地智能分析。\n\n建议在 Wi-Fi 环境下下载。`,
+      [
+        { text: "取消", style: "cancel" },
+        {
+          text: "下载",
+          onPress: async () => {
+            setIsDownloading(true);
+            const result = await downloadModel((progress) => {
+              setDownloadProgress(progress.percentage);
+            });
+            setIsDownloading(false);
+
+            if (result.success) {
+              await checkModelStatus();
+              Alert.alert("下载完成", "AI 模型已成功下载并启用");
+            } else {
+              Alert.alert("下载失败", result.error || "请检查网络连接后重试");
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // 删除模型
+  const handleDeleteModel = () => {
+    Alert.alert(
+      "删除 AI 模型",
+      "删除后将使用基础规则引擎进行语音分析。确定要删除吗？",
+      [
+        { text: "取消", style: "cancel" },
+        {
+          text: "删除",
+          style: "destructive",
+          onPress: async () => {
+            const result = await deleteModel();
+            if (result.success) {
+              await checkModelStatus();
+              Alert.alert("已删除", "AI 模型已删除");
+            } else {
+              Alert.alert("删除失败", result.error || "请重试");
+            }
+          },
+        },
+      ]
+    );
   };
 
   // Kill Switch - 销毁所有数据
@@ -300,6 +383,121 @@ export default function SettingsScreen() {
               toggle
               toggleValue={hapticEnabled}
               onToggle={setHapticEnabled}
+              colors={colors}
+            />
+          </View>
+        </View>
+
+        {/* AI 智能设置 */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>
+            AI 智能
+          </Text>
+
+          <View style={styles.card}>
+            {/* 模型下载状态 */}
+            {isDownloading ? (
+              <View style={[styles.settingItem, { backgroundColor: colors.surface }]}>
+                <View style={[styles.iconContainer, { backgroundColor: `${colors.primary}15` }]}>
+                  <ActivityIndicator size="small" color={colors.primary} />
+                </View>
+                <View style={styles.contentContainer}>
+                  <Text style={[styles.title, { color: colors.text }]}>
+                    正在下载模型
+                  </Text>
+                  <Text style={[styles.subtitle, { color: colors.textMuted }]}>
+                    {downloadProgress.toFixed(1)}%
+                  </Text>
+                </View>
+              </View>
+            ) : modelDownloaded ? (
+              <>
+                <SettingItem
+                  icon="sparkles"
+                  title="本地 AI 模型"
+                  subtitle={`${MODEL_CONFIG.name} · ${formatFileSize(modelSize)}`}
+                  toggle
+                  toggleValue={settings.ai.localModel.enabled}
+                  onToggle={(value) =>
+                    updateSetting("ai.localModel.enabled", value)
+                  }
+                  colors={colors}
+                />
+                <SettingItem
+                  icon="trash"
+                  title="删除模型"
+                  subtitle="释放存储空间，使用基础规则引擎"
+                  onPress={handleDeleteModel}
+                  colors={colors}
+                />
+              </>
+            ) : (
+              <SettingItem
+                icon="cloud-download"
+                title="下载 AI 模型"
+                subtitle={`${MODEL_CONFIG.name} (${formatFileSize(
+                  MODEL_CONFIG.size * 1024 * 1024
+                )}) · 提升语音识别准确度`}
+                onPress={handleDownloadModel}
+                colors={colors}
+              />
+            )}
+
+            {/* 匹配设置 */}
+            <SettingItem
+              icon="git-merge"
+              title="自动合并高置信度"
+              subtitle="匹配度超过80%时自动提示合并"
+              toggle
+              toggleValue={settings.ai.matching.autoMergeHighConfidence}
+              onToggle={(value) =>
+                updateSetting("ai.matching.autoMergeHighConfidence", value)
+              }
+              colors={colors}
+            />
+
+            <SettingItem
+              icon="list"
+              title="显示相似联系人"
+              subtitle="匹配时显示候选联系人列表"
+              toggle
+              toggleValue={settings.ai.matching.showSimilarContacts}
+              onToggle={(value) =>
+                updateSetting("ai.matching.showSimilarContacts", value)
+              }
+              colors={colors}
+            />
+
+            <SettingItem
+              icon="options"
+              title="匹配阈值"
+              subtitle={`当前: ${(settings.ai.matching.threshold * 100).toFixed(
+                0
+              )}% · 低于此值将创建新联系人`}
+              onPress={() => {
+                Alert.alert(
+                  "设置匹配阈值",
+                  "调整联系人匹配的敏感度",
+                  [
+                    {
+                      text: "低 (50%)",
+                      onPress: () =>
+                        updateSetting("ai.matching.threshold", 0.5),
+                    },
+                    {
+                      text: "中 (70%)",
+                      onPress: () =>
+                        updateSetting("ai.matching.threshold", 0.7),
+                    },
+                    {
+                      text: "高 (90%)",
+                      onPress: () =>
+                        updateSetting("ai.matching.threshold", 0.9),
+                    },
+                    { text: "取消", style: "cancel" },
+                  ]
+                );
+              }}
               colors={colors}
             />
           </View>

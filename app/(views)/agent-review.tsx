@@ -15,6 +15,8 @@ import { useThemeColor } from '@/hooks/useThemeColor';
 import { extractEntities } from '@/services/ai/entityExtractor';
 import { ExtractedEntity, ActionItem } from '@/types';
 import { useContactStore } from '@/store';
+import { useSettingsStore } from '@/store/settingsStore';
+import { isModelDownloaded } from '@/services/ai/modelManager';
 import { StatusBar } from 'expo-status-bar';
 
 interface AnalyzedData {
@@ -41,11 +43,13 @@ export default function AgentReviewScreen() {
   const colors = useThemeColor();
   const params = useLocalSearchParams();
   const { contacts } = useContactStore();
+  const { settings } = useSettingsStore();
   
   const [isAnalyzing, setIsAnalyzing] = useState(true);
   const [analyzedData, setAnalyzedData] = useState<AnalyzedData | null>(null);
   const [matchedContacts, setMatchedContacts] = useState<any[]>([]);
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
+  const [usingLocalLLM, setUsingLocalLLM] = useState(false);
 
   const transcription = params.transcription as string;
 
@@ -57,8 +61,22 @@ export default function AgentReviewScreen() {
     try {
       setIsAnalyzing(true);
       
-      // 1. 提取实体
-      const result = await extractEntities(transcription);
+      // 检查是否可以使用本地 LLM
+      const hasLocalModel = await isModelDownloaded();
+      const useLLM = hasLocalModel && settings.ai.localModel.enabled;
+      setUsingLocalLLM(useLLM);
+      
+      let result;
+      
+      if (useLLM) {
+        // 使用本地 LLM 进行分析
+        console.log('[AgentReview] Using local LLM for analysis');
+        result = await analyzeWithLocalLLM(transcription);
+      } else {
+        // 使用规则引擎
+        console.log('[AgentReview] Using rule-based extraction');
+        result = await extractEntities(transcription);
+      }
       
       setAnalyzedData({
         transcription,
@@ -72,8 +90,9 @@ export default function AgentReviewScreen() {
         const matches = findMatchingContacts(result.contactName, result.entities);
         setMatchedContacts(matches);
         
-        // 自动选择最高匹配度的联系人
-        if (matches.length > 0 && matches[0].confidence > 0.8) {
+        // 使用设置中的阈值自动选择
+        const threshold = settings.ai.matching.threshold;
+        if (matches.length > 0 && matches[0].confidence > threshold) {
           setSelectedContactId(matches[0].contact.id);
         }
       }
@@ -83,6 +102,14 @@ export default function AgentReviewScreen() {
     } finally {
       setIsAnalyzing(false);
     }
+  };
+
+  // 本地 LLM 分析（占位实现）
+  const analyzeWithLocalLLM = async (text: string) => {
+    // TODO: 实现本地 LLM 推理
+    // 目前先回退到规则引擎
+    console.log('[AgentReview] Local LLM not fully implemented, falling back to rules');
+    return await extractEntities(text);
   };
 
   // 简单的联系人匹配算法
@@ -210,7 +237,7 @@ export default function AgentReviewScreen() {
             AI 正在分析语音内容...
           </Text>
           <Text style={[styles.analyzingSubtext, { color: colors.textMuted }]}>
-            提取关键信息并匹配联系人
+            {usingLocalLLM ? '使用本地 LLM 模型' : '使用规则引擎'} · 提取关键信息并匹配联系人
           </Text>
         </View>
       </SafeAreaView>

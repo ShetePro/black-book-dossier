@@ -330,15 +330,60 @@ export const getTotalModelSize = async (): Promise<number> => {
   return totalSize;
 };
 
+// 最小可用空间要求（MB）
+const MIN_FREE_SPACE_MB = 2048; // 2GB
+
 /**
  * 检查是否有足够的存储空间
  */
-export const hasEnoughStorage = async (requiredMB: number): Promise<boolean> => {
+export const checkStorageSpace = async (requiredMB: number): Promise<{
+  hasEnoughSpace: boolean;
+  freeSpaceMB: number;
+  message?: string;
+}> => {
   try {
-    // 这里简化处理，实际应该调用原生 API 获取剩余空间
-    // 假设至少有 2GB 可用空间
-    return true;
+    // 注意：expo-file-system 没有直接提供剩余空间 API
+    // 这里简化处理，实际项目中需要使用原生模块
+    // 或尝试创建临时文件来估算剩余空间
+    
+    // 模拟检查：假设至少有 MIN_FREE_SPACE_MB
+    const freeSpaceMB = 4096; // 模拟 4GB 可用空间
+    const totalRequired = requiredMB + MIN_FREE_SPACE_MB;
+    
+    if (freeSpaceMB < requiredMB) {
+      return {
+        hasEnoughSpace: false,
+        freeSpaceMB,
+        message: `存储空间不足。需要 ${formatFileSize(requiredMB * 1024 * 1024)}，但只剩 ${formatFileSize(freeSpaceMB * 1024 * 1024)}`,
+      };
+    }
+    
+    if (freeSpaceMB < totalRequired) {
+      return {
+        hasEnoughSpace: true,
+        freeSpaceMB,
+        message: `警告：下载后存储空间将不足 ${MIN_FREE_SPACE_MB}MB，可能影响应用性能`,
+      };
+    }
+    
+    return {
+      hasEnoughSpace: true,
+      freeSpaceMB,
+    };
   } catch (error) {
-    return false;
+    console.error('[ModelManager] Error checking storage:', error);
+    return {
+      hasEnoughSpace: false,
+      freeSpaceMB: 0,
+      message: '无法检查存储空间',
+    };
   }
+};
+
+/**
+ * 检查是否有足够的存储空间（旧接口兼容）
+ */
+export const hasEnoughStorage = async (requiredMB: number): Promise<boolean> => {
+  const result = await checkStorageSpace(requiredMB);
+  return result.hasEnoughSpace;
 };

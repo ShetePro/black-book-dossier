@@ -440,126 +440,26 @@ export default function SettingsScreen() {
           </Text>
 
           <View style={styles.card}>
-            {/* 正在下载的模型 */}
-            {downloadingModel && (
-              <View style={[styles.settingItem, { backgroundColor: colors.surface }]}>
-                <View style={[styles.iconContainer, { backgroundColor: `${colors.primary}15` }]}>
-                  <ActivityIndicator size="small" color={colors.primary} />
-                </View>
-                <View style={styles.contentContainer}>
-                  <Text style={[styles.title, { color: colors.text }]}>
-                    正在下载 {AVAILABLE_MODELS[downloadingModel].name}
-                  </Text>
-                  <Text style={[styles.subtitle, { color: colors.textMuted }]}>
-                    {downloadProgress.toFixed(1)}%
-                  </Text>
-                </View>
-              </View>
-            )}
+            <SettingItem
+              icon="cube"
+              title="管理 AI 模型"
+              subtitle={`${downloadedModels.length} 个已下载 · ${getAllModels().length - downloadedModels.length} 个可用`}
+              onPress={() => router.push("/(views)/ai-models")}
+              colors={colors}
+            />
 
-            {/* 已下载的模型 */}
-            {downloadedModels.length > 0 && (
-              <>
-                <SettingItem
-                  icon="sparkles"
-                  title="本地 AI 模型"
-                  subtitle={`${downloadedModels.length} 个模型已下载 · 使用 ${settings.ai.localModel.enabled ? '已启用' : '已禁用'}`}
-                  toggle
-                  toggleValue={settings.ai.localModel.enabled}
-                  onToggle={(value) =>
-                    updateSetting("ai.localModel.enabled", value)
-                  }
-                  colors={colors}
-                />
-                
-                {/* 显示已下载的模型列表 */}
-                {downloadedModels.map((modelId) => {
-                  const config = AVAILABLE_MODELS[modelId];
-                  const size = modelSizes[modelId] || 0;
-                  return (
-                    <View key={modelId} style={[styles.modelItem, { backgroundColor: colors.elevated }]}>
-                      <View style={styles.modelInfo}>
-                        <Text style={[styles.modelName, { color: colors.text }]}>
-                          {config.name} {config.recommended && '⭐'}
-                        </Text>
-                        <Text style={[styles.modelDesc, { color: colors.textMuted }]}>
-                          {config.description}
-                        </Text>
-                        <Text style={[styles.modelSize, { color: colors.textSecondary }]}>
-                          {formatFileSize(size)} / {config.size} MB
-                        </Text>
-                      </View>
-                      <TouchableOpacity
-                        style={styles.deleteModelBtn}
-                        onPress={() => handleDeleteModel(modelId)}
-                      >
-                        <Ionicons name="trash-outline" size={20} color={colors.danger} />
-                      </TouchableOpacity>
-                    </View>
-                  );
-                })}
-                
-                <SettingItem
-                  icon="trash"
-                  title="删除所有模型"
-                  subtitle="释放存储空间，使用基础规则引擎"
-                  onPress={handleDeleteAllModels}
-                  colors={colors}
-                />
-              </>
-            )}
+            <SettingItem
+              icon="sparkles"
+              title="本地 AI 模型"
+              subtitle={settings.ai.localModel.enabled ? '已启用' : '已禁用'}
+              toggle
+              toggleValue={settings.ai.localModel.enabled}
+              onToggle={(value) =>
+                updateSetting("ai.localModel.enabled", value)
+              }
+              colors={colors}
+            />
 
-            {/* 模型列表 */}
-            {showModelList ? (
-              <>
-                <Text style={[styles.modelSectionTitle, { color: colors.text }]}>
-                  可用模型（点击下载）
-                </Text>
-                {getAllModels()
-                  .filter(m => !downloadedModels.includes(m.id))
-                  .map((config) => (
-                    <TouchableOpacity
-                      key={config.id}
-                      style={[styles.modelCard, { backgroundColor: colors.elevated, borderColor: colors.border }]}
-                      onPress={() => handleDownloadModel(config.id)}
-                    >
-                      <View style={styles.modelCardHeader}>
-                        <Text style={[styles.modelCardName, { color: colors.text }]}>
-                          {config.name} {config.recommended && '⭐ 推荐'}
-                        </Text>
-                        <Text style={[styles.modelCardSize, { color: colors.primary }]}>
-                          {config.size} MB
-                        </Text>
-                      </View>
-                      <Text style={[styles.modelCardDesc, { color: colors.textMuted }]}>
-                        {config.description}
-                      </Text>
-                      <View style={styles.downloadBtn}>
-                        <Ionicons name="cloud-download" size={16} color={colors.primary} />
-                        <Text style={[styles.downloadBtnText, { color: colors.primary }]}>
-                          下载
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
-                  ))}
-                <TouchableOpacity
-                  style={styles.hideModelsBtn}
-                  onPress={() => setShowModelList(false)}
-                >
-                  <Text style={{ color: colors.textMuted }}>收起</Text>
-                </TouchableOpacity>
-              </>
-            ) : (
-              <SettingItem
-                icon="add-circle"
-                title="下载更多模型"
-                subtitle={`${getAllModels().length - downloadedModels.length} 个可用模型`}
-                onPress={() => setShowModelList(true)}
-                colors={colors}
-              />
-            )}
-
-            {/* 匹配设置 */}
             <SettingItem
               icon="git-merge"
               title="自动合并高置信度"

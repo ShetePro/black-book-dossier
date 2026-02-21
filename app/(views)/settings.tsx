@@ -339,40 +339,52 @@ export default function SettingsScreen() {
               colors={colors}
             />
 
-            <SettingItem
-              icon="options"
-              title="匹配阈值"
-              subtitle={`当前: ${(settings.ai.matching.threshold * 100).toFixed(
-                0
-              )}% · 低于此值将创建新联系人`}
-              onPress={() => {
-                Alert.alert(
-                  "设置匹配阈值",
-                  "调整联系人匹配的敏感度",
-                  [
-                    {
-                      text: "低 (50%)",
-                      onPress: () =>
-                        updateSetting("ai.matching.threshold", 0.5),
-                    },
-                    {
-                      text: "中 (70%)",
-                      onPress: () =>
-                        updateSetting("ai.matching.threshold", 0.7),
-                    },
-                    {
-                      text: "高 (90%)",
-                      onPress: () =>
-                        updateSetting("ai.matching.threshold", 0.9),
-                    },
-                    { text: "取消", style: "cancel" },
-                  ]
-                );
-              }}
-              colors={colors}
-            />
-          </View>
+          <SettingItem
+            icon="options"
+            title="匹配阈值"
+            subtitle={`当前: ${(settings.ai.matching.threshold * 100).toFixed(
+              0
+            )}% · 低于此值将创建新联系人`}
+            onPress={() => {
+              Alert.alert(
+                "设置匹配阈值",
+                "调整联系人匹配的敏感度",
+                [
+                  {
+                    text: "低 (50%)",
+                    onPress: () =>
+                      updateSetting("ai.matching.threshold", 0.5),
+                  },
+                  {
+                    text: "中 (70%)",
+                    onPress: () =>
+                      updateSetting("ai.matching.threshold", 0.7),
+                  },
+                  {
+                    text: "高 (90%)",
+                    onPress: () =>
+                      updateSetting("ai.matching.threshold", 0.9),
+                  },
+                  { text: "取消", style: "cancel" },
+                ]
+              );
+            }}
+            colors={colors}
+          />
+
+          <SettingItem
+            icon="hardware-chip-outline"
+            title="AI 模型管理"
+            subtitle={
+              settings.ai.localModel.downloaded
+                ? `${settings.ai.localModel.modelName} · ${settings.ai.localModel.modelSize}MB`
+                : "下载本地 AI 模型以启用离线功能"
+            }
+            onPress={() => router.push("/(views)/ai-models")}
+            colors={colors}
+          />
         </View>
+      </View>
 
         {/* 关于 */}
         <View style={styles.section}>

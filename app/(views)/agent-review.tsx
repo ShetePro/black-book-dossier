@@ -16,7 +16,7 @@ import { extractEntities } from '@/services/ai/entityExtractor';
 import { ExtractedEntity, ActionItem } from '@/types';
 import { useContactStore } from '@/store';
 import { useSettingsStore } from '@/store/settingsStore';
-import { isModelDownloaded } from '@/services/ai/modelManager';
+import { hasAnyModelDownloaded } from '@/services/ai/llmModelManager';
 import { StatusBar } from 'expo-status-bar';
 
 interface AnalyzedData {
@@ -62,7 +62,7 @@ export default function AgentReviewScreen() {
       setIsAnalyzing(true);
       
       // 检查是否可以使用本地 LLM
-      const hasLocalModel = await isModelDownloaded();
+      const hasLocalModel = await hasAnyModelDownloaded();
       const useLLM = hasLocalModel && settings.ai.localModel.enabled;
       setUsingLocalLLM(useLLM);
       

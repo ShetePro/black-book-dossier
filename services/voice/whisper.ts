@@ -142,11 +142,33 @@ export const transcribeAudio = async (
       language: 'zh',
     });
     
-    console.log('[Whisper] Transcription result:', result);
+    // 🔍 调试：打印完整的返回值结构
+    console.log('[Whisper] Result type:', typeof result);
+    console.log('[Whisper] Result value:', result);
+    console.log('[Whisper] Result keys:', result ? Object.keys(result) : 'null/undefined');
+    
+    // 尝试多种可能的属性名
+    let transcription = null;
+    
+    if (typeof result === 'string') {
+      transcription = result;
+    } else if (result && typeof result === 'object') {
+      // 尝试常见的属性名
+      transcription = result.result || result.text || result.transcription || result.data;
+    }
+    
+    console.log('[Whisper] Extracted transcription:', transcription);
+    
+    if (!transcription || typeof transcription !== 'string') {
+      return {
+        success: false,
+        error: `转录结果格式错误: ${JSON.stringify(result)}`,
+      };
+    }
     
     return {
       success: true,
-      text: result.trim(),
+      text: transcription.trim(),
     };
     
   } catch (error) {

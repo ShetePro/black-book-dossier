@@ -386,6 +386,41 @@ export default function SettingsScreen() {
         </View>
       </View>
 
+      {/* 录音设置 */}
+      <View style={styles.section}>
+        <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>
+          录音设置
+        </Text>
+
+        <View style={styles.card}>
+          <SettingItem
+            icon="mic"
+            title="录音方式"
+            subtitle={settings.recording.mode === 'hold' ? '长按录音（按住开始，松开结束）' : '点击录音（点击开始/结束）'}
+            onPress={() => {
+              Alert.alert(
+                "选择录音方式",
+                "选择适合您的录音操作方式",
+                [
+                  {
+                    text: "长按录音",
+                    onPress: () =>
+                      updateSetting("recording.mode", "hold"),
+                  },
+                  {
+                    text: "点击录音",
+                    onPress: () =>
+                      updateSetting("recording.mode", "tap"),
+                  },
+                  { text: "取消", style: "cancel" },
+                ]
+              );
+            }}
+            colors={colors}
+          />
+        </View>
+      </View>
+
         {/* 关于 */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>

@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Dimensions,
   ActivityIndicator,
+  PanResponder,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -16,14 +17,16 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
   withRepeat,
+  withTiming,
 } from "react-native-reanimated";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { StatusBar } from "expo-status-bar";
 import { useRecorder } from "@/hooks/useRecorder";
 import { isModelDownloaded, downloadModel, formatFileSize, getModelInfo } from "@/services/voice/whisper";
 import { Alert } from "react-native";
+import { useSettingsStore } from "@/store/settingsStore";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 // 波形配置
 const WAVE_BAR_COUNT = 30;
@@ -58,6 +61,7 @@ export default function RecordingScreen() {
   const router = useRouter();
   const { t } = useTranslation();
   const colors = useThemeColor();
+  const { settings } = useSettingsStore();
   
   const {
     status,
@@ -71,6 +75,13 @@ export default function RecordingScreen() {
     cancelRecording,
   } = useRecorder();
   
+  // 录音模式（从设置读取，默认长按）
+  const isHoldMode = settings.recording.mode === 'hold';
+  
+  // 长按模式状态
+  const [isInCancelZone, setIsInCancelZone] = useState(false);
+  const cancelZoneLayout = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
+  
   // 波形条数据
   const [barHeights, setBarHeights] = useState<number[]>(
     Array(WAVE_BAR_COUNT).fill(MIN_BAR_HEIGHT)
@@ -79,47 +90,7 @@ export default function RecordingScreen() {
   // 动画值
   const pulseScale = useSharedValue(1);
   const micScale = useSharedValue(1);
-
-  // 更新波形条
-  useEffect(() => {
-    if (!isRecording) {
-      setBarHeights(Array(WAVE_BAR_COUNT).fill(MIN_BAR_HEIGHT));
-      return;
-    }
-
-    const targetHeight = meteringToBarHeight(audioLevel);
-    
-    setBarHeights(prev => {
-      const newHeights = [...prev];
-      // 移除第一个，添加新的
-      newHeights.shift();
-      newHeights.push(targetHeight);
-      return newHeights;
-    });
-  }, [audioLevel, isRecording]);
-
-  // 录音动画
-  useEffect(() => {
-    if (isRecording) {
-      pulseScale.value = withRepeat(
-        withSpring(1.2, { damping: 10 }),
-        -1,
-        true
-      );
-      micScale.value = withSpring(0.9, { damping: 20 });
-    } else {
-      pulseScale.value = withSpring(1, { damping: 20 });
-      micScale.value = withSpring(1, { damping: 20 });
-    }
-  }, [isRecording]);
-
-  const pulseAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: pulseScale.value }],
-  }));
-
-  const micAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: micScale.value }],
-  }));
+  const cancelOpacity = useSharedValue(0);
 
   // 检查并下载模型
   const [isCheckingModel, setIsCheckingModel] = useState(false);
@@ -137,7 +108,6 @@ export default function RecordingScreen() {
         return true;
       }
       
-      // 模型未下载，显示提示
       const modelInfo = getModelInfo();
       
       return new Promise((resolve) => {
@@ -180,9 +150,69 @@ export default function RecordingScreen() {
     }
   };
 
+  // 更新波形条
+  useEffect(() => {
+    if (!isRecording) {
+      setBarHeights(Array(WAVE_BAR_COUNT).fill(MIN_BAR_HEIGHT));
+      return;
+    }
+
+    const targetHeight = meteringToBarHeight(audioLevel);
+    
+    setBarHeights(prev => {
+      const newHeights = [...prev];
+      newHeights.shift();
+      newHeights.push(targetHeight);
+      return newHeights;
+    });
+  }, [audioLevel, isRecording]);
+
+  // 录音动画
+  useEffect(() => {
+    if (isRecording) {
+      pulseScale.value = withRepeat(
+        withSpring(1.2, { damping: 10 }),
+        -1,
+        true
+      );
+      micScale.value = withSpring(0.9, { damping: 20 });
+      if (isHoldMode) {
+        cancelOpacity.value = withTiming(1);
+      }
+    } else {
+      pulseScale.value = withSpring(1, { damping: 20 });
+      micScale.value = withSpring(1, { damping: 20 });
+      cancelOpacity.value = withTiming(0);
+    }
+  }, [isRecording, isHoldMode]);
+
+  const pulseAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pulseScale.value }],
+  }));
+
+  const micAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: micScale.value }],
+  }));
+
+  const cancelAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: cancelOpacity.value,
+  }));
+
+  // 检查是否在取消区域
+  const checkInCancelZone = useCallback((pageX: number, pageY: number) => {
+    if (!cancelZoneLayout.current) return false;
+    
+    const { x, y, width, height } = cancelZoneLayout.current;
+    return (
+      pageX >= x && 
+      pageX <= x + width && 
+      pageY >= y && 
+      pageY <= y + height
+    );
+  }, []);
+
   // 开始录音
   const handleStartRecording = useCallback(async () => {
-    // 先检查模型
     const canRecord = await checkAndDownloadModel();
     if (!canRecord) {
       return;
@@ -196,13 +226,53 @@ export default function RecordingScreen() {
     const transcription = await stopRecording();
     
     if (transcription) {
-      // 跳转到 AI Agent 分析页面
       router.push({
         pathname: "/(views)/agent-review",
         params: { transcription }
       });
     }
   }, [stopRecording, router]);
+
+  // 取消录音
+  const handleCancelRecording = useCallback(async () => {
+    await cancelRecording();
+    setIsInCancelZone(false);
+  }, [cancelRecording]);
+
+  // PanResponder 用于长按模式
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => isHoldMode && !isRecording,
+      onMoveShouldSetPanResponder: () => isHoldMode && isRecording,
+      onPanResponderGrant: () => {
+        if (isHoldMode && !isRecording) {
+          handleStartRecording();
+        }
+      },
+      onPanResponderMove: (_, gestureState) => {
+        if (isHoldMode && isRecording) {
+          const inCancelZone = checkInCancelZone(gestureState.moveX, gestureState.moveY);
+          setIsInCancelZone(inCancelZone);
+        }
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        if (isHoldMode && isRecording) {
+          const inCancelZone = checkInCancelZone(gestureState.moveX, gestureState.moveY);
+          
+          if (inCancelZone) {
+            handleCancelRecording();
+          } else {
+            handleStopRecording();
+          }
+        }
+      },
+      onPanResponderTerminate: () => {
+        if (isHoldMode && isRecording) {
+          handleCancelRecording();
+        }
+      },
+    })
+  ).current;
 
   // 渲染波形
   const renderWaveform = () => {
@@ -226,6 +296,20 @@ export default function RecordingScreen() {
         </View>
       </View>
     );
+  };
+
+  // 获取提示文字
+  const getHintText = () => {
+    if (isRecording) {
+      if (isHoldMode) {
+        return isInCancelZone ? '松开取消录音' : '松开结束录音';
+      }
+      return '点击麦克风结束录音';
+    }
+    if (isHoldMode) {
+      return '长按麦克风开始录音';
+    }
+    return '点击麦克风开始录音';
   };
 
   return (
@@ -259,16 +343,42 @@ export default function RecordingScreen() {
         </Text>
 
         {/* 提示文字 */}
-        {!isRecording && !isTranscribing && (
-          <Text style={[styles.hint, { color: colors.textMuted }]}>
-            点击下方麦克风开始录音
+        {!isTranscribing && !isCheckingModel && (
+          <Text style={[styles.hint, { 
+            color: isInCancelZone ? colors.danger : colors.textMuted 
+          }]}>
+            {getHintText()}
           </Text>
         )}
 
-        {isRecording && (
-          <Text style={[styles.hint, { color: colors.textMuted }]}>
-            点击麦克风结束录音
-          </Text>
+        {/* 长按模式的取消区域 */}
+        {isHoldMode && isRecording && (
+          <Animated.View 
+            style={[
+              styles.cancelZone,
+              cancelAnimatedStyle,
+              { 
+                backgroundColor: isInCancelZone ? `${colors.danger}30` : 'transparent',
+                borderColor: isInCancelZone ? colors.danger : colors.textMuted,
+              }
+            ]}
+            onLayout={(event) => {
+              const { x, y, width, height } = event.nativeEvent.layout;
+              cancelZoneLayout.current = { x, y, width, height };
+            }}
+          >
+            <Ionicons 
+              name="close-circle" 
+              size={40} 
+              color={isInCancelZone ? colors.danger : colors.textMuted} 
+            />
+            <Text style={[
+              styles.cancelZoneText, 
+              { color: isInCancelZone ? colors.danger : colors.textMuted }
+            ]}>
+              滑动到此处取消
+            </Text>
+          </Animated.View>
         )}
 
         {isTranscribing && (
@@ -316,17 +426,16 @@ export default function RecordingScreen() {
       {/* 录音按钮 */}
       {!isTranscribing && !isCheckingModel && (
         <View style={styles.buttonContainer}>
-          {isRecording ? (
+          {/* 点击模式：录音时显示取消和停止按钮 */}
+          {!isHoldMode && isRecording ? (
             <>
-              {/* 取消按钮 */}
               <TouchableOpacity
                 style={[styles.cancelButton, { borderColor: colors.danger }]}
-                onPress={cancelRecording}
+                onPress={handleCancelRecording}
               >
                 <Ionicons name="close" size={24} color={colors.danger} />
               </TouchableOpacity>
 
-              {/* 停止录音按钮 */}
               <Animated.View style={[styles.recordButtonOuter, pulseAnimatedStyle]}>
                 <TouchableOpacity
                   style={[styles.recordButton, { backgroundColor: colors.danger }]}
@@ -341,19 +450,41 @@ export default function RecordingScreen() {
               <View style={styles.placeholderButton} />
             </>
           ) : (
-            <>
-              <View style={styles.placeholderButton} />
+            /* 长按模式或空闲状态 */
+            <View style={styles.placeholderButton} />
+          )}
 
+          {/* 麦克风按钮 */}
+          {!isRecording && (
+            <Animated.View 
+              style={!isHoldMode ? undefined : pulseAnimatedStyle}
+              {...(isHoldMode ? panResponder.panHandlers : {})}
+            >
               <TouchableOpacity
                 style={[styles.recordButton, { backgroundColor: colors.primary }]}
-                onPress={handleStartRecording}
+                onPress={!isHoldMode ? handleStartRecording : undefined}
+                activeOpacity={isHoldMode ? 1 : 0.8}
               >
                 <Ionicons name="mic" size={40} color="#0a0a0a" />
               </TouchableOpacity>
-
-              <View style={styles.placeholderButton} />
-            </>
+            </Animated.View>
           )}
+
+          {/* 长按模式录音时，中间显示麦克风 */}
+          {isHoldMode && isRecording && (
+            <Animated.View style={pulseAnimatedStyle} {...panResponder.panHandlers}>
+              <TouchableOpacity
+                style={[styles.recordButton, { backgroundColor: colors.danger }]}
+                activeOpacity={1}
+              >
+                <Animated.View style={micAnimatedStyle}>
+                  <Ionicons name="stop" size={32} color="#fff" />
+                </Animated.View>
+              </TouchableOpacity>
+            </Animated.View>
+          )}
+
+          <View style={styles.placeholderButton} />
         </View>
       )}
     </SafeAreaView>
@@ -426,6 +557,22 @@ const styles = StyleSheet.create({
   hint: {
     fontSize: 15,
     textAlign: 'center',
+  },
+  cancelZone: {
+    marginTop: 40,
+    padding: 20,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 150,
+    minHeight: 100,
+  },
+  cancelZoneText: {
+    marginTop: 8,
+    fontSize: 14,
+    fontWeight: '500',
   },
   transcribingContainer: {
     alignItems: 'center',

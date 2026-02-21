@@ -10,6 +10,7 @@ export type DistanceUnit = "km" | "mi";
 export type ThemeMode = "light" | "dark" | "system";
 export type MapType = "standard" | "satellite" | "hybrid";
 export type PathColor = "blue" | "red" | "green" | "orange" | "purple";
+export type RecordingMode = "hold" | "tap"; // 录音方式：长按/点击
 
 /**
  * 应用设置配置接口
@@ -92,6 +93,12 @@ export interface AppSettings {
       showSimilarContacts: boolean;      // 显示相似联系人
     };
   };
+  
+  // 录音设置
+  recording: {
+    mode: RecordingMode;         // 录音方式：hold(长按) / tap(点击)
+    maxDuration: number;         // 最大录音时长（秒）
+  };
 }
 
 /**
@@ -105,7 +112,8 @@ export type SettingPath = keyof AppSettings |
   `plan.${keyof AppSettings['plan']}` |
   `map.${keyof AppSettings['map']}` |
   `ai.localModel.${keyof AppSettings['ai']['localModel']}` |
-  `ai.matching.${keyof AppSettings['ai']['matching']}`;
+  `ai.matching.${keyof AppSettings['ai']['matching']}` |
+  `recording.${keyof AppSettings['recording']}`;
 
 // ==================== 默认值 ====================
 
@@ -171,6 +179,11 @@ export const DEFAULT_SETTINGS: AppSettings = {
       autoMergeHighConfidence: false,  // 默认不自动合并
       showSimilarContacts: true,       // 默认显示相似联系人建议
     },
+  },
+  // 录音设置默认值
+  recording: {
+    mode: "hold",              // 默认长按模式
+    maxDuration: 300,          // 默认最大5分钟
   },
 };
 

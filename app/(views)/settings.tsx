@@ -20,20 +20,6 @@ import Animated, {
 } from "react-native-reanimated";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { useSettingsStore } from "@/store/settingsStore";
-import {
-  isModelDownloaded,
-  getModelFileSize,
-  downloadModel,
-  deleteModel,
-  formatFileSize,
-  AVAILABLE_MODELS,
-  getAllModels,
-  getRecommendedModel,
-  getDownloadedModels,
-  getTotalModelSize,
-  deleteAllModels,
-  type ModelId,
-} from "@/services/ai/modelManager";
 
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
@@ -138,122 +124,11 @@ export default function SettingsScreen() {
   const [hapticEnabled, setHapticEnabled] = useState(true);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
 
-  // AI 模型状态
-  const [downloadedModels, setDownloadedModels] = useState<ModelId[]>([]);
-  const [modelSizes, setModelSizes] = useState<Record<string, number>>({});
-  const [downloadingModel, setDownloadingModel] = useState<ModelId | null>(null);
-  const [downloadProgress, setDownloadProgress] = useState(0);
-  const [showModelList, setShowModelList] = useState(false);
-
   // 获取当前语言显示
   const getLanguageLabel = () => {
     const lang = i18n.language;
     if (lang.startsWith("zh")) return "中文";
     return "English";
-  };
-
-  // 检查模型状态
-  useEffect(() => {
-    checkModelStatus();
-  }, []);
-
-  const checkModelStatus = async () => {
-    const downloaded = await getDownloadedModels();
-    setDownloadedModels(downloaded);
-    
-    // 获取每个模型的大小
-    const sizes: Record<ModelId, number> = {} as Record<ModelId, number>;
-    for (const modelId of downloaded) {
-      sizes[modelId] = await getModelFileSize(modelId);
-    }
-    setModelSizes(sizes);
-    
-    // 更新设置中的模型信息
-    if (downloaded.length > 0) {
-      const primaryModel = AVAILABLE_MODELS[downloaded[0]];
-      await updateSetting("ai.localModel.downloaded", true);
-      await updateSetting("ai.localModel.modelName", primaryModel.name);
-      await updateSetting("ai.localModel.modelSize", primaryModel.size);
-    }
-  };
-
-  // 下载模型
-  const handleDownloadModel = (modelId: ModelId) => {
-    const config = AVAILABLE_MODELS[modelId];
-    Alert.alert(
-      `下载 ${config.name}`,
-      `${config.description}\n\n大小: ${formatFileSize(config.size * 1024 * 1024)}\n\n建议在 Wi-Fi 环境下下载。`,
-      [
-        { text: "取消", style: "cancel" },
-        {
-          text: "下载",
-          onPress: async () => {
-            setDownloadingModel(modelId);
-            setDownloadProgress(0);
-            const result = await downloadModel(modelId, (progress) => {
-              setDownloadProgress(progress.percentage);
-            });
-            setDownloadingModel(null);
-
-            if (result.success) {
-              await checkModelStatus();
-              Alert.alert("下载完成", `${config.name} 已成功下载并启用`);
-            } else {
-              Alert.alert("下载失败", result.error || "请检查网络连接后重试");
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  // 删除模型
-  const handleDeleteModel = (modelId: ModelId) => {
-    const config = AVAILABLE_MODELS[modelId];
-    Alert.alert(
-      `删除 ${config.name}`,
-      "确定要删除此模型吗？",
-      [
-        { text: "取消", style: "cancel" },
-        {
-          text: "删除",
-          style: "destructive",
-          onPress: async () => {
-            const result = await deleteModel(modelId);
-            if (result.success) {
-              await checkModelStatus();
-              Alert.alert("已删除", `${config.name} 已删除`);
-            } else {
-              Alert.alert("删除失败", result.error || "请重试");
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  // 删除所有模型
-  const handleDeleteAllModels = () => {
-    Alert.alert(
-      "删除所有模型",
-      "确定要删除所有已下载的 AI 模型吗？这将释放所有存储空间。",
-      [
-        { text: "取消", style: "cancel" },
-        {
-          text: "全部删除",
-          style: "destructive",
-          onPress: async () => {
-            const result = await deleteAllModels();
-            if (result.success) {
-              await checkModelStatus();
-              Alert.alert("已删除", "所有 AI 模型已删除");
-            } else {
-              Alert.alert("删除失败", result.error || "请重试");
-            }
-          },
-        },
-      ]
-    );
   };
 
   // Kill Switch - 销毁所有数据
@@ -440,30 +315,6 @@ export default function SettingsScreen() {
           </Text>
 
           <View style={styles.card}>
-            <SettingItem
-              icon="cube"
-              title="管理 AI 模型"
-              subtitle={
-                downloadedModels.length > 0
-                  ? `当前使用: ${AVAILABLE_MODELS[downloadedModels[downloadedModels.length - 1]].name}`
-                  : `未下载模型 · ${getAllModels().length} 个可用`
-              }
-              onPress={() => router.push("/(views)/ai-models")}
-              colors={colors}
-            />
-
-            <SettingItem
-              icon="sparkles"
-              title="本地 AI 模型"
-              subtitle={settings.ai.localModel.enabled ? '已启用' : '已禁用'}
-              toggle
-              toggleValue={settings.ai.localModel.enabled}
-              onToggle={(value) =>
-                updateSetting("ai.localModel.enabled", value)
-              }
-              colors={colors}
-            />
-
             <SettingItem
               icon="git-merge"
               title="自动合并高置信度"

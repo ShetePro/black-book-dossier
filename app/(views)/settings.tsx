@@ -443,7 +443,11 @@ export default function SettingsScreen() {
             <SettingItem
               icon="cube"
               title="管理 AI 模型"
-              subtitle={`${downloadedModels.length} 个已下载 · ${getAllModels().length - downloadedModels.length} 个可用`}
+              subtitle={
+                downloadedModels.length > 0
+                  ? `当前使用: ${AVAILABLE_MODELS[downloadedModels[downloadedModels.length - 1]].name}`
+                  : `未下载模型 · ${getAllModels().length} 个可用`
+              }
               onPress={() => router.push("/(views)/ai-models")}
               colors={colors}
             />

@@ -456,31 +456,36 @@ export default function RecordingScreen() {
 
           {/* 麦克风按钮 */}
           {!isRecording && (
-            <Animated.View 
-              style={!isHoldMode ? undefined : pulseAnimatedStyle}
-              {...(isHoldMode ? panResponder.panHandlers : {})}
-            >
-              <TouchableOpacity
-                style={[styles.recordButton, { backgroundColor: colors.primary }]}
-                onPress={!isHoldMode ? handleStartRecording : undefined}
-                activeOpacity={isHoldMode ? 1 : 0.8}
-              >
-                <Ionicons name="mic" size={40} color="#0a0a0a" />
-              </TouchableOpacity>
-            </Animated.View>
+            <>
+              {isHoldMode ? (
+                /* 长按模式：使用 Animated.View 绑定 PanResponder */
+                <Animated.View 
+                  style={[styles.recordButton, pulseAnimatedStyle, { backgroundColor: colors.primary }]}
+                  {...panResponder.panHandlers}
+                >
+                  <Ionicons name="mic" size={40} color="#0a0a0a" />
+                </Animated.View>
+              ) : (
+                /* 点击模式：使用 TouchableOpacity */
+                <TouchableOpacity
+                  style={[styles.recordButton, { backgroundColor: colors.primary }]}
+                  onPress={handleStartRecording}
+                >
+                  <Ionicons name="mic" size={40} color="#0a0a0a" />
+                </TouchableOpacity>
+              )}
+            </>
           )}
 
           {/* 长按模式录音时，中间显示麦克风 */}
           {isHoldMode && isRecording && (
-            <Animated.View style={pulseAnimatedStyle} {...panResponder.panHandlers}>
-              <TouchableOpacity
-                style={[styles.recordButton, { backgroundColor: colors.danger }]}
-                activeOpacity={1}
-              >
-                <Animated.View style={micAnimatedStyle}>
-                  <Ionicons name="stop" size={32} color="#fff" />
-                </Animated.View>
-              </TouchableOpacity>
+            <Animated.View 
+              style={[styles.recordButton, pulseAnimatedStyle, { backgroundColor: colors.danger }]} 
+              {...panResponder.panHandlers}
+            >
+              <Animated.View style={micAnimatedStyle}>
+                <Ionicons name="stop" size={32} color="#fff" />
+              </Animated.View>
             </Animated.View>
           )}
 

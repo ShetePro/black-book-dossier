@@ -20,6 +20,8 @@ import Animated, {
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { StatusBar } from "expo-status-bar";
 import { useRecorder } from "@/hooks/useRecorder";
+import { isModelDownloaded, downloadModel, formatFileSize, getModelInfo } from "@/services/voice/whisper";
+import { Alert } from "react-native";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -119,8 +121,73 @@ export default function RecordingScreen() {
     transform: [{ scale: micScale.value }],
   }));
 
+  // 检查并下载模型
+  const [isCheckingModel, setIsCheckingModel] = useState(false);
+  const [modelDownloadProgress, setModelDownloadProgress] = useState(0);
+  
+  const checkAndDownloadModel = async (): Promise<boolean> => {
+    setIsCheckingModel(true);
+    setModelDownloadProgress(0);
+    
+    try {
+      const hasModel = await isModelDownloaded();
+      
+      if (hasModel) {
+        setIsCheckingModel(false);
+        return true;
+      }
+      
+      // 模型未下载，显示提示
+      const modelInfo = getModelInfo();
+      
+      return new Promise((resolve) => {
+        Alert.alert(
+          '下载语音模型',
+          `首次使用需要下载 Whisper Tiny 语音模型（${formatFileSize(modelInfo.size * 1024 * 1024)}）。\n\n建议在 Wi-Fi 环境下下载。`,
+          [
+            { 
+              text: '取消', 
+              style: 'cancel',
+              onPress: () => {
+                setIsCheckingModel(false);
+                resolve(false);
+              }
+            },
+            {
+              text: '下载',
+              onPress: async () => {
+                const result = await downloadModel((progress) => {
+                  setModelDownloadProgress(progress);
+                });
+                
+                setIsCheckingModel(false);
+                
+                if (result.success) {
+                  resolve(true);
+                } else {
+                  Alert.alert('下载失败', result.error || '请检查网络连接后重试');
+                  resolve(false);
+                }
+              },
+            },
+          ]
+        );
+      });
+    } catch (error) {
+      console.error('Error checking model:', error);
+      setIsCheckingModel(false);
+      return false;
+    }
+  };
+
   // 开始录音
   const handleStartRecording = useCallback(async () => {
+    // 先检查模型
+    const canRecord = await checkAndDownloadModel();
+    if (!canRecord) {
+      return;
+    }
+    
     await startRecording();
   }, [startRecording]);
 
@@ -216,6 +283,29 @@ export default function RecordingScreen() {
           </View>
         )}
 
+        {isCheckingModel && (
+          <View style={styles.transcribingContainer}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={[styles.transcribingText, { color: colors.text }]} >
+              正在下载语音模型...
+            </Text>
+            <View style={[styles.progressBar, { backgroundColor: colors.elevated }]}>
+              <View
+                style={[
+                  styles.progressFill,
+                  { 
+                    backgroundColor: colors.primary,
+                    width: `${modelDownloadProgress * 100}%`,
+                  },
+                ]}
+              />
+            </View>
+            <Text style={[styles.transcribingSubtext, { color: colors.textMuted }]} >
+              {(modelDownloadProgress * 100).toFixed(1)}%
+            </Text>
+          </View>
+        )}
+
         {error && (
           <Text style={[styles.error, { color: colors.danger }]} >
             {error}
@@ -224,7 +314,7 @@ export default function RecordingScreen() {
       </View>
 
       {/* 录音按钮 */}
-      {!isTranscribing && (
+      {!isTranscribing && !isCheckingModel && (
         <View style={styles.buttonContainer}>
           {isRecording ? (
             <>
@@ -273,6 +363,17 @@ export default function RecordingScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  progressBar: {
+    width: 200,
+    height: 6,
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginTop: 16,
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 3,
   },
   header: {
     flexDirection: 'row',

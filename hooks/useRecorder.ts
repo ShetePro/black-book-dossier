@@ -79,26 +79,26 @@ export const useRecorder = (): UseRecorderReturn => {
         {
           isMeteringEnabled: true,
           android: {
-            extension: '.m4a',
-            outputFormat: Audio.AndroidOutputFormat.MPEG_4,
-            audioEncoder: Audio.AndroidAudioEncoder.AAC,
+            extension: '.wav',
+            outputFormat: Audio.AndroidOutputFormat.DEFAULT,
+            audioEncoder: Audio.AndroidAudioEncoder.DEFAULT,
             sampleRate: 16000,
             numberOfChannels: 1,
-            bitRate: 128000,
+            bitRate: 256000,
           },
           ios: {
-            extension: '.m4a',
+            extension: '.wav',
             audioQuality: Audio.IOSAudioQuality.HIGH,
             sampleRate: 16000,
             numberOfChannels: 1,
-            bitRate: 128000,
+            bitRate: 256000,
             linearPCMBitDepth: 16,
             linearPCMIsBigEndian: false,
             linearPCMIsFloat: false,
           },
           web: {
-            mimeType: 'audio/webm',
-            bitsPerSecond: 128000,
+            mimeType: 'audio/wav',
+            bitsPerSecond: 256000,
           },
         }
       );

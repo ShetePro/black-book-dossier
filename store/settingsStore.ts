@@ -74,6 +74,24 @@ export interface AppSettings {
     pathColor: PathColor;
     pathWidth: number;
   };
+  
+  // AI 设置
+  ai: {
+    // 本地 LLM 模型
+    localModel: {
+      enabled: boolean;           // 是否启用本地模型
+      downloaded: boolean;        // 是否已下载
+      modelName: string;          // 模型名称
+      modelSize: number;          // 模型大小 (MB)
+      version: string;            // 模型版本
+    };
+    // 匹配设置
+    matching: {
+      threshold: number;          // 匹配阈值 0.0-1.0
+      autoMergeHighConfidence: boolean;  // 自动合并高置信度
+      showSimilarContacts: boolean;      // 显示相似联系人
+    };
+  };
 }
 
 /**
@@ -85,7 +103,9 @@ export type SettingPath = keyof AppSettings |
   `sync.${keyof AppSettings['sync']}` |
   `run.${keyof AppSettings['run']}` |
   `plan.${keyof AppSettings['plan']}` |
-  `map.${keyof AppSettings['map']}`;
+  `map.${keyof AppSettings['map']}` |
+  `ai.localModel.${keyof AppSettings['ai']['localModel']}` |
+  `ai.matching.${keyof AppSettings['ai']['matching']}`;
 
 // ==================== 默认值 ====================
 
@@ -136,6 +156,21 @@ export const DEFAULT_SETTINGS: AppSettings = {
     showPOI: true,       // 默认显示兴趣点
     pathColor: "blue",
     pathWidth: 4,
+  },
+  // AI 设置默认值
+  ai: {
+    localModel: {
+      enabled: false,           // 默认不启用，需要用户手动下载
+      downloaded: false,        // 默认未下载
+      modelName: "Phi-3 Mini",  // 默认模型
+      modelSize: 3800,          // 3.8GB (MB)
+      version: "1.0",
+    },
+    matching: {
+      threshold: 0.7,           // 默认匹配阈值 70%
+      autoMergeHighConfidence: false,  // 默认不自动合并
+      showSimilarContacts: true,       // 默认显示相似联系人建议
+    },
   },
 };
 
@@ -218,7 +253,10 @@ interface SettingsState {
   resetSettings: () => Promise<void>;
   
   // 重置特定分组的设置
-  resetGroup: (group: "privacy" | "sync" | "run" | "plan" | "map") => Promise<void>;
+  resetGroup: (group: "privacy" | "sync" | "run" | "plan" | "map" | "ai") => Promise<void>;
+  
+  // 更新本地模型下载状态
+  updateLocalModelStatus: (downloaded: boolean, size?: number) => Promise<void>;
 }
 
 export const useSettingsStore = create<SettingsState>((set, get) => ({
@@ -318,6 +356,26 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     const newSettings = {
       ...settings,
       [group]: DEFAULT_SETTINGS[group],
+    };
+    
+    await setStorageItemAsync(SETTINGS_STORAGE_KEY, JSON.stringify(newSettings));
+    set({ settings: newSettings });
+  },
+  
+  // 更新本地模型下载状态
+  updateLocalModelStatus: async (downloaded: boolean, size?: number) => {
+    const { settings } = get();
+    const newSettings = {
+      ...settings,
+      ai: {
+        ...settings.ai,
+        localModel: {
+          ...settings.ai.localModel,
+          downloaded,
+          enabled: downloaded, // 下载完成后自动启用
+          ...(size && { modelSize: size }),
+        },
+      },
     };
     
     await setStorageItemAsync(SETTINGS_STORAGE_KEY, JSON.stringify(newSettings));

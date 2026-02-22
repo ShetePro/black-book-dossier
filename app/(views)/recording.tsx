@@ -476,6 +476,7 @@ export default function RecordingScreen() {
                       : colors.primary,
                   }
                 ]}
+                collapsable={false}
                 {...(isHoldMode ? panResponder.panHandlers : {})}
               >
                 {isHoldMode ? (

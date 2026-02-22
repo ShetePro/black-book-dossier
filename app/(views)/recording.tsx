@@ -87,6 +87,12 @@ export default function RecordingScreen() {
   // 微信风格：手指上滑取消
   const [isInCancelZone, setIsInCancelZone] = useState(false);
   const gestureStartY = useRef(0);
+
+  // 使用 ref 跟踪录音状态，供 PanResponder 使用（避免闭包问题）
+  const isRecordingRef = useRef(isRecording);
+  useEffect(() => {
+    isRecordingRef.current = isRecording;
+  }, [isRecording]);
   
   // 波形条数据
   const [barHeights, setBarHeights] = useState<number[]>(
@@ -235,17 +241,17 @@ export default function RecordingScreen() {
   // PanResponder 用于微信风格的长按模式
   const panResponder = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => isHoldMode && !isRecording,
-      onMoveShouldSetPanResponder: () => isHoldMode && isRecording,
+      onStartShouldSetPanResponder: () => isHoldMode && !isRecordingRef.current,
+      onMoveShouldSetPanResponder: () => isHoldMode && isRecordingRef.current,
       onPanResponderGrant: () => {
-        if (isHoldMode && !isRecording) {
+        if (isHoldMode && !isRecordingRef.current) {
           gestureStartY.current = 0;
           setIsInCancelZone(false);
           handleStartRecording();
         }
       },
       onPanResponderMove: (_, gestureState) => {
-        if (isHoldMode && isRecording) {
+        if (isHoldMode && isRecordingRef.current) {
           // 微信风格：手指向上滑动超过阈值进入取消区域
           const isCancel = gestureState.dy < CANCEL_THRESHOLD;
           setIsInCancelZone(isCancel);
@@ -259,8 +265,10 @@ export default function RecordingScreen() {
         }
       },
       onPanResponderRelease: (_, gestureState) => {
-        if (isHoldMode && isRecording) {
+        console.log('[Recording] Release - dy:', gestureState.dy, 'recording:', isRecordingRef.current);
+        if (isHoldMode && isRecordingRef.current) {
           const isCancel = gestureState.dy < CANCEL_THRESHOLD;
+          console.log('[Recording] Is cancel:', isCancel);
           
           if (isCancel) {
             handleCancelRecording();
@@ -272,7 +280,8 @@ export default function RecordingScreen() {
         }
       },
       onPanResponderTerminate: () => {
-        if (isHoldMode && isRecording) {
+        console.log('[Recording] Terminate - recording:', isRecordingRef.current);
+        if (isHoldMode && isRecordingRef.current) {
           handleCancelRecording();
           hintOpacity.value = withTiming(1);
         }

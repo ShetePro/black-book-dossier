@@ -36,6 +36,12 @@ const BAR_GAP = 3;
 const MIN_BAR_HEIGHT = 6;
 const MAX_BAR_HEIGHT = 120;
 
+// 取消阈值：手指向上滑动超过100px
+const CANCEL_THRESHOLD = -100;
+
+// 最大录音时长（秒）
+const MAX_RECORDING_DURATION = 60;
+
 // 音频电平转换为条高度
 const meteringToBarHeight = (metering: number): number => {
   const threshold = -50;
@@ -78,9 +84,9 @@ export default function RecordingScreen() {
   // 录音模式（从设置读取，默认长按）
   const isHoldMode = settings.recording.mode === 'hold';
   
-  // 长按模式状态
+  // 微信风格：手指上滑取消
   const [isInCancelZone, setIsInCancelZone] = useState(false);
-  const cancelZoneLayout = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
+  const gestureStartY = useRef(0);
   
   // 波形条数据
   const [barHeights, setBarHeights] = useState<number[]>(
@@ -90,7 +96,7 @@ export default function RecordingScreen() {
   // 动画值
   const pulseScale = useSharedValue(1);
   const micScale = useSharedValue(1);
-  const cancelOpacity = useSharedValue(0);
+  const hintOpacity = useSharedValue(1);
 
   // 检查并下载模型
   const [isCheckingModel, setIsCheckingModel] = useState(false);
@@ -171,20 +177,24 @@ export default function RecordingScreen() {
   useEffect(() => {
     if (isRecording) {
       pulseScale.value = withRepeat(
-        withSpring(1.2, { damping: 10 }),
+        withSpring(1.15, { damping: 15 }),
         -1,
         true
       );
-      micScale.value = withSpring(0.9, { damping: 20 });
-      if (isHoldMode) {
-        cancelOpacity.value = withTiming(1);
-      }
+      micScale.value = withSpring(0.95, { damping: 20 });
     } else {
       pulseScale.value = withSpring(1, { damping: 20 });
       micScale.value = withSpring(1, { damping: 20 });
-      cancelOpacity.value = withTiming(0);
+      hintOpacity.value = withTiming(1);
     }
-  }, [isRecording, isHoldMode]);
+  }, [isRecording]);
+
+  // 倒计时检查
+  useEffect(() => {
+    if (isRecording && duration >= MAX_RECORDING_DURATION) {
+      handleStopRecording();
+    }
+  }, [duration, isRecording]);
 
   const pulseAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: pulseScale.value }],
@@ -193,23 +203,6 @@ export default function RecordingScreen() {
   const micAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: micScale.value }],
   }));
-
-  const cancelAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: cancelOpacity.value,
-  }));
-
-  // 检查是否在取消区域
-  const checkInCancelZone = useCallback((pageX: number, pageY: number) => {
-    if (!cancelZoneLayout.current) return false;
-    
-    const { x, y, width, height } = cancelZoneLayout.current;
-    return (
-      pageX >= x && 
-      pageX <= x + width && 
-      pageY >= y && 
-      pageY <= y + height
-    );
-  }, []);
 
   // 开始录音
   const handleStartRecording = useCallback(async () => {
@@ -239,36 +232,49 @@ export default function RecordingScreen() {
     setIsInCancelZone(false);
   }, [cancelRecording]);
 
-  // PanResponder 用于长按模式
+  // PanResponder 用于微信风格的长按模式
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => isHoldMode && !isRecording,
       onMoveShouldSetPanResponder: () => isHoldMode && isRecording,
       onPanResponderGrant: () => {
         if (isHoldMode && !isRecording) {
+          gestureStartY.current = 0;
+          setIsInCancelZone(false);
           handleStartRecording();
         }
       },
       onPanResponderMove: (_, gestureState) => {
         if (isHoldMode && isRecording) {
-          const inCancelZone = checkInCancelZone(gestureState.moveX, gestureState.moveY);
-          setIsInCancelZone(inCancelZone);
+          // 微信风格：手指向上滑动超过阈值进入取消区域
+          const isCancel = gestureState.dy < CANCEL_THRESHOLD;
+          setIsInCancelZone(isCancel);
+          
+          // 更新提示文字透明度
+          if (isCancel) {
+            hintOpacity.value = withTiming(0.5);
+          } else {
+            hintOpacity.value = withTiming(1);
+          }
         }
       },
       onPanResponderRelease: (_, gestureState) => {
         if (isHoldMode && isRecording) {
-          const inCancelZone = checkInCancelZone(gestureState.moveX, gestureState.moveY);
+          const isCancel = gestureState.dy < CANCEL_THRESHOLD;
           
-          if (inCancelZone) {
+          if (isCancel) {
             handleCancelRecording();
           } else {
             handleStopRecording();
           }
+          
+          hintOpacity.value = withTiming(1);
         }
       },
       onPanResponderTerminate: () => {
         if (isHoldMode && isRecording) {
           handleCancelRecording();
+          hintOpacity.value = withTiming(1);
         }
       },
     })
@@ -276,6 +282,8 @@ export default function RecordingScreen() {
 
   // 渲染波形
   const renderWaveform = () => {
+    if (!isRecording) return null;
+    
     return (
       <View style={styles.waveformContainer}>
         <View style={[styles.waveform, { width: WAVE_WIDTH }]}>
@@ -288,7 +296,7 @@ export default function RecordingScreen() {
                   width: BAR_WIDTH,
                   height: Math.max(height, MIN_BAR_HEIGHT),
                   marginHorizontal: BAR_GAP / 2,
-                  backgroundColor: isRecording ? colors.primary : colors.textMuted,
+                  backgroundColor: isInCancelZone ? colors.danger : colors.primary,
                 },
               ]}
             />
@@ -298,18 +306,13 @@ export default function RecordingScreen() {
     );
   };
 
-  // 获取提示文字
-  const getHintText = () => {
-    if (isRecording) {
-      if (isHoldMode) {
-        return isInCancelZone ? '松开取消录音' : '松开结束录音';
-      }
-      return '点击麦克风结束录音';
+  // 获取倒计时显示
+  const getCountdownText = () => {
+    const remaining = MAX_RECORDING_DURATION - duration;
+    if (remaining <= 10) {
+      return `${remaining}s`;
     }
-    if (isHoldMode) {
-      return '长按麦克风开始录音';
-    }
-    return '点击麦克风开始录音';
+    return null;
   };
 
   return (
@@ -329,56 +332,50 @@ export default function RecordingScreen() {
           {isTranscribing ? '正在转录...' : isRecording ? '正在录音' : '录音'}
         </Text>
 
-        <View style={styles.placeholder} />
+        {/* 倒计时显示 */}
+        <View style={styles.countdownContainer}>
+          {isRecording && getCountdownText() && (
+            <Text style={[styles.countdownText, { color: colors.danger }]}>
+              {getCountdownText()}
+            </Text>
+          )}
+        </View>
       </View>
 
       {/* Main Content */}
       <View style={styles.content}>
-        {/* 波形 */}
+        {/* 波形 - 只在录音时显示 */}
         {renderWaveform()}
 
         {/* 时长显示 */}
-        <Text style={[styles.duration, { color: colors.text }]}>
-          {formatDuration(duration)}
-        </Text>
-
-        {/* 提示文字 */}
-        {!isTranscribing && !isCheckingModel && (
-          <Text style={[styles.hint, { 
-            color: isInCancelZone ? colors.danger : colors.textMuted 
-          }]}>
-            {getHintText()}
+        {isRecording && (
+          <Text style={[styles.duration, { color: isInCancelZone ? colors.danger : colors.text }]}>
+            {formatDuration(duration)}
           </Text>
         )}
 
-        {/* 长按模式的取消区域 */}
+        {/* 微信风格提示区域 */}
         {isHoldMode && isRecording && (
-          <Animated.View 
-            style={[
-              styles.cancelZone,
-              cancelAnimatedStyle,
-              { 
-                backgroundColor: isInCancelZone ? `${colors.danger}30` : 'transparent',
-                borderColor: isInCancelZone ? colors.danger : colors.textMuted,
-              }
-            ]}
-            onLayout={(event) => {
-              const { x, y, width, height } = event.nativeEvent.layout;
-              cancelZoneLayout.current = { x, y, width, height };
-            }}
-          >
+          <Animated.View style={[styles.hintContainer, { opacity: hintOpacity }]}>
             <Ionicons 
-              name="close-circle" 
-              size={40} 
+              name={isInCancelZone ? "trash" : "arrow-up"} 
+              size={24} 
               color={isInCancelZone ? colors.danger : colors.textMuted} 
             />
             <Text style={[
-              styles.cancelZoneText, 
+              styles.hintText, 
               { color: isInCancelZone ? colors.danger : colors.textMuted }
             ]}>
-              滑动到此处取消
+              {isInCancelZone ? '松开手指，取消发送' : '手指上滑，取消发送'}
             </Text>
           </Animated.View>
+        )}
+
+        {/* 点击模式的提示 */}
+        {!isHoldMode && !isTranscribing && !isCheckingModel && !isRecording && (
+          <Text style={[styles.hint, { color: colors.textMuted }]}>
+            点击麦克风开始录音
+          </Text>
         )}
 
         {isTranscribing && (
@@ -423,73 +420,83 @@ export default function RecordingScreen() {
         )}
       </View>
 
-      {/* 录音按钮 */}
+      {/* 底部录音按钮区域 */}
       {!isTranscribing && !isCheckingModel && (
-        <View style={styles.buttonContainer}>
-          {/* 点击模式：录音时显示取消和停止按钮 */}
+        <View style={styles.bottomContainer}>
+          {/* 点击模式：录音时显示停止按钮 */}
           {!isHoldMode && isRecording ? (
-            <>
+            <View style={styles.buttonRow}>
               <TouchableOpacity
-                style={[styles.cancelButton, { borderColor: colors.danger }]}
+                style={[styles.secondaryButton, { borderColor: colors.border }]}
                 onPress={handleCancelRecording}
               >
-                <Ionicons name="close" size={24} color={colors.danger} />
+                <Text style={[styles.secondaryButtonText, { color: colors.text }]}>
+                  取消
+                </Text>
               </TouchableOpacity>
 
-              <Animated.View style={[styles.recordButtonOuter, pulseAnimatedStyle]}>
+              <Animated.View style={[styles.recordButtonLarge, pulseAnimatedStyle]}>
                 <TouchableOpacity
-                  style={[styles.recordButton, { backgroundColor: colors.danger }]}
+                  style={[styles.recordButtonInner, { backgroundColor: colors.danger }]}
                   onPress={handleStopRecording}
                 >
-                  <Animated.View style={micAnimatedStyle}>
-                    <Ionicons name="stop" size={32} color="#fff" />
-                  </Animated.View>
+                  <Ionicons name="stop" size={32} color="#fff" />
                 </TouchableOpacity>
               </Animated.View>
 
-              <View style={styles.placeholderButton} />
-            </>
+              <View style={styles.placeholderSmall} />
+            </View>
           ) : (
             /* 长按模式或空闲状态 */
-            <View style={styles.placeholderButton} />
-          )}
-
-          {/* 麦克风按钮 */}
-          {!isRecording && (
-            <>
-              {isHoldMode ? (
-                /* 长按模式：使用 Animated.View 绑定 PanResponder */
-                <Animated.View 
-                  style={[styles.recordButton, pulseAnimatedStyle, { backgroundColor: colors.primary }]}
-                  {...panResponder.panHandlers}
-                >
-                  <Ionicons name="mic" size={40} color="#0a0a0a" />
-                </Animated.View>
-              ) : (
-                /* 点击模式：使用 TouchableOpacity */
-                <TouchableOpacity
-                  style={[styles.recordButton, { backgroundColor: colors.primary }]}
-                  onPress={handleStartRecording}
-                >
-                  <Ionicons name="mic" size={40} color="#0a0a0a" />
-                </TouchableOpacity>
+            <View style={styles.holdButtonContainer}>
+              {/* 长按模式提示文字 */}
+              {isHoldMode && !isRecording && (
+                <Text style={[styles.holdHint, { color: colors.textMuted }]}>
+                  按住 说话
+                </Text>
               )}
-            </>
-          )}
 
-          {/* 长按模式录音时，中间显示麦克风 */}
-          {isHoldMode && isRecording && (
-            <Animated.View 
-              style={[styles.recordButton, pulseAnimatedStyle, { backgroundColor: colors.danger }]} 
-              {...panResponder.panHandlers}
-            >
-              <Animated.View style={micAnimatedStyle}>
-                <Ionicons name="stop" size={32} color="#fff" />
+              {/* 麦克风按钮 */}
+              <Animated.View 
+                style={[
+                  styles.recordButtonMain, 
+                  pulseAnimatedStyle,
+                  { 
+                    backgroundColor: isRecording 
+                      ? (isInCancelZone ? colors.danger : colors.primary)
+                      : colors.primary,
+                  }
+                ]}
+                {...(isHoldMode ? panResponder.panHandlers : {})}
+              >
+                {isHoldMode ? (
+                  // 长按模式：直接显示图标
+                  <Animated.View style={micAnimatedStyle}>
+                    <Ionicons 
+                      name={isRecording ? "stop" : "mic"} 
+                      size={36} 
+                      color={isRecording ? "#fff" : "#0a0a0a"} 
+                    />
+                  </Animated.View>
+                ) : (
+                  // 点击模式：使用 TouchableOpacity
+                  <TouchableOpacity
+                    onPress={handleStartRecording}
+                    style={styles.tapButtonInner}
+                  >
+                    <Ionicons name="mic" size={36} color="#0a0a0a" />
+                  </TouchableOpacity>
+                )}
               </Animated.View>
-            </Animated.View>
-          )}
 
-          <View style={styles.placeholderButton} />
+              {/* 长按模式录音时的提示 */}
+              {isHoldMode && isRecording && (
+                <Text style={[styles.recordingLabel, { color: colors.textMuted }]}>
+                  松开发送
+                </Text>
+              )}
+            </View>
+          )}
         </View>
       )}
     </SafeAreaView>
@@ -499,17 +506,6 @@ export default function RecordingScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  progressBar: {
-    width: 200,
-    height: 6,
-    borderRadius: 3,
-    overflow: 'hidden',
-    marginTop: 16,
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 3,
   },
   header: {
     flexDirection: 'row',
@@ -530,8 +526,13 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
   },
-  placeholder: {
+  countdownContainer: {
     width: 44,
+    alignItems: 'center',
+  },
+  countdownText: {
+    fontSize: 16,
+    fontWeight: '700',
   },
   content: {
     flex: 1,
@@ -540,10 +541,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   waveformContainer: {
-    height: 150,
+    height: 120,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: 20,
   },
   waveform: {
     flexDirection: 'row',
@@ -554,30 +555,24 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
   duration: {
-    fontSize: 48,
-    fontWeight: '200',
+    fontSize: 36,
+    fontWeight: '300',
     fontVariant: ['tabular-nums'],
-    marginBottom: 16,
+    marginBottom: 20,
+  },
+  hintContainer: {
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 20,
+  },
+  hintText: {
+    fontSize: 16,
+    fontWeight: '500',
   },
   hint: {
     fontSize: 15,
     textAlign: 'center',
-  },
-  cancelZone: {
-    marginTop: 40,
-    padding: 20,
-    borderRadius: 16,
-    borderWidth: 2,
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: 150,
-    minHeight: 100,
-  },
-  cancelZoneText: {
-    marginTop: 8,
-    fontSize: 14,
-    fontWeight: '500',
+    color: '#999',
   },
   transcribingContainer: {
     alignItems: 'center',
@@ -591,42 +586,78 @@ const styles = StyleSheet.create({
   transcribingSubtext: {
     fontSize: 14,
   },
+  progressBar: {
+    width: 200,
+    height: 6,
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginTop: 8,
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
   error: {
     fontSize: 14,
     textAlign: 'center',
     marginTop: 16,
     paddingHorizontal: 40,
   },
-  buttonContainer: {
+  bottomContainer: {
+    paddingHorizontal: 40,
+    paddingBottom: 80,
+    paddingTop: 20,
+  },
+  buttonRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 40,
-    paddingBottom: 60,
-    gap: 40,
+    justifyContent: 'space-between',
   },
-  placeholderButton: {
-    width: 60,
+  secondaryButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+    borderWidth: 1,
   },
-  cancelButton: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    borderWidth: 2,
+  secondaryButtonText: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  placeholderSmall: {
+    width: 80,
+  },
+  holdButtonContainer: {
+    alignItems: 'center',
+    gap: 16,
+  },
+  holdHint: {
+    fontSize: 14,
+  },
+  recordingLabel: {
+    fontSize: 14,
+  },
+  recordButtonMain: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  recordButtonOuter: {
+  recordButtonLarge: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+  },
+  recordButtonInner: {
     width: 100,
     height: 100,
     borderRadius: 50,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  recordButton: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+  tapButtonInner: {
+    width: '100%',
+    height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
   },

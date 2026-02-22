@@ -42,17 +42,32 @@ export const useRecorder = (): UseRecorderReturn => {
   const startTimeRef = useRef<number>(0);
   const durationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const meteringIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isStartingRef = useRef(false);
 
   const startRecording = useCallback(async () => {
+    // 防止重复调用
+    if (isStartingRef.current) {
+      console.log('[Recorder] Already starting, ignoring duplicate call');
+      return;
+    }
+    
+    // 如果已经在录音中，先停止
+    if (status === 'recording') {
+      console.log('[Recorder] Already recording, stopping first');
+      return;
+    }
+    
+    isStartingRef.current = true;
+    
     try {
       // 清理之前的录音实例
       if (recordingRef.current) {
         try {
           await recordingRef.current.stopAndUnloadAsync();
-          recordingRef.current = null;
         } catch (e) {
           // 忽略清理错误
         }
+        recordingRef.current = null;
       }
 
       const { status: permissionStatus } = await Audio.requestPermissionsAsync();
@@ -124,8 +139,10 @@ export const useRecorder = (): UseRecorderReturn => {
       console.error('Start recording error:', err);
       setError('启动录音失败');
       setStatus('error');
+    } finally {
+      isStartingRef.current = false;
     }
-  }, []);
+  }, [status]);
 
   const stopRecording = useCallback(async (): Promise<string> => {
     console.log('[Recorder] Stopping recording...');
@@ -205,10 +222,12 @@ export const useRecorder = (): UseRecorderReturn => {
       setAudioLevel(-160);
       setStatus('idle');
       setError(null);
+      isStartingRef.current = false;
 
     } catch (err) {
       console.error('Cancel recording error:', err);
       setStatus('idle');
+      isStartingRef.current = false;
     }
   }, []);
 

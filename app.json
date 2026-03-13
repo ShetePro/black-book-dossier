@@ -60,13 +60,6 @@
         {
           "microphonePermission": "Black Book 需要麦克风权限来录制语音备忘录。"
         }
-      ],
-      [
-        "react-native-vosk",
-        {
-          "models": ["assets/model-cn-cn"],
-          "iOSMicrophonePermission": "Black Book 需要麦克风权限进行语音识别，所有处理都在本地完成。"
-        }
       ]
     ],
     "experiments": {

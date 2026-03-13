@@ -2,6 +2,19 @@ import { useState, useCallback, useRef } from 'react';
 import { Audio } from 'expo-av';
 import * as FileSystem from 'expo-file-system';
 import { initializeWhisper, transcribeAudio } from '@/services/voice/whisper';
+import { useSettingsStore } from '@/store/settingsStore';
+
+/**
+ * 将应用语言设置映射到 Whisper 语言代码
+ */
+const mapLanguageToWhisper = (appLanguage: string): string => {
+  const languageMap: Record<string, string> = {
+    'cn': 'zh',  // 中文 -> 中文
+    'en': 'en',  // 英文 -> 英文
+    'auto': 'auto', // 自动检测
+  };
+  return languageMap[appLanguage] || 'zh';
+};
 
 export type RecordingStatus = 'idle' | 'recording' | 'transcribing' | 'error';
 
@@ -171,11 +184,16 @@ export const useRecorder = (): UseRecorderReturn => {
 
       recordingRef.current = null;
       
+      // 获取当前语言设置
+      const { settings } = useSettingsStore.getState();
+      const language = mapLanguageToWhisper(settings.language);
+      console.log('[Recorder] Using language:', settings.language, '->', language);
+      
       // 开始转录
       console.log('[Recorder] Starting transcription...');
       setStatus('transcribing');
       
-      const result = await transcribeAudio(uri);
+      const result = await transcribeAudio(uri, language);
       
       // 删除临时录音文件
       try {

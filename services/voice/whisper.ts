@@ -123,9 +123,12 @@ export const initializeWhisper = async (): Promise<void> => {
 
 /**
  * 转录音频文件
+ * @param audioPath 音频文件路径
+ * @param language 语言代码，支持 'zh'(中文)、'en'(英文)等
  */
 export const transcribeAudio = async (
-  audioPath: string
+  audioPath: string,
+  language: string = 'zh'
 ): Promise<{ success: boolean; text?: string; error?: string }> => {
   try {
     if (!whisperContext) {
@@ -136,11 +139,11 @@ export const transcribeAudio = async (
       throw new Error('Whisper not initialized');
     }
     
-    console.log('[Whisper] Transcribing:', audioPath);
+    console.log('[Whisper] Transcribing:', audioPath, 'Language:', language);
     
     // whisper.rn 返回可取消的操作对象，包含 promise 和 stop 函数
     const { promise, stop } = await whisperContext.transcribe(audioPath, {
-      language: 'zh',
+      language: language,
     });
     
     // 等待转录完成

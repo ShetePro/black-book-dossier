@@ -1,46 +1,39 @@
-import { Tabs } from "expo-router";
-import React from "react";
+import { NativeTabs, Icon, Label } from 'expo-router/unstable-native-tabs';
+import { useTranslation } from 'react-i18next';
+import { useColorScheme, DynamicColorIOS } from 'react-native';
+import { ThemeProvider, DarkTheme, DefaultTheme } from '@react-navigation/native';
 
-import { HapticTab } from "@/components/HapticTab";
-import TabBarBackground from "@/components/ui/TabBarBackground";
-import TabBar from "@/components/tab-bar/TabBar";
-import { useThemeColor } from "@/hooks/useThemeColor";
-import { useTranslation } from "react-i18next";
-
-function TabLayout() {
-  const colors = useThemeColor();
-  // const { session, isLoading } = useSession();
-  // if (isLoading) {
-  //   return <ThemedText>Loading...</ThemedText>;
-  // }
-  // 判断是否登录
-  // if (!session) {
-  //   return <Redirect href="/SignIn" />;
-  // }
+export default function TabLayout() {
   const { t } = useTranslation();
+  const colorScheme = useColorScheme();
+
+  // 金色主题色
+  const goldColor = '#c9a962';
+
+  // iOS 动态颜色（支持 Liquid Glass）
+  const tintColor = DynamicColorIOS({
+    dark: goldColor,
+    light: goldColor,
+  });
+
   return (
-    <Tabs
-      tabBar={(props) => <TabBar {...props} />}
-      screenOptions={{
-        tabBarActiveTintColor: colors.tint,
-        headerShown: false,
-        tabBarButton: HapticTab,
-        tabBarBackground: TabBarBackground,
-      }}
-    >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: t("tabs.index"),
+    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+      <NativeTabs
+        tintColor={tintColor}
+        labelStyle={{
+          color: tintColor,
         }}
-      />
-      <Tabs.Screen
-        name="contacts"
-        options={{
-          title: t("tabs.contacts"),
-        }}
-      />
-    </Tabs>
+      >
+        <NativeTabs.Trigger name="index">
+          <Icon sf="house.fill" />
+          <Label>{t('tabs.index')}</Label>
+        </NativeTabs.Trigger>
+
+        <NativeTabs.Trigger name="contacts">
+          <Icon sf="person.2.fill" />
+          <Label>{t('tabs.contacts')}</Label>
+        </NativeTabs.Trigger>
+      </NativeTabs>
+    </ThemeProvider>
   );
 }
-export default TabLayout;

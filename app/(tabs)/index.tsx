@@ -93,7 +93,7 @@ export default function HomeScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: colors.background }]} collapsable={false}>
       <ScrollView 
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
@@ -231,7 +231,7 @@ export default function HomeScreen() {
           </View>
         </Animated.View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 

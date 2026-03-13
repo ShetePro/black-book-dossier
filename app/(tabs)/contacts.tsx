@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   StyleSheet,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
@@ -49,7 +48,7 @@ export default function ContactsScreen() {
   }));
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: colors.background }]} collapsable={false}>
       {/* 头部 */}
       <Animated.View style={[styles.header, headerStyle]}>
         <View>
@@ -145,7 +144,7 @@ export default function ContactsScreen() {
           </View>
         </Animated.View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 

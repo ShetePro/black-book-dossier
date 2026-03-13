@@ -107,59 +107,64 @@ export default function RecordingScreen() {
   // 检查并下载模型
   const [isCheckingModel, setIsCheckingModel] = useState(false);
   const [modelDownloadProgress, setModelDownloadProgress] = useState(0);
+  const [showDownloadConfirm, setShowDownloadConfirm] = useState(false);
+  const [downloadResult, setDownloadResult] = useState<boolean | null>(null);
   
   const checkAndDownloadModel = async (): Promise<boolean> => {
+    const hasModel = await isModelDownloaded();
+    
+    if (hasModel) {
+      return true;
+    }
+    
+    // 显示下载确认对话框
+    setShowDownloadConfirm(true);
+    
+    // 等待用户选择
+    return new Promise((resolve) => {
+      const checkResult = () => {
+        if (downloadResult !== null) {
+          setShowDownloadConfirm(false);
+          const result = downloadResult;
+          setDownloadResult(null);
+          resolve(result);
+        } else {
+          setTimeout(checkResult, 100);
+        }
+      };
+      checkResult();
+    });
+  };
+  
+  const handleDownloadConfirm = async () => {
+    setShowDownloadConfirm(false);
     setIsCheckingModel(true);
     setModelDownloadProgress(0);
     
     try {
-      const hasModel = await isModelDownloaded();
-      
-      if (hasModel) {
-        setIsCheckingModel(false);
-        return true;
-      }
-      
-      const modelInfo = getModelInfo();
-      
-      return new Promise((resolve) => {
-        Alert.alert(
-          '下载语音模型',
-          `首次使用需要下载 Whisper Tiny 语音模型（${formatFileSize(modelInfo.size * 1024 * 1024)}）。\n\n建议在 Wi-Fi 环境下下载。`,
-          [
-            { 
-              text: '取消', 
-              style: 'cancel',
-              onPress: () => {
-                setIsCheckingModel(false);
-                resolve(false);
-              }
-            },
-            {
-              text: '下载',
-              onPress: async () => {
-                const result = await downloadModel((progress) => {
-                  setModelDownloadProgress(progress);
-                });
-                
-                setIsCheckingModel(false);
-                
-                if (result.success) {
-                  resolve(true);
-                } else {
-                  Alert.alert('下载失败', result.error || '请检查网络连接后重试');
-                  resolve(false);
-                }
-              },
-            },
-          ]
-        );
+      const result = await downloadModel((progress) => {
+        setModelDownloadProgress(progress);
       });
-    } catch (error) {
-      console.error('Error checking model:', error);
+      
       setIsCheckingModel(false);
-      return false;
+      
+      if (result.success) {
+        setDownloadResult(true);
+      } else {
+        Alert.alert('下载失败', result.error || '请检查网络连接后重试');
+        setDownloadResult(false);
+      }
+    } catch (error) {
+      console.error('Download error:', error);
+      setIsCheckingModel(false);
+      Alert.alert('下载失败', '下载过程中出现错误');
+      setDownloadResult(false);
     }
+  };
+  
+  const handleDownloadCancel = () => {
+    setShowDownloadConfirm(false);
+    setDownloadResult(false);
   };
 
   // 更新波形条
@@ -385,6 +390,35 @@ export default function RecordingScreen() {
           <Text style={[styles.hint, { color: colors.textMuted }]}>
             点击麦克风开始录音
           </Text>
+        )}
+
+        {showDownloadConfirm && (
+          <View style={[styles.confirmContainer, { backgroundColor: colors.surface }]}>
+            <Text style={[styles.confirmTitle, { color: colors.text }]}>
+              下载语音模型
+            </Text>
+            <Text style={[styles.confirmMessage, { color: colors.textMuted }]}>
+              首次使用需要下载 Whisper Tiny 语音模型（{formatFileSize(getModelInfo().size * 1024 * 1024)}）。{"\n\n"}建议在 Wi-Fi 环境下下载。
+            </Text>
+            <View style={styles.confirmButtons}>
+              <TouchableOpacity
+                style={[styles.confirmButton, { borderColor: colors.border }]}
+                onPress={handleDownloadCancel}
+              >
+                <Text style={[styles.confirmButtonText, { color: colors.text }]}>
+                  取消
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.confirmButton, { backgroundColor: colors.primary }]}
+                onPress={handleDownloadConfirm}
+              >
+                <Text style={[styles.confirmButtonText, { color: '#0a0a0a' }]}>
+                  下载
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         )}
 
         {isTranscribing && (

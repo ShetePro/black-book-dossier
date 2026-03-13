@@ -7,6 +7,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
+  Animated as RNAnimated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -18,24 +19,32 @@ import { useContactStore } from '@/store';
 import { useSettingsStore } from '@/store/settingsStore';
 import { hasAnyModelDownloaded } from '@/services/ai/llmModelManager';
 import { StatusBar } from 'expo-status-bar';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  withDelay,
+} from 'react-native-reanimated';
 
 interface AnalyzedData {
   transcription: string;
   entities: ExtractedEntity[];
   actionItems: ActionItem[];
   contactName?: string;
+  summary?: string;
 }
 
 // 实体类型配置
-const ENTITY_CONFIG: Record<string, { label: string; icon: string; color: string }> = {
-  person: { label: '人物', icon: 'person', color: '#c9a962' },
-  health_issue: { label: '健康状况', icon: 'medical', color: '#ef4444' },
-  location: { label: '地点', icon: 'location', color: '#3b82f6' },
-  need: { label: '需求', icon: 'help-circle', color: '#f59e0b' },
-  event: { label: '事件', icon: 'calendar', color: '#8b5cf6' },
-  preference: { label: '偏好', icon: 'heart', color: '#ec4899' },
-  date: { label: '时间', icon: 'time', color: '#10b981' },
-  organization: { label: '组织', icon: 'business', color: '#6366f1' },
+const ENTITY_CONFIG: Record<string, { label: string; icon: any; color: string; bgColor: string }> = {
+  person: { label: '人物', icon: 'person', color: '#c9a962', bgColor: '#c9a96220' },
+  health_issue: { label: '健康状况', icon: 'medical', color: '#ef4444', bgColor: '#ef444420' },
+  location: { label: '地点', icon: 'location', color: '#3b82f6', bgColor: '#3b82f620' },
+  need: { label: '需求', icon: 'help-circle', color: '#f59e0b', bgColor: '#f59e0b20' },
+  event: { label: '事件', icon: 'calendar', color: '#8b5cf6', bgColor: '#8b5cf620' },
+  preference: { label: '偏好', icon: 'heart', color: '#ec4899', bgColor: '#ec489920' },
+  date: { label: '时间', icon: 'time', color: '#10b981', bgColor: '#10b98120' },
+  organization: { label: '组织', icon: 'business', color: '#6366f1', bgColor: '#6366f120' },
 };
 
 export default function AgentReviewScreen() {
@@ -50,12 +59,39 @@ export default function AgentReviewScreen() {
   const [matchedContacts, setMatchedContacts] = useState<any[]>([]);
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
   const [usingLocalLLM, setUsingLocalLLM] = useState(false);
+  const [isTranscriptionExpanded, setIsTranscriptionExpanded] = useState(false);
+
+  // 获取当前语言显示
+  const getLanguageDisplay = () => {
+    const langMap: Record<string, string> = {
+      'cn': '中文',
+      'en': 'English',
+    };
+    return langMap[settings.language] || settings.language;
+  };
 
   const transcription = params.transcription as string;
 
+  // 动画值
+  const headerProgress = useSharedValue(0);
+  const contentProgress = useSharedValue(0);
+
   useEffect(() => {
     analyzeTranscription();
+    // 启动入场动画
+    headerProgress.value = withSpring(1, { damping: 15 });
+    contentProgress.value = withDelay(200, withSpring(1, { damping: 15 }));
   }, []);
+
+  const headerAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: headerProgress.value,
+    transform: [{ translateY: (1 - headerProgress.value) * -20 }],
+  }));
+
+  const contentAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: contentProgress.value,
+    transform: [{ translateY: (1 - contentProgress.value) * 30 }],
+  }));
 
   const analyzeTranscription = async () => {
     try {
@@ -83,6 +119,7 @@ export default function AgentReviewScreen() {
         entities: result.entities,
         actionItems: result.actionItems,
         contactName: result.contactName,
+        summary: generateSummary(result.entities, result.actionItems),
       });
 
       // 2. 匹配现有联系人
@@ -102,6 +139,33 @@ export default function AgentReviewScreen() {
     } finally {
       setIsAnalyzing(false);
     }
+  };
+
+  // 生成摘要
+  const generateSummary = (entities: ExtractedEntity[], actionItems: ActionItem[]): string => {
+    const personEntities = entities.filter(e => e.type === 'person');
+    const healthIssues = entities.filter(e => e.type === 'health_issue');
+    const needs = entities.filter(e => e.type === 'need');
+    
+    let summary = '';
+    
+    if (personEntities.length > 0) {
+      summary += `识别到 ${personEntities.length} 位相关人物`;
+    }
+    
+    if (healthIssues.length > 0) {
+      summary += summary ? `，提及 ${healthIssues.length} 项健康信息` : `提及 ${healthIssues.length} 项健康信息`;
+    }
+    
+    if (needs.length > 0) {
+      summary += summary ? `，发现 ${needs.length} 个需求` : `发现 ${needs.length} 个需求`;
+    }
+    
+    if (actionItems.length > 0) {
+      summary += summary ? `，生成 ${actionItems.length} 个待办` : `生成 ${actionItems.length} 个待办`;
+    }
+    
+    return summary || '已分析语音内容';
   };
 
   // 本地 LLM 分析（占位实现）
@@ -232,12 +296,14 @@ export default function AgentReviewScreen() {
       <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
         <StatusBar style="light" />
         <View style={styles.analyzingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <View style={styles.analyzingIconContainer}>
+            <ActivityIndicator size="large" color={colors.primary} />
+          </View>
           <Text style={[styles.analyzingText, { color: colors.text }]}>
             AI 正在分析语音内容...
           </Text>
           <Text style={[styles.analyzingSubtext, { color: colors.textMuted }]}>
-            {usingLocalLLM ? '使用本地 LLM 模型' : '使用规则引擎'} · 提取关键信息并匹配联系人
+            {usingLocalLLM ? '使用本地 LLM 模型' : '使用规则引擎'} · 语言: {getLanguageDisplay()} · 提取关键信息并匹配联系人
           </Text>
         </View>
       </SafeAreaView>
@@ -251,75 +317,158 @@ export default function AgentReviewScreen() {
       <StatusBar style="light" />
       
       {/* Header */}
-      <View style={styles.header}>
+      <Animated.View style={[styles.header, headerAnimatedStyle]}>
         <TouchableOpacity
           onPress={() => router.back()}
           style={[styles.backButton, { backgroundColor: colors.surface }]}
         >
           <Ionicons name="close" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={[styles.title, { color: colors.text }]}>AI 分析结果</Text>
+        <View style={styles.headerTitleContainer}>
+          <Text style={[styles.title, { color: colors.text }]}>AI 分析结果</Text>
+          {analyzedData?.summary && (
+            <Text style={[styles.summaryText, { color: colors.textMuted }]}>
+              {analyzedData.summary}
+            </Text>
+          )}
+        </View>
         <View style={styles.placeholder} />
-      </View>
+      </Animated.View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* 原始文本 */}
+      <Animated.ScrollView 
+        style={styles.content} 
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* 原始语音文本 - 可折叠 */}
         <View style={[styles.section, { backgroundColor: colors.surface }]}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>📝 原始语音</Text>
-          <Text style={[styles.transcription, { color: colors.textSecondary }]}>
-            {transcription}
-          </Text>
+          <TouchableOpacity 
+            style={styles.transcriptionHeader}
+            onPress={() => setIsTranscriptionExpanded(!isTranscriptionExpanded)}
+            activeOpacity={0.8}
+          >
+            <View style={styles.sectionTitleRow}>
+              <View style={[styles.iconBadge, { backgroundColor: `${colors.primary}20` }]}>
+                <Ionicons name="mic" size={16} color={colors.primary} />
+              </View>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>原始语音</Text>
+            </View>
+            <Ionicons 
+              name={isTranscriptionExpanded ? "chevron-up" : "chevron-down"} 
+              size={20} 
+              color={colors.textMuted} 
+            />
+          </TouchableOpacity>
+          
+          <View style={[
+            styles.transcriptionContent,
+            !isTranscriptionExpanded && styles.transcriptionCollapsed
+          ]}>
+            <Text style={[styles.transcription, { color: colors.textSecondary }]}>
+              {transcription}
+            </Text>
+          </View>
+          
+          {!isTranscriptionExpanded && (
+            <Text style={[styles.transcriptionHint, { color: colors.textMuted }]}>
+              点击展开查看完整内容 · 识别语言: {getLanguageDisplay()}
+            </Text>
+          )}
         </View>
 
         {/* 匹配到的联系人 */}
         {matchedContacts.length > 0 && (
           <View style={[styles.section, { backgroundColor: colors.surface }]}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>👤 匹配到的联系人</Text>
-            <Text style={[styles.sectionSubtitle, { color: colors.textMuted }]}>
-              选择要更新的联系人，或创建新联系人
-            </Text>
+            <View style={styles.sectionTitleRow}>
+              <View style={[styles.iconBadge, { backgroundColor: `${colors.primary}20` }]}>
+                <Ionicons name="people" size={16} color={colors.primary} />
+              </View>
+              <View style={styles.sectionTitleContainer}>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>匹配到的联系人</Text>
+                <Text style={[styles.sectionSubtitle, { color: colors.textMuted }]}>
+                  选择联系人以添加记录，或创建新联系人
+                </Text>
+              </View>
+            </View>
             
-            {matchedContacts.map((match, index) => (
-              <TouchableOpacity
-                key={match.contact.id}
-                style={[
-                  styles.contactCard,
-                  { 
-                    backgroundColor: selectedContactId === match.contact.id 
-                      ? `${colors.primary}20` 
-                      : colors.elevated 
-                  },
-                  { borderColor: selectedContactId === match.contact.id ? colors.primary : 'transparent' },
-                ]}
-                onPress={() => setSelectedContactId(match.contact.id)}
-              >
-                <View style={styles.contactInfo}>
-                  <Text style={[styles.contactName, { color: colors.text }]}>
-                    {match.contact.name}
-                  </Text>
-                  <Text style={[styles.contactMeta, { color: colors.textMuted }]}>
-                    {match.contact.company || '无公司信息'} · {match.contact.title || '无职位'}
-                  </Text>
-                  <View style={styles.confidenceBadge}>
-                    <Text style={[styles.confidenceText, { color: colors.primary }]}>
-                      匹配度: {Math.round(match.confidence * 100)}% · {match.reason}
+            <View style={styles.contactsList}>
+              {matchedContacts.map((match, index) => (
+                <TouchableOpacity
+                  key={match.contact.id}
+                  style={[
+                    styles.contactCard,
+                    { 
+                      backgroundColor: selectedContactId === match.contact.id 
+                        ? `${colors.primary}15` 
+                        : colors.elevated 
+                    },
+                    selectedContactId === match.contact.id && { 
+                      borderColor: colors.primary,
+                      borderWidth: 1.5,
+                    },
+                  ]}
+                  onPress={() => setSelectedContactId(match.contact.id)}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.contactAvatar}>
+                    <Text style={styles.contactAvatarText}>
+                      {match.contact.name.charAt(0)}
                     </Text>
                   </View>
-                </View>
-                {selectedContactId === match.contact.id && (
-                  <Ionicons name="checkmark-circle" size={24} color={colors.primary} />
-                )}
-              </TouchableOpacity>
-            ))}
+                  <View style={styles.contactInfo}>
+                    <Text style={[styles.contactName, { color: colors.text }]}>
+                      {match.contact.name}
+                    </Text>
+                    <Text style={[styles.contactMeta, { color: colors.textMuted }]}>
+                      {match.contact.company || '无公司'} · {match.contact.title || '无职位'}
+                    </Text>
+                    <View style={[styles.confidenceBadge, { backgroundColor: `${colors.primary}15` }]}>
+                      <Ionicons name="flash" size={12} color={colors.primary} />
+                      <Text style={[styles.confidenceText, { color: colors.primary }]}>
+                        {Math.round(match.confidence * 100)}% · {match.reason}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.contactCheckbox}>
+                    {selectedContactId === match.contact.id ? (
+                      <View style={[styles.checkboxActive, { backgroundColor: colors.primary }]}>
+                        <Ionicons name="checkmark" size={16} color="#0a0a0a" />
+                      </View>
+                    ) : (
+                      <View style={[styles.checkboxInactive, { borderColor: colors.border }]} />
+                    )}
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
             
             <TouchableOpacity
-              style={[styles.newContactOption, { borderColor: colors.border }]}
+              style={[
+                styles.newContactOption, 
+                { borderColor: selectedContactId === null ? colors.primary : colors.border }
+              ]}
               onPress={() => setSelectedContactId(null)}
+              activeOpacity={0.8}
             >
-              <Ionicons name="add-circle" size={20} color={colors.primary} />
-              <Text style={[styles.newContactText, { color: colors.primary }]}>
-                这不是现有联系人，创建新联系人
+              <View style={[
+                styles.newContactIcon,
+                { backgroundColor: selectedContactId === null ? `${colors.primary}20` : colors.elevated }
+              ]}>
+                <Ionicons 
+                  name="add" 
+                  size={20} 
+                  color={selectedContactId === null ? colors.primary : colors.textMuted} 
+                />
+              </View>
+              <Text style={[
+                styles.newContactText, 
+                { color: selectedContactId === null ? colors.primary : colors.text }
+              ]}>
+                创建新联系人
               </Text>
+              {selectedContactId === null && (
+                <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
+              )}
             </TouchableOpacity>
           </View>
         )}
@@ -327,60 +476,120 @@ export default function AgentReviewScreen() {
         {/* 提取的关键信息 */}
         {Object.keys(groupedEntities).length > 0 && (
           <View style={[styles.section, { backgroundColor: colors.surface }]}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>🔍 提取的关键信息</Text>
+            <View style={styles.sectionTitleRow}>
+              <View style={[styles.iconBadge, { backgroundColor: `${colors.primary}20` }]}>
+                <Ionicons name="search" size={16} color={colors.primary} />
+              </View>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>提取的关键信息</Text>
+            </View>
             
-            {Object.entries(groupedEntities).map(([type, entities]) => {
-              const config = ENTITY_CONFIG[type] || { 
-                label: type, 
-                icon: 'information-circle', 
-                color: colors.textMuted 
-              };
-              
-              return (
-                <View key={type} style={styles.entityGroup}>
-                  <View style={styles.entityHeader}>
-                    <Ionicons name={config.icon as any} size={16} color={config.color} />
-                    <Text style={[styles.entityType, { color: config.color }]}>
-                      {config.label}
-                    </Text>
-                  </View>
-                  
-                  {entities.map((entity, idx) => (
-                    <View key={idx} style={styles.entityItem}>
-                      <Text style={[styles.entityValue, { color: colors.text }]}>
-                        • {entity.value}
+            <View style={styles.entitiesContainer}>
+              {Object.entries(groupedEntities).map(([type, entities]) => {
+                const config = ENTITY_CONFIG[type] || { 
+                  label: type, 
+                  icon: 'information-circle', 
+                  color: colors.textMuted,
+                  bgColor: `${colors.textMuted}20`,
+                };
+                
+                return (
+                  <View key={type} style={styles.entityGroupCard}>
+                    <View style={[styles.entityGroupHeader, { backgroundColor: config.bgColor }]}>
+                      <Ionicons name={config.icon} size={16} color={config.color} />
+                      <Text style={[styles.entityType, { color: config.color }]}>
+                        {config.label}
                       </Text>
-                      {entity.context && (
-                        <Text style={[styles.entityContext, { color: colors.textMuted }]}>
-                          上下文: "{entity.context}"
-                        </Text>
-                      )}
+                      <View style={[styles.entityCount, { backgroundColor: config.color }]}>
+                        <Text style={styles.entityCountText}>{entities.length}</Text>
+                      </View>
                     </View>
-                  ))}
-                </View>
-              );
-            })}
+                    
+                    <View style={styles.entityItemsContainer}>
+                      {entities.map((entity, idx) => (
+                        <View key={idx} style={styles.entityItem}>
+                          <View style={styles.entityItemContent}>
+                            <Text style={[styles.entityValue, { color: colors.text }]}>
+                              {entity.value}
+                            </Text>
+                            {entity.context && entity.context !== entity.value && (
+                              <Text style={[styles.entityContext, { color: colors.textMuted }]}>
+                                {entity.context}
+                              </Text>
+                            )}
+                          </View>
+                          <View style={styles.confidenceIndicator}>
+                            <View 
+                              style={[
+                                styles.confidenceBar, 
+                                { 
+                                  width: `${entity.confidence * 100}%`,
+                                  backgroundColor: entity.confidence > 0.7 ? '#10b981' : 
+                                                  entity.confidence > 0.4 ? '#f59e0b' : '#ef4444'
+                                }
+                              ]} 
+                            />
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
           </View>
         )}
 
         {/* 生成的待办事项 */}
         {analyzedData?.actionItems && analyzedData.actionItems.length > 0 && (
           <View style={[styles.section, { backgroundColor: colors.surface }]}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>✅ 待办事项</Text>
-            {analyzedData.actionItems.map((item, index) => (
-              <View key={item.id} style={styles.actionItem}>
-                <Ionicons name="square-outline" size={18} color={colors.textMuted} />
-                <Text style={[styles.actionItemText, { color: colors.text }]}>
-                  {item.description}
+            <View style={styles.sectionTitleRow}>
+              <View style={[styles.iconBadge, { backgroundColor: `${colors.primary}20` }]}>
+                <Ionicons name="checkbox-outline" size={16} color={colors.primary} />
+              </View>
+              <View style={styles.sectionTitleContainer}>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>待办事项</Text>
+                <Text style={[styles.sectionSubtitle, { color: colors.textMuted }]}>
+                  {analyzedData.actionItems.length} 个待办
                 </Text>
               </View>
-            ))}
+            </View>
+            
+            <View style={styles.actionItemsList}>
+              {analyzedData.actionItems.map((item, index) => (
+                <View key={item.id} style={styles.actionItemCard}>
+                  <View style={[styles.actionItemIcon, { backgroundColor: `${colors.primary}15` }]}>
+                    <Ionicons name="square-outline" size={18} color={colors.primary} />
+                  </View>
+                  <View style={styles.actionItemContent}>
+                    <Text style={[styles.actionItemText, { color: colors.text }]}>
+                      {item.description}
+                    </Text>
+                    <View style={styles.actionItemMeta}>
+                      <View style={[
+                        styles.priorityBadge,
+                        { backgroundColor: item.priority === 'high' ? '#ef444420' : 
+                                          item.priority === 'medium' ? '#f59e0b20' : '#10b98120' }
+                      ]}>
+                        <Text style={[
+                          styles.priorityText,
+                          { color: item.priority === 'high' ? '#ef4444' : 
+                                   item.priority === 'medium' ? '#f59e0b' : '#10b981' }
+                        ]}>
+                          {item.priority === 'high' ? '高优先级' : 
+                           item.priority === 'medium' ? '中优先级' : '低优先级'}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+              ))}
+            </View>
           </View>
         )}
 
         {/* 底部留白 */}
         <View style={styles.bottomSpacer} />
-      </ScrollView>
+      </Animated.ScrollView>
 
       {/* 底部操作栏 */}
       <View style={[styles.bottomBar, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
@@ -388,6 +597,7 @@ export default function AgentReviewScreen() {
           <TouchableOpacity
             style={[styles.primaryButton, { backgroundColor: colors.primary }]}
             onPress={handleAddToExisting}
+            activeOpacity={0.8}
           >
             <Ionicons name="person-add" size={20} color="#0a0a0a" />
             <Text style={styles.primaryButtonText}>添加到现有联系人</Text>
@@ -396,6 +606,7 @@ export default function AgentReviewScreen() {
           <TouchableOpacity
             style={[styles.primaryButton, { backgroundColor: colors.primary }]}
             onPress={handleCreateNewContact}
+            activeOpacity={0.8}
           >
             <Ionicons name="add-circle" size={20} color="#0a0a0a" />
             <Text style={styles.primaryButtonText}>创建新联系人</Text>
@@ -405,10 +616,11 @@ export default function AgentReviewScreen() {
         <TouchableOpacity
           style={[styles.secondaryButton, { borderColor: colors.border }]}
           onPress={handleEditInfo}
+          activeOpacity={0.8}
         >
           <Ionicons name="create" size={18} color={colors.text} />
           <Text style={[styles.secondaryButtonText, { color: colors.text }]}>
-            编辑信息
+            编辑
           </Text>
         </TouchableOpacity>
       </View>
@@ -426,7 +638,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingTop: 10,
-    paddingBottom: 20,
+    paddingBottom: 16,
   },
   backButton: {
     width: 44,
@@ -435,9 +647,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  headerTitleContainer: {
+    flex: 1,
+    alignItems: 'center',
+    marginHorizontal: 12,
+  },
   title: {
     fontSize: 18,
     fontWeight: '600',
+  },
+  summaryText: {
+    fontSize: 13,
+    marginTop: 4,
+    textAlign: 'center',
   },
   placeholder: {
     width: 44,
@@ -447,6 +669,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 40,
+  },
+  analyzingIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(201, 169, 98, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 24,
   },
   analyzingText: {
     fontSize: 18,
@@ -462,32 +693,85 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 20,
   },
+  contentContainer: {
+    paddingBottom: 120,
+  },
   section: {
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 20,
+    padding: 20,
     marginBottom: 16,
+  },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  iconBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  sectionTitleContainer: {
+    flex: 1,
   },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '600',
-    marginBottom: 12,
   },
   sectionSubtitle: {
     fontSize: 13,
+    marginTop: 2,
+  },
+  // 转录区域
+  transcriptionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 12,
+  },
+  transcriptionContent: {
+    overflow: 'hidden',
+  },
+  transcriptionCollapsed: {
+    maxHeight: 80,
   },
   transcription: {
     fontSize: 15,
     lineHeight: 24,
   },
+  transcriptionHint: {
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  // 联系人卡片
+  contactsList: {
+    gap: 12,
+  },
   contactCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 8,
+    padding: 16,
+    borderRadius: 16,
     borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  contactAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#c9a962',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  contactAvatarText: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#0a0a0a',
   },
   contactInfo: {
     flex: 1,
@@ -501,60 +785,158 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   confidenceBadge: {
-    marginTop: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginTop: 6,
+    alignSelf: 'flex-start',
   },
   confidenceText: {
     fontSize: 12,
     fontWeight: '500',
   },
+  contactCheckbox: {
+    marginLeft: 8,
+  },
+  checkboxActive: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxInactive: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+  },
   newContactOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 2,
     borderStyle: 'dashed',
-    marginTop: 8,
+    marginTop: 12,
+    gap: 12,
+  },
+  newContactIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   newContactText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '500',
-    marginLeft: 8,
+    flex: 1,
   },
-  entityGroup: {
-    marginBottom: 12,
+  // 实体信息
+  entitiesContainer: {
+    gap: 12,
   },
-  entityHeader: {
+  entityGroupCard: {
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  entityGroupHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 6,
   },
   entityType: {
     fontSize: 14,
     fontWeight: '600',
-    marginLeft: 6,
+    flex: 1,
+  },
+  entityCount: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  entityCountText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#0a0a0a',
+  },
+  entityItemsContainer: {
+    padding: 12,
+    gap: 10,
   },
   entityItem: {
-    paddingLeft: 22,
-    marginBottom: 4,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 10,
+    padding: 12,
+  },
+  entityItemContent: {
+    marginBottom: 8,
   },
   entityValue: {
     fontSize: 15,
+    fontWeight: '500',
   },
   entityContext: {
     fontSize: 12,
-    marginTop: 2,
+    marginTop: 4,
     fontStyle: 'italic',
   },
-  actionItem: {
+  confidenceIndicator: {
+    height: 3,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 1.5,
+    overflow: 'hidden',
+  },
+  confidenceBar: {
+    height: '100%',
+    borderRadius: 1.5,
+  },
+  // 待办事项
+  actionItemsList: {
+    gap: 10,
+  },
+  actionItemCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 6,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 12,
+    padding: 14,
+  },
+  actionItemIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  actionItemContent: {
+    flex: 1,
   },
   actionItemText: {
     fontSize: 15,
-    marginLeft: 8,
-    flex: 1,
+    lineHeight: 22,
+  },
+  actionItemMeta: {
+    flexDirection: 'row',
+    marginTop: 6,
+  },
+  priorityBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  priorityText: {
+    fontSize: 11,
+    fontWeight: '500',
   },
   bottomSpacer: {
     height: 100,

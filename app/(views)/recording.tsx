@@ -227,12 +227,15 @@ export default function RecordingScreen() {
 
   // 停止录音并转录
   const handleStopRecording = useCallback(async () => {
-    const transcription = await stopRecording();
+    const result = await stopRecording();
     
-    if (transcription) {
+    if (result) {
       router.push({
         pathname: "/(views)/agent-review",
-        params: { transcription }
+        params: { 
+          transcription: result.text,
+          audioUri: result.audioUri
+        }
       });
     }
   }, [stopRecording, router]);

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { Audio } from 'expo-av';
+import * as FileSystem from 'expo-file-system';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import { extractEntities } from '@/services/ai/entityExtractor';
 import { ExtractedEntity, ActionItem } from '@/types';
@@ -61,6 +63,19 @@ export default function AgentReviewScreen() {
   const [usingLocalLLM, setUsingLocalLLM] = useState(false);
   const [isTranscriptionExpanded, setIsTranscriptionExpanded] = useState(false);
 
+  // 音频播放状态
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [playbackPosition, setPlaybackPosition] = useState(0);
+  const [playbackDuration, setPlaybackDuration] = useState(0);
+  const soundRef = useRef<Audio.Sound | null>(null);
+  
+  // 使用 ref 避免闭包陷阱
+  const positionRef = useRef(0);
+  const durationRef = useRef(0);
+  const isPlayingRef = useRef(false);
+
+  const audioUri = params.audioUri as string;
+
   // 获取当前语言显示
   const getLanguageDisplay = () => {
     const langMap: Record<string, string> = {
@@ -81,6 +96,11 @@ export default function AgentReviewScreen() {
     // 启动入场动画
     headerProgress.value = withSpring(1, { damping: 15 });
     contentProgress.value = withDelay(200, withSpring(1, { damping: 15 }));
+    
+    // 加载音频
+    if (audioUri) {
+      loadAudio();
+    }
   }, []);
 
   const headerAnimatedStyle = useAnimatedStyle(() => ({
@@ -249,7 +269,8 @@ export default function AgentReviewScreen() {
     return grouped;
   };
 
-  const handleCreateNewContact = () => {
+  const handleCreateNewContact = async () => {
+    await deleteAudioFile();
     router.push({
       pathname: '/(views)/contact/new',
       params: {
@@ -260,12 +281,13 @@ export default function AgentReviewScreen() {
     });
   };
 
-  const handleAddToExisting = () => {
+  const handleAddToExisting = async () => {
     if (!selectedContactId) {
       Alert.alert('请选择联系人', '请先选择一个要更新的联系人');
       return;
     }
     
+    await deleteAudioFile();
     router.push({
       pathname: '/(views)/contact/[id]',
       params: {
@@ -277,6 +299,162 @@ export default function AgentReviewScreen() {
       }
     });
   };
+
+  // 加载音频
+  const loadAudio = async () => {
+    if (!audioUri) return;
+    
+    try {
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: false,
+      });
+      
+      console.log('[AgentReview] Loading audio:', audioUri);
+      
+      const { sound } = await Audio.Sound.createAsync(
+        { uri: audioUri },
+        { shouldPlay: false, progressUpdateIntervalMillis: 100 },
+        onPlaybackStatusUpdate
+      );
+      
+      soundRef.current = sound;
+      
+      // 立即获取一次状态来设置时长
+      const status = await sound.getStatusAsync();
+      console.log('[AgentReview] Audio status:', status);
+      
+      if (status.isLoaded) {
+        const duration = status.durationMillis || 0;
+        const position = status.positionMillis || 0;
+        
+        durationRef.current = duration;
+        positionRef.current = position;
+        isPlayingRef.current = status.isPlaying;
+        
+        setPlaybackDuration(duration);
+        setPlaybackPosition(position);
+        setIsPlaying(status.isPlaying);
+      }
+    } catch (error) {
+      console.error('[AgentReview] Failed to load audio:', error);
+    }
+  };
+
+  // 播放状态更新回调 - 使用 useCallback 避免闭包陷阱
+  const onPlaybackStatusUpdate = useCallback((status: any) => {
+    if (!status.isLoaded) return;
+    
+    const position = status.positionMillis || 0;
+    const duration = status.durationMillis || 0;
+    const playing = status.isPlaying;
+    
+    // 更新 React state - 每次都要更新位置确保进度条移动
+    setPlaybackPosition(position);
+    setIsPlaying(playing);
+    
+    // 更新时长（比较前先检查 ref）
+    if (duration > 0 && duration !== durationRef.current) {
+      setPlaybackDuration(duration);
+      durationRef.current = duration;
+    }
+    
+    // 更新 refs
+    positionRef.current = position;
+    isPlayingRef.current = playing;
+    
+    // 播放完成处理
+    if (status.didJustFinish) {
+      console.log('[AgentReview] Playback finished');
+      positionRef.current = 0;
+      isPlayingRef.current = false;
+      setPlaybackPosition(0);
+      setIsPlaying(false);
+      setTimeout(() => {
+        soundRef.current?.setPositionAsync(0);
+      }, 100);
+    }
+  }, []);
+
+  // 播放/暂停切换
+  const togglePlayback = async () => {
+    console.log('[AgentReview] Toggle playback, current state:', isPlayingRef.current);
+    
+    if (!soundRef.current) {
+      console.log('[AgentReview] Loading audio first...');
+      await loadAudio();
+      // 加载完成后返回，等待下一次点击
+      return;
+    }
+    
+    try {
+      const status = await soundRef.current.getStatusAsync();
+      console.log('[AgentReview] Current status before toggle:', status);
+      
+      if (!status.isLoaded) {
+        console.error('[AgentReview] Sound not loaded');
+        return;
+      }
+      
+      // 检查是否播放完成或接近完成
+      const isFinished = status.didJustFinish || 
+                        positionRef.current >= durationRef.current - 100 ||
+                        (durationRef.current > 0 && positionRef.current / durationRef.current > 0.99);
+      
+      if (isFinished) {
+        console.log('[AgentReview] Resetting to start...');
+        await soundRef.current.setPositionAsync(0);
+        positionRef.current = 0;
+        setPlaybackPosition(0);
+        await soundRef.current.playAsync();
+      } else if (status.isPlaying || isPlayingRef.current) {
+        console.log('[AgentReview] Pausing...');
+        await soundRef.current.pauseAsync();
+      } else {
+        console.log('[AgentReview] Playing...');
+        await soundRef.current.playAsync();
+      }
+    } catch (error) {
+      console.error('[AgentReview] Toggle playback error:', error);
+    }
+  };
+
+  // 格式化时间
+  const formatTime = (milliseconds: number) => {
+    const totalSeconds = Math.floor(milliseconds / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  // 清理音频资源
+  const cleanupAudio = async () => {
+    if (soundRef.current) {
+      await soundRef.current.unloadAsync();
+      soundRef.current = null;
+    }
+  };
+
+  // 删除音频文件
+  const deleteAudioFile = async () => {
+    if (audioUri) {
+      try {
+        await cleanupAudio();
+        await FileSystem.deleteAsync(audioUri);
+        console.log('[AgentReview] Audio file deleted');
+      } catch (error) {
+        console.warn('[AgentReview] Failed to delete audio file:', error);
+      }
+    }
+  };
+
+  // 组件卸载时清理
+  useEffect(() => {
+    return () => {
+      cleanupAudio();
+    };
+  }, []);
 
   const handleEditInfo = () => {
     // 跳转到编辑页面，预填充提取的信息
@@ -319,7 +497,10 @@ export default function AgentReviewScreen() {
       {/* Header */}
       <Animated.View style={[styles.header, headerAnimatedStyle]}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={async () => {
+            await deleteAudioFile();
+            router.back();
+          }}
           style={[styles.backButton, { backgroundColor: colors.surface }]}
         >
           <Ionicons name="close" size={24} color={colors.text} />
@@ -369,6 +550,47 @@ export default function AgentReviewScreen() {
             </Text>
           </View>
           
+          {/* 音频播放控制 */}
+          {audioUri && (
+            <View style={styles.audioPlayerContainer}>
+              <TouchableOpacity
+                style={[styles.playButton, { backgroundColor: colors.primary }]}
+                onPress={togglePlayback}
+                activeOpacity={0.8}
+              >
+                <Ionicons
+                  name={isPlaying ? 'pause' : 'play'}
+                  size={24}
+                  color="#0a0a0a"
+                />
+              </TouchableOpacity>
+
+              <View style={styles.progressContainer}>
+                <View style={[styles.progressBar, { backgroundColor: `${colors.textMuted}30` }]}>
+                  <View
+                    style={[
+                      styles.progressFill,
+                      {
+                        width: playbackDuration > 0 
+                          ? `${Math.min((playbackPosition / playbackDuration) * 100, 100)}%`
+                          : '0%',
+                        backgroundColor: colors.primary,
+                      },
+                    ]}
+                  />
+                </View>
+                <View style={styles.timeContainer}>
+                  <Text style={[styles.timeText, { color: colors.textMuted }]}>
+                    {formatTime(playbackPosition)}
+                  </Text>
+                  <Text style={[styles.timeText, { color: colors.textMuted }]}>
+                    {formatTime(playbackDuration)}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          )}
+
           {!isTranscriptionExpanded && (
             <Text style={[styles.transcriptionHint, { color: colors.textMuted }]}>
               点击展开查看完整内容 · 识别语言: {getLanguageDisplay()}
@@ -746,6 +968,50 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: 'center',
     marginTop: 8,
+  },
+  // 音频播放器
+  audioPlayerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.1)',
+    gap: 12,
+  },
+  playButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#c9a962',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  progressContainer: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  progressBar: {
+    height: 6,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  timeContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
+  },
+  timeText: {
+    fontSize: 12,
+    fontWeight: '500',
   },
   // 联系人卡片
   contactsList: {

@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   StyleSheet,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
@@ -48,7 +49,7 @@ export default function ContactsScreen() {
   }));
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]} collapsable={false}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       {/* 头部 */}
       <Animated.View style={[styles.header, headerStyle]}>
         <View>
@@ -139,12 +140,12 @@ export default function ContactsScreen() {
             </View>
             
             <Text style={[styles.tipText, { color: colors.textSecondary }]}>
-              点击下方的金色麦克风按钮，直接说出你刚刚会面的联系人信息，AI 会自动提取并保存。
+              点击右上角的 + 按钮或前往首页，使用语音录制添加联系人，AI 会自动提取并保存。
             </Text>
           </View>
         </Animated.View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 

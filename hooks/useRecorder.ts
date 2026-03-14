@@ -3,6 +3,8 @@ import { Audio } from 'expo-av';
 import * as FileSystem from 'expo-file-system';
 import { initializeWhisper, transcribeAudio } from '@/services/voice/whisper';
 import { useSettingsStore } from '@/store/settingsStore';
+import { useContactStore } from '@/store';
+import { getTranscriptionEnhancer } from '@/services/transcription/postProcessor';
 
 /**
  * 将应用语言设置映射到 Whisper 语言代码
@@ -18,6 +20,11 @@ const mapLanguageToWhisper = (appLanguage: string): string => {
 
 export type RecordingStatus = 'idle' | 'recording' | 'transcribing' | 'error';
 
+export interface RecordingResult {
+  text: string;
+  audioUri: string;
+}
+
 export interface UseRecorderReturn {
   status: RecordingStatus;
   isRecording: boolean;
@@ -26,7 +33,7 @@ export interface UseRecorderReturn {
   error: string | null;
   audioLevel: number;
   startRecording: () => Promise<void>;
-  stopRecording: () => Promise<string>;
+  stopRecording: () => Promise<RecordingResult | null>;
   cancelRecording: () => Promise<void>;
 }
 
@@ -157,7 +164,7 @@ export const useRecorder = (): UseRecorderReturn => {
     }
   }, [status]);
 
-  const stopRecording = useCallback(async (): Promise<string> => {
+  const stopRecording = useCallback(async (): Promise<RecordingResult | null> => {
     console.log('[Recorder] Stopping recording...');
 
     // 清理定时器
@@ -194,27 +201,42 @@ export const useRecorder = (): UseRecorderReturn => {
       setStatus('transcribing');
       
       const result = await transcribeAudio(uri, language);
-      
-      // 删除临时录音文件
-      try {
-        await FileSystem.deleteAsync(uri);
-      } catch (e) {
-        console.warn('[Recorder] Failed to delete temp file:', e);
-      }
 
       if (!result.success || !result.text) {
+        // 转录失败，删除音频文件
+        try {
+          await FileSystem.deleteAsync(uri);
+        } catch (e) {
+          console.warn('[Recorder] Failed to delete temp file:', e);
+        }
         throw new Error(result.error || 'Transcription failed');
       }
 
+      // 转录后处理：纠正联系人姓名和常用词
+      console.log('[Recorder] Enhancing transcription with contact names...');
+      const enhancer = getTranscriptionEnhancer();
+      const { contacts } = useContactStore.getState();
+      const enhancedText = enhancer.quickEnhance(result.text, contacts);
+      
+      if (enhancedText !== result.text) {
+        console.log('[Recorder] Enhanced transcription:', {
+          original: result.text,
+          enhanced: enhancedText,
+        });
+      }
+
       setStatus('idle');
-      console.log('[Recorder] Transcription complete:', result.text);
-      return result.text;
+      console.log('[Recorder] Transcription complete:', enhancedText);
+      return {
+        text: enhancedText,
+        audioUri: uri,
+      };
 
     } catch (err) {
       console.error('[Recorder] Error:', err);
       setError('转录失败，请重试');
       setStatus('error');
-      return '';
+      return null;
     }
   }, []);
 

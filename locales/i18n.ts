@@ -87,6 +87,28 @@ const resources = {
       language: {
         title: '语言设置',
       },
+      // 引导页
+      onboarding: {
+        voice: {
+          title: '一句话记录人脉',
+          description: '告别繁琐输入，长按录音即可自动记录会面信息、谈话要点和待办事项',
+        },
+        ai: {
+          title: 'AI 智能提取',
+          description: '自动识别姓名、公司、职位、需求等关键信息，生成结构化的人脉档案',
+        },
+        privacy: {
+          title: '本地安全存储',
+          description: '所有数据仅存储在您的设备上，支持面容/指纹解锁，确保人脉信息安全',
+        },
+        start: {
+          title: '开启情报系统',
+          description: '开始构建您的专属人脉数据库，让每一次会面都产生价值',
+        },
+        next: '下一步',
+        skip: '跳过',
+        getStarted: '开始使用',
+      },
     },
   },
   'en-US': {
@@ -155,6 +177,28 @@ const resources = {
       // Language
       language: {
         title: 'Language',
+      },
+      // Onboarding
+      onboarding: {
+        voice: {
+          title: 'Record with Your Voice',
+          description: 'Say goodbye to tedious typing. Long press to record and automatically capture meeting details, key points, and action items',
+        },
+        ai: {
+          title: 'AI Smart Extraction',
+          description: 'Automatically identify names, companies, positions, needs, and other key information to generate structured contact profiles',
+        },
+        privacy: {
+          title: 'Local Secure Storage',
+          description: 'All data is stored only on your device, with Face ID/Fingerprint unlock support to ensure your network information stays secure',
+        },
+        start: {
+          title: 'Launch Intelligence System',
+          description: 'Start building your exclusive contact database and make every meeting count',
+        },
+        next: 'Next',
+        skip: 'Skip',
+        getStarted: 'Get Started',
       },
     },
   },

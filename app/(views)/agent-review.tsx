@@ -456,6 +456,14 @@ export default function AgentReviewScreen() {
     };
   }, []);
 
+  // 获取当前使用的模型名称
+  const getModelName = () => {
+    if (usingLocalLLM && settings.ai.localModel.modelName) {
+      return settings.ai.localModel.modelName;
+    }
+    return '规则引擎';
+  };
+
   const handleEditInfo = () => {
     // 跳转到编辑页面，预填充提取的信息
     router.push({
@@ -481,7 +489,7 @@ export default function AgentReviewScreen() {
             AI 正在分析语音内容...
           </Text>
           <Text style={[styles.analyzingSubtext, { color: colors.textMuted }]}>
-            {usingLocalLLM ? '使用本地 LLM 模型' : '使用规则引擎'} · 语言: {getLanguageDisplay()} · 提取关键信息并匹配联系人
+            模型: {getModelName()} · 语言: {getLanguageDisplay()} · 提取关键信息并匹配联系人
           </Text>
         </View>
       </SafeAreaView>
@@ -507,6 +515,12 @@ export default function AgentReviewScreen() {
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
           <Text style={[styles.title, { color: colors.text }]}>AI 分析结果</Text>
+          <View style={styles.modelBadge}>
+            <Ionicons name="hardware-chip-outline" size={12} color={colors.primary} />
+            <Text style={[styles.modelText, { color: colors.primary }]}>
+              {getModelName()}
+            </Text>
+          </View>
           {analyzedData?.summary && (
             <Text style={[styles.summaryText, { color: colors.textMuted }]}>
               {analyzedData.summary}
@@ -877,6 +891,20 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '600',
+  },
+  modelBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(201, 169, 98, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginTop: 6,
+    gap: 4,
+  },
+  modelText: {
+    fontSize: 12,
+    fontWeight: '500',
   },
   summaryText: {
     fontSize: 13,

@@ -26,6 +26,8 @@ import isoWeek from "dayjs/plugin/isoWeek";
 import "dayjs/locale/zh-cn";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useSettingsStore, migrateFromLegacy } from "@/store/settingsStore";
+import { useContactStore } from "@/store";
+import { initDatabase } from "@/db/operations";
 import {
   OnboardingScreen,
   ONBOARDING_KEY,
@@ -95,11 +97,25 @@ export default function RootLayout() {
     try {
       console.log("[App] 开始初始化应用...");
 
+      // 1. 初始化设置
       await useSettingsStore.getState().initialize();
 
+      // 2. 数据迁移
       await migrateFromLegacy();
 
+      // 3. 从 iCloud 恢复备份
       await restoreDatabaseFromICloud();
+
+      // 4. 初始化数据库（创建表结构）
+      console.log("[App] 初始化数据库...");
+      await initDatabase();
+      console.log("[App] 数据库初始化完成");
+
+      // 5. 预加载联系人数据（用于语音识别优化）
+      console.log("[App] 预加载联系人数据...");
+      await useContactStore.getState().loadContacts();
+      const contactCount = useContactStore.getState().contacts.length;
+      console.log(`[App] 已加载 ${contactCount} 个联系人`);
 
       console.log("[App] 应用初始化完成");
     } catch (error) {

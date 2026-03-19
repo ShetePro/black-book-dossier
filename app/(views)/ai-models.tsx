@@ -105,6 +105,8 @@ export default function AIModelsScreen() {
   const handleEnable = async () => {
     if (selectedModel) {
       await updateSetting('ai.localModel.enabled', true);
+      await updateSetting('ai.localModel.modelName', AVAILABLE_MODELS[selectedModel].name);
+      await updateSetting('ai.localModel.modelSize', AVAILABLE_MODELS[selectedModel].size);
     }
   };
 
@@ -124,6 +126,15 @@ export default function AIModelsScreen() {
 
   const models = Object.values(AVAILABLE_MODELS);
   const selectedModelInfo = selectedModel ? AVAILABLE_MODELS[selectedModel] : null;
+
+  // 获取当前启用的模型ID
+  const getEnabledModelId = (): ModelId | null => {
+    if (!settings.ai.localModel.enabled) return null;
+    const enabledModel = models.find(m => m.name === settings.ai.localModel.modelName);
+    return enabledModel?.id || null;
+  };
+
+  const enabledModelId = getEnabledModelId();
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
@@ -182,6 +193,7 @@ export default function AIModelsScreen() {
                 description={AVAILABLE_MODELS[modelId].description}
                 size={AVAILABLE_MODELS[modelId].size}
                 isDownloaded={true}
+                isEnabled={enabledModelId === modelId}
                 isRecommended={AVAILABLE_MODELS[modelId].recommended}
                 onDownload={() => handleDownload(modelId)}
                 onDelete={() => handleDelete(modelId)}

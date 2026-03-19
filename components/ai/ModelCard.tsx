@@ -15,6 +15,7 @@ interface ModelCardProps {
   description: string;
   size: number;
   isDownloaded: boolean;
+  isEnabled?: boolean;
   isRecommended?: boolean;
   onDownload: () => void;
   onDelete: () => void;
@@ -28,6 +29,7 @@ export const ModelCard: React.FC<ModelCardProps> = ({
   description,
   size,
   isDownloaded,
+  isEnabled,
   isRecommended,
   onDownload,
   onDelete,
@@ -50,7 +52,8 @@ export const ModelCard: React.FC<ModelCardProps> = ({
         styles.container,
         {
           backgroundColor: colors.surface,
-          borderColor: isDownloaded ? colors.primary : colors.border,
+          borderColor: isEnabled ? colors.primary : colors.border,
+          borderWidth: isEnabled ? 2 : 1,
         },
       ]}
       onPress={onPress}
@@ -59,14 +62,19 @@ export const ModelCard: React.FC<ModelCardProps> = ({
       <View style={styles.header}>
         <View style={styles.titleContainer}>
           <Text style={[styles.name, { color: colors.text }]}>{name}</Text>
-          {isRecommended && (
+          {isEnabled && (
+            <View style={[styles.enabledBadge, { backgroundColor: colors.primary }]}>
+              <Text style={styles.enabledText}>当前使用</Text>
+            </View>
+          )}
+          {!isEnabled && isRecommended && (
             <View style={[styles.recommendedBadge, { backgroundColor: colors.primary }]}>
               <Text style={styles.recommendedText}>推荐</Text>
             </View>
           )}
         </View>
         {isDownloaded && (
-          <Ionicons name="checkmark-circle" size={24} color={colors.success} />
+          <Ionicons name="checkmark-circle" size={24} color={isEnabled ? colors.primary : colors.success} />
         )}
       </View>
 
@@ -165,6 +173,17 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   recommendedText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#0a0a0a',
+  },
+  enabledBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginLeft: 8,
+  },
+  enabledText: {
     fontSize: 10,
     fontWeight: '600',
     color: '#0a0a0a',

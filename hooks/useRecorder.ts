@@ -215,8 +215,18 @@ export const useRecorder = (): UseRecorderReturn => {
       // 转录后处理：纠正联系人姓名和常用词
       console.log('[Recorder] Enhancing transcription with contact names...');
       const enhancer = getTranscriptionEnhancer();
-      const { contacts } = useContactStore.getState();
-      const enhancedText = enhancer.quickEnhance(result.text, contacts);
+      
+      // 确保联系人数据已加载（方案 A：录音前检查并加载）
+      const { contacts, loadContacts } = useContactStore.getState();
+      let currentContacts = contacts;
+      if (currentContacts.length === 0) {
+        console.log('[Recorder] Contacts not loaded, loading now...');
+        await loadContacts();
+        currentContacts = useContactStore.getState().contacts;
+        console.log(`[Recorder] Loaded ${currentContacts.length} contacts`);
+      }
+      
+      const enhancedText = enhancer.quickEnhance(result.text, currentContacts);
       
       if (enhancedText !== result.text) {
         console.log('[Recorder] Enhanced transcription:', {

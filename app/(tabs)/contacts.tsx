@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -14,6 +14,8 @@ import { useThemeColor } from '@/hooks/useThemeColor';
 import { useContacts } from '@/hooks/contact';
 import { ContactList } from '@/components/contact';
 import { Contact } from '@/types';
+import { importDeviceContacts, showImportPreview } from '@/services/contactImport';
+import { useContactStore } from '@/store';
 
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
@@ -22,6 +24,8 @@ export default function ContactsScreen() {
   const { t } = useTranslation();
   const colors = useThemeColor();
   const { contacts, isLoading, refresh } = useContacts();
+  const { addContact } = useContactStore();
+  const [isImporting, setIsImporting] = useState(false);
 
   const headerY = useSharedValue(-20);
   const headerOpacity = useSharedValue(0);
@@ -40,6 +44,33 @@ export default function ContactsScreen() {
     router.push(`/(views)/contact/${contact.id}`);
   };
 
+  const handleImportContacts = async () => {
+    if (isImporting) return;
+    
+    setIsImporting(true);
+    try {
+      const importedContacts = await importDeviceContacts();
+      
+      if (importedContacts.length === 0) {
+        Alert.alert('提示', '未找到可导入的联系人');
+        return;
+      }
+
+      showImportPreview(importedContacts, async (contactsToImport) => {
+        try {
+          for (const contact of contactsToImport) {
+            await addContact(contact as Contact);
+          }
+          Alert.alert('导入成功', `成功导入 ${contactsToImport.length} 个联系人`);
+        } catch (error) {
+          Alert.alert('导入失败', '保存联系人时出错');
+        }
+      });
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <Animated.View style={[styles.header, headerStyle]}>
@@ -54,13 +85,24 @@ export default function ContactsScreen() {
           </Text>
         </View>
 
-        <TouchableOpacity
-          style={[styles.addButton, { backgroundColor: colors.primary }]}
-          onPress={() => router.push('/(views)/recording')}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="add" size={24} color="#0a0a0a" />
-        </TouchableOpacity>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity
+            style={[styles.importButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            onPress={handleImportContacts}
+            disabled={isImporting}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="download-outline" size={22} color={colors.primary} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.addButton, { backgroundColor: colors.primary }]}
+            onPress={() => router.push('/(views)/recording')}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="add" size={24} color="#0a0a0a" />
+          </TouchableOpacity>
+        </View>
       </Animated.View>
 
       <AnimatedTouchable
@@ -110,6 +152,18 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 14,
     marginTop: 4,
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  importButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
   },
   addButton: {
     width: 48,

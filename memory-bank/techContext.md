@@ -89,3 +89,8 @@ npx expo install --fix
 - **react-hook-form**: ^7.71.1 - 表单管理
 - **i18next**: ^24.0.2 - 国际化
 - **react-i18next**: ^15.1.2 - React i18next
+- **pinyin**: ^4.0.0-alpha.2 - 中文拼音转换
+
+### 新添加依赖
+- **expo-contacts**: ~14.0.5 - 设备联系人访问
+- **expo-linking**: ~8.0.11 - 深度链接处理

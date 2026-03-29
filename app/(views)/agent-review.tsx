@@ -1,5 +1,12 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
+  findMatchingContacts,
+  MatchResult,
+  shouldAutoSelect,
+  shouldShowSuggestion,
+  CONFIDENCE_THRESHOLDS,
+} from '@/services/ai/contactMatcher';
+import {
   View,
   Text,
   TouchableOpacity,
@@ -58,7 +65,7 @@ export default function AgentReviewScreen() {
   
   const [isAnalyzing, setIsAnalyzing] = useState(true);
   const [analyzedData, setAnalyzedData] = useState<AnalyzedData | null>(null);
-  const [matchedContacts, setMatchedContacts] = useState<any[]>([]);
+  const [matchedContacts, setMatchedContacts] = useState<MatchResult[]>([]);
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
   const [usingLocalLLM, setUsingLocalLLM] = useState(false);
   const [isTranscriptionExpanded, setIsTranscriptionExpanded] = useState(false);
@@ -142,14 +149,12 @@ export default function AgentReviewScreen() {
         summary: generateSummary(result.entities, result.actionItems),
       });
 
-      // 2. 匹配现有联系人
+      // 2. 匹配现有联系人（使用新 AI 匹配器）
       if (result.contactName) {
-        const matches = findMatchingContacts(result.contactName, result.entities);
+        const matches = await performContactMatching(result.contactName, result.entities);
         setMatchedContacts(matches);
-        
-        // 使用设置中的阈值自动选择
-        const threshold = settings.ai.matching.threshold;
-        if (matches.length > 0 && matches[0].confidence > threshold) {
+        // 自动选择
+        if (matches.length > 0 && shouldAutoSelect(matches[0].confidence)) {
           setSelectedContactId(matches[0].contact.id);
         }
       }
@@ -196,50 +201,19 @@ export default function AgentReviewScreen() {
     return await extractEntities(text);
   };
 
-  // 简单的联系人匹配算法
-  const findMatchingContacts = (name: string, entities: ExtractedEntity[]) => {
-    const matches: { contact: any; confidence: number; reason: string }[] = [];
-    
-    contacts.forEach((contact) => {
-      let confidence = 0;
-      let reason = '';
-      
-      // 精确匹配
-      if (contact.name === name) {
-        confidence = 1.0;
-        reason = '姓名完全匹配';
-      }
-      // 包含匹配
-      else if (contact.name.includes(name) || name.includes(contact.name)) {
-        confidence = 0.8;
-        reason = '姓名相似';
-      }
-      // 拼音匹配（简化版）
-      else if (isPinyinMatch(contact.name, name)) {
-        confidence = 0.6;
-        reason = '拼音匹配';
-      }
-      
-      // 通过公司、职位等辅助信息提高置信度
-      const orgEntities = entities.filter(e => e.type === 'organization');
-      if (orgEntities.length > 0 && contact.company) {
-        const orgMatch = orgEntities.some(e => 
-          contact.company?.toLowerCase().includes(e.value.toLowerCase()) ||
-          e.value.toLowerCase().includes(contact.company?.toLowerCase() || '')
-        );
-        if (orgMatch) {
-          confidence = Math.min(confidence + 0.1, 1.0);
-          reason += reason ? '，公司匹配' : '公司匹配';
-        }
-      }
-      
-      if (confidence > 0.3) {
-        matches.push({ contact, confidence, reason });
-      }
+  // 使用新的 AI 联系人匹配服务进行匹配
+  const performContactMatching = async (name: string, entities: ExtractedEntity[]) => {
+    const context = {
+      entities,
+      company: entities.find((e) => e.type === 'organization')?.value,
+    };
+    // 新的匹配器返回 MatchResult[]，使用新的 API 调用
+    const results: MatchResult[] = await (findMatchingContacts as any)(name, contacts as any, context as any, {
+      threshold: CONFIDENCE_THRESHOLDS.LOW,
+      maxResults: 3,
+      useContext: true,
     });
-    
-    // 按置信度排序
-    return matches.sort((a, b) => b.confidence - a.confidence).slice(0, 3);
+    return results;
   };
 
   // 简化的拼音匹配
@@ -660,9 +634,15 @@ export default function AgentReviewScreen() {
                     </Text>
                     <View style={[styles.confidenceBadge, { backgroundColor: `${colors.primary}15` }]}>
                       <Ionicons name="flash" size={12} color={colors.primary} />
-                      <Text style={[styles.confidenceText, { color: colors.primary }]}>
+                      <Text style={[styles.confidenceText, { color: colors.primary }]}> 
                         {Math.round(match.confidence * 100)}% · {match.reason}
                       </Text>
+                    
+                    {match.matchedFields?.length ? (
+                      <Text style={{ fontSize: 12, color: colors.textMuted }}>
+                        匹配字段: {match.matchedFields.join(', ')}
+                      </Text>
+                    ) : null}
                     </View>
                   </View>
                   <View style={styles.contactCheckbox}>

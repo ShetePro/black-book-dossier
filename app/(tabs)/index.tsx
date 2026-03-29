@@ -24,6 +24,8 @@ import Animated, {
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { DefaultAvatar } from "@/components/DefaultAvatar";
 import { getStorageItem } from "@/hooks/useStorageState";
+import { useActionItems } from "@/hooks/actionItem";
+import { ActionItemList } from "@/components/actionItem";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
@@ -33,6 +35,7 @@ export default function HomeScreen() {
   const { t } = useTranslation();
   const colors = useThemeColor();
   const [userInfo, setUserInfo] = useState<{ nickname?: string; avatar?: string }>({});
+  const { actionItems, isLoading, toggleComplete, deleteActionItem } = useActionItems();
 
   // 动画值
   const micScale = useSharedValue(1);
@@ -192,6 +195,66 @@ export default function HomeScreen() {
               </View>
             </TouchableOpacity>
           </View>
+        </Animated.View>
+
+        {/* 待办事项预览区域 */}
+        <Animated.View style={[styles.actionItemsSection, cardAnimatedStyle]}>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              待办事项
+            </Text>
+            <View style={styles.sectionActions}>
+              <TouchableOpacity
+                onPress={() => router.push("/(views)/action-item/new")}
+                style={[styles.addButton, { backgroundColor: `${colors.primary}15` }]}
+              >
+                <Ionicons name="add" size={18} color={colors.primary} />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {actionItems.filter(item => !item.completed).length === 0 ? (
+            <View style={[styles.emptyState, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <View style={[styles.emptyIcon, { backgroundColor: `${colors.success}15` }]}>
+                <Ionicons name="checkmark-done-outline" size={40} color={colors.success} />
+              </View>
+              <Text style={[styles.emptyTitle, { color: colors.text }]}>
+                所有待办已完成
+              </Text>
+              <Text style={[styles.emptySubtitle, { color: colors.textMuted }]}>
+                点击下方按钮添加新的待办事项
+              </Text>
+              <TouchableOpacity
+                style={[styles.emptyButton, { backgroundColor: colors.surface, borderColor: colors.primary }]}
+                onPress={() => router.push("/(views)/action-item/new")}
+              >
+                <Ionicons name="add" size={18} color={colors.primary} />
+                <Text style={[styles.emptyButtonText, { color: colors.primary }]}>
+                  添加待办
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={[styles.actionItemsCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <ActionItemList
+                actionItems={actionItems.filter(item => !item.completed).slice(0, 5)}
+                isLoading={isLoading}
+                onToggleComplete={toggleComplete}
+                onDelete={deleteActionItem}
+                emptyText="暂无待办事项"
+              />
+              {actionItems.filter(item => !item.completed).length > 5 && (
+                <TouchableOpacity
+                  style={styles.viewAllButton}
+                  onPress={() => router.push("/(tabs)/action-items")}
+                >
+                  <Text style={[styles.viewAllText, { color: colors.primary }]}>
+                    查看全部 ({actionItems.filter(item => !item.completed).length})
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
         </Animated.View>
 
         {/* 最近联系人区域 */}
@@ -384,11 +447,40 @@ const styles = StyleSheet.create({
   recentSection: {
     flex: 1,
   },
+  actionItemsSection: {
+    marginBottom: 32,
+  },
   sectionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 16,
+  },
+  sectionActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  addButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  actionItemsCard: {
+    borderRadius: 24,
+    borderWidth: 1,
+    overflow: "hidden",
+  },
+  viewAllButton: {
+    paddingVertical: 12,
+    alignItems: "center",
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  viewAllText: {
+    fontSize: 14,
+    fontWeight: "500",
   },
   seeAll: {
     fontSize: 14,

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,21 +10,31 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import { useContact } from '@/hooks/contact';
+import { useInteractions } from '@/hooks/interaction';
 import { DefaultAvatar } from '@/components/DefaultAvatar';
 import { ContactSkeleton } from '@/components/contact/ContactSkeleton';
+import { InteractionList } from '@/components/interaction';
+import type { FamilyMember } from '@/types';
 
 export default function ContactDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
   const colors = useThemeColor();
-  const { contact, isLoading } = useContact(id as string);
-  
+  const { contact, isLoading: isContactLoading } = useContact(id as string);
+  const { interactions, isLoading: isInteractionsLoading, deleteInteraction } = useInteractions(id as string);
+
   const scrollY = useSharedValue(0);
-  
+
   const headerStyle = useAnimatedStyle(() => ({
     opacity: 1 - scrollY.value / 200,
     transform: [{ translateY: -scrollY.value / 2 }],
   }));
+
+  const handleAddInteraction = () => {
+    router.push(`/(views)/interaction/new?contactId=${id}` as any);
+  };
+
+  const isLoading = isContactLoading || isInteractionsLoading;
 
   if (isLoading) {
     return (
@@ -107,6 +117,8 @@ export default function ContactDetailScreen() {
           </View>
         </View>
 
+        <IntelligenceSection contact={contact} colors={colors} />
+
         {contact.notes && (
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>备忘录</Text>
@@ -116,9 +128,286 @@ export default function ContactDetailScreen() {
           </View>
         )}
 
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>交往记录</Text>
+            <TouchableOpacity
+              onPress={handleAddInteraction}
+              style={[styles.addButton, { backgroundColor: colors.primary }]}
+            >
+              <Ionicons name="add" size={18} color="#0a0a0a" />
+              <Text style={styles.addButtonText}>添加</Text>
+            </TouchableOpacity>
+          </View>
+          <InteractionList
+            interactions={interactions}
+            isLoading={isInteractionsLoading}
+            onDelete={deleteInteraction}
+          />
+        </View>
+
         <View style={{ height: 40 }} />
       </Animated.ScrollView>
     </SafeAreaView>
+  );
+}
+
+interface IntelligenceCategory {
+  key: string;
+  title: string;
+  icon: string;
+  color: string;
+  items: string[] | FamilyMember[];
+  isFamily?: boolean;
+}
+
+function IntelligenceSection({
+  contact,
+  colors,
+}: {
+  contact: {
+    healthIssues: string[];
+    preferences: string[];
+    taboos: string[];
+    familyMembers: FamilyMember[];
+  };
+  colors: any;
+}) {
+  const [expandedKeys, setExpandedKeys] = useState<string[]>([]);
+
+  const categories: IntelligenceCategory[] = [
+    {
+      key: 'health',
+      title: '健康状况',
+      icon: 'fitness',
+      color: colors.success || '#22c55e',
+      items: contact.healthIssues,
+    },
+    {
+      key: 'preferences',
+      title: '个人偏好',
+      icon: 'star',
+      color: colors.info || '#60a5fa',
+      items: contact.preferences,
+    },
+    {
+      key: 'taboos',
+      title: '注意事项',
+      icon: 'warning',
+      color: colors.danger || '#ef4444',
+      items: contact.taboos,
+    },
+    {
+      key: 'family',
+      title: '家庭成员',
+      icon: 'people',
+      color: colors.primary || '#c9a962',
+      items: contact.familyMembers,
+      isFamily: true,
+    },
+  ].filter((cat) => cat.items && cat.items.length > 0);
+
+  if (categories.length === 0) return null;
+
+  const toggleExpand = (key: string) => {
+    setExpandedKeys((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+    );
+  };
+
+  return (
+    <View style={styles.section}>
+      <Text style={[styles.sectionTitle, { color: colors.text }]}>
+        情报档案
+      </Text>
+      <View style={[styles.intelligenceCard, { backgroundColor: colors.surface }]}>
+        {categories.map((category, index) => (
+          <IntelligenceAccordion
+            key={category.key}
+            category={category}
+            isExpanded={expandedKeys.includes(category.key)}
+            onToggle={() => toggleExpand(category.key)}
+            colors={colors}
+            isLast={index === categories.length - 1}
+          />
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function IntelligenceAccordion({
+  category,
+  isExpanded,
+  onToggle,
+  colors,
+  isLast,
+}: {
+  category: IntelligenceCategory;
+  isExpanded: boolean;
+  onToggle: () => void;
+  colors: any;
+  isLast: boolean;
+}) {
+  return (
+    <View
+      style={[
+        styles.accordionItem,
+        !isLast && {
+          borderBottomWidth: StyleSheet.hairlineWidth,
+          borderBottomColor: colors.border || 'rgba(128,128,128,0.1)',
+        },
+      ]}
+    >
+      <TouchableOpacity
+        style={styles.accordionHeader}
+        onPress={onToggle}
+        activeOpacity={0.7}
+      >
+        <View style={styles.accordionLeft}>
+          <View
+            style={[
+              styles.categoryIcon,
+              { backgroundColor: `${category.color}20` },
+            ]}
+          >
+            <Ionicons
+              name={category.icon as any}
+              size={18}
+              color={category.color}
+            />
+          </View>
+          <Text style={[styles.accordionTitle, { color: colors.text }]}>
+            {category.title}
+          </Text>
+        </View>
+        <View style={styles.accordionRight}>
+          <Text
+            style={[
+              styles.accordionCount,
+              { color: colors.textMuted },
+            ]}
+          >
+            {category.items.length}
+          </Text>
+          <Ionicons
+            name={isExpanded ? 'chevron-up' : 'chevron-down'}
+            size={18}
+            color={colors.textMuted}
+          />
+        </View>
+      </TouchableOpacity>
+
+      {isExpanded && (
+        <View style={styles.accordionContent}>
+          {category.isFamily
+            ? (category.items as FamilyMember[]).map((member, idx) => (
+                <FamilyMemberItem
+                  key={idx}
+                  member={member}
+                  colors={colors}
+                  isLast={idx === category.items.length - 1}
+                />
+              ))
+            : (category.items as string[]).map((item, idx) => (
+                <IntelligenceItem
+                  key={idx}
+                  text={item}
+                  color={category.color}
+                  colors={colors}
+                  isLast={idx === category.items.length - 1}
+                />
+              ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
+function IntelligenceItem({
+  text,
+  color,
+  colors,
+  isLast,
+}: {
+  text: string;
+  color: string;
+  colors: any;
+  isLast: boolean;
+}) {
+  return (
+    <View
+      style={[
+        styles.intelligenceItem,
+        !isLast && { marginBottom: 8 },
+      ]}
+    >
+      <View style={[styles.bullet, { backgroundColor: color }]} />
+      <Text
+        style={[styles.intelligenceText, { color: colors.textSecondary }]}
+      >
+        {text}
+      </Text>
+    </View>
+  );
+}
+
+function FamilyMemberItem({
+  member,
+  colors,
+  isLast,
+}: {
+  member: FamilyMember;
+  colors: any;
+  isLast: boolean;
+}) {
+  return (
+    <View
+      style={[
+        styles.familyItem,
+        !isLast && { marginBottom: 12 },
+      ]}
+    >
+      <View style={styles.familyHeader}>
+        <Text style={[styles.familyName, { color: colors.text }]}>
+          {member.name}
+        </Text>
+        <View
+          style={[
+            styles.relationBadge,
+            { backgroundColor: `${colors.primary}20` },
+          ]}
+        >
+          <Text
+            style={[styles.relationText, { color: colors.primary }]}
+          >
+            {member.relation}
+          </Text>
+        </View>
+      </View>
+      {(member.age || member.occupation) && (
+        <Text
+          style={[
+            styles.familyMeta,
+            { color: colors.textMuted },
+          ]}
+        >
+          {[member.age ? `${member.age}岁` : '', member.occupation]
+            .filter(Boolean)
+            .join(' · ')}
+        </Text>
+      )}
+      {member.notes && (
+        <Text
+          style={[
+            styles.familyNotes,
+            { color: colors.textSecondary },
+          ]}
+        >
+          {member.notes}
+        </Text>
+      )}
+    </View>
   );
 }
 
@@ -206,6 +495,25 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: 12,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  addButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    gap: 4,
+  },
+  addButtonText: {
+    color: '#0a0a0a',
+    fontSize: 13,
+    fontWeight: '600',
+  },
   infoCard: {
     borderRadius: 16,
     padding: 16,
@@ -249,5 +557,97 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: 18,
     marginBottom: 16,
+  },
+  intelligenceCard: {
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  accordionItem: {
+    paddingHorizontal: 16,
+  },
+  accordionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+  },
+  accordionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  categoryIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  accordionTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  accordionRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  accordionCount: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  accordionContent: {
+    paddingBottom: 16,
+  },
+  intelligenceItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingLeft: 44,
+  },
+  bullet: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginTop: 6,
+    marginRight: 10,
+  },
+  intelligenceText: {
+    fontSize: 14,
+    lineHeight: 20,
+    flex: 1,
+  },
+  familyItem: {
+    marginLeft: 44,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: 'rgba(128,128,128,0.05)',
+  },
+  familyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  familyName: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  relationBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  relationText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  familyMeta: {
+    fontSize: 13,
+    marginBottom: 4,
+  },
+  familyNotes: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontStyle: 'italic',
   },
 });

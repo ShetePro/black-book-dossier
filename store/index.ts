@@ -7,6 +7,9 @@ export { useContactStore, type ContactState } from './contacts/contactStore';
 // Recording Store
 export { useRecordingStore, type RecordingState } from './recording/recordingStore';
 
+// Interaction Store
+export { useInteractionStore, type InteractionState } from './interactions/interactionStore';
+
 // Settings Store (保留原有设置)
 export { 
   useSettingsStore, 

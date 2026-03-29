@@ -185,11 +185,138 @@ export const getInteractionsByContact = async (db: SQLite.SQLiteDatabase, contac
   return rows.map(parseInteractionRow);
 };
 
+export const updateInteraction = async (db: SQLite.SQLiteDatabase, interaction: Interaction): Promise<void> => {
+  await db.runAsync(
+    `UPDATE interactions SET 
+     type = ?, content = ?, raw_transcript = ?, extracted_entities = ?, 
+     action_items = ?, location = ?, date = ?, value_exchange = ?, value_description = ?
+     WHERE id = ?`,
+    [
+      interaction.type,
+      interaction.content,
+      interaction.rawTranscript || null,
+      JSON.stringify(interaction.extractedEntities),
+      JSON.stringify(interaction.actionItems),
+      interaction.location || null,
+      interaction.date,
+      interaction.valueExchange,
+      interaction.valueDescription || null,
+      interaction.id,
+    ]
+  );
+};
+
+export const deleteInteraction = async (db: SQLite.SQLiteDatabase, id: string): Promise<void> => {
+  await db.runAsync('DELETE FROM interactions WHERE id = ?', [id]);
+};
+
 export const deleteAllData = async (db: SQLite.SQLiteDatabase): Promise<void> => {
   await db.runAsync('DELETE FROM action_items');
   await db.runAsync('DELETE FROM interactions');
   await db.runAsync('DELETE FROM contacts');
 };
+
+// ActionItem CRUD Operations
+export const createActionItem = async (db: SQLite.SQLiteDatabase, actionItem: ActionItem): Promise<void> => {
+  await db.runAsync(
+    `INSERT INTO action_items (id, description, completed, due_date, priority, related_contact_id, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [
+      actionItem.id,
+      actionItem.description,
+      actionItem.completed ? 1 : 0,
+      actionItem.dueDate || null,
+      actionItem.priority,
+      actionItem.relatedContactId || null,
+      actionItem.createdAt,
+    ]
+  );
+};
+
+export const getActionItemsByContact = async (db: SQLite.SQLiteDatabase, contactId: string): Promise<ActionItem[]> => {
+  const rows = await db.getAllAsync<any>(
+    `SELECT * FROM action_items 
+     WHERE related_contact_id = ? 
+     ORDER BY completed ASC, 
+              CASE priority 
+                WHEN 'high' THEN 1 
+                WHEN 'medium' THEN 2 
+                WHEN 'low' THEN 3 
+              END, 
+              created_at DESC`,
+    [contactId]
+  );
+  return rows.map(parseActionItemRow);
+};
+
+export const getAllActionItems = async (db: SQLite.SQLiteDatabase): Promise<ActionItem[]> => {
+  const rows = await db.getAllAsync<any>(
+    `SELECT * FROM action_items 
+     ORDER BY completed ASC, 
+              CASE priority 
+                WHEN 'high' THEN 1 
+                WHEN 'medium' THEN 2 
+                WHEN 'low' THEN 3 
+              END, 
+              created_at DESC`
+  );
+  return rows.map(parseActionItemRow);
+};
+
+export const getPendingActionItems = async (db: SQLite.SQLiteDatabase, limit?: number): Promise<ActionItem[]> => {
+  let query = `SELECT * FROM action_items 
+               WHERE completed = 0 
+               ORDER BY CASE priority 
+                 WHEN 'high' THEN 1 
+                 WHEN 'medium' THEN 2 
+                 WHEN 'low' THEN 3 
+               END, 
+               created_at DESC`;
+  
+  if (limit) {
+    query += ` LIMIT ${limit}`;
+  }
+  
+  const rows = await db.getAllAsync<any>(query);
+  return rows.map(parseActionItemRow);
+};
+
+export const updateActionItem = async (db: SQLite.SQLiteDatabase, actionItem: ActionItem): Promise<void> => {
+  await db.runAsync(
+    `UPDATE action_items SET 
+     description = ?, completed = ?, due_date = ?, priority = ?, related_contact_id = ?
+     WHERE id = ?`,
+    [
+      actionItem.description,
+      actionItem.completed ? 1 : 0,
+      actionItem.dueDate || null,
+      actionItem.priority,
+      actionItem.relatedContactId || null,
+      actionItem.id,
+    ]
+  );
+};
+
+export const deleteActionItem = async (db: SQLite.SQLiteDatabase, id: string): Promise<void> => {
+  await db.runAsync('DELETE FROM action_items WHERE id = ?', [id]);
+};
+
+export const toggleActionItemComplete = async (db: SQLite.SQLiteDatabase, id: string, completed: boolean): Promise<void> => {
+  await db.runAsync(
+    'UPDATE action_items SET completed = ? WHERE id = ?',
+    [completed ? 1 : 0, id]
+  );
+};
+
+const parseActionItemRow = (row: any): ActionItem => ({
+  id: row.id,
+  description: row.description,
+  completed: Boolean(row.completed),
+  dueDate: row.due_date,
+  priority: row.priority,
+  relatedContactId: row.related_contact_id,
+  createdAt: row.created_at,
+});
 
 const parseContactRow = (row: any): Contact => ({
   id: row.id,

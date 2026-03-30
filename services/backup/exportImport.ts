@@ -1,4 +1,4 @@
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { Contact, Interaction, ActionItem } from '@/types';
 import { getDatabase, getAllContacts, getInteractionsByContact } from '@/db/operations';
 

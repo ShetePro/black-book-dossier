@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { Audio } from 'expo-av';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { initializeWhisper, transcribeAudio } from '@/services/voice/whisper';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useContactStore } from '@/store';

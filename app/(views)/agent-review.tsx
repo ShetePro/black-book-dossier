@@ -396,19 +396,30 @@ export default function AgentReviewScreen() {
     }
   };
 
-  // 播放状态更新回调 - 使用 useCallback 避免闭包陷阱
-  const onPlaybackStatusUpdate = useCallback((status: any) => {
-    if (!status.isLoaded) return;
+  // 播放状态更新回调 - 不使用 useCallback 以确保总是使用最新状态
+  const onPlaybackStatusUpdate = (status: any) => {
+    console.log('[AgentReview] Playback status update:', {
+      isLoaded: status.isLoaded,
+      isPlaying: status.isPlaying,
+      positionMillis: status.positionMillis,
+      durationMillis: status.durationMillis,
+      didJustFinish: status.didJustFinish,
+    });
+    
+    if (!status.isLoaded) {
+      console.log('[AgentReview] Status not loaded, skipping update');
+      return;
+    }
     
     const position = status.positionMillis || 0;
     const duration = status.durationMillis || 0;
     const playing = status.isPlaying;
     
-    // 更新 React state - 每次都要更新位置确保进度条移动
+    // 更新 React state
     setPlaybackPosition(position);
     setIsPlaying(playing);
     
-    // 更新时长（比较前先检查 ref）
+    // 更新时长
     if (duration > 0 && duration !== durationRef.current) {
       setPlaybackDuration(duration);
       durationRef.current = duration;
@@ -429,7 +440,7 @@ export default function AgentReviewScreen() {
         soundRef.current?.setPositionAsync(0);
       }, 100);
     }
-  }, []);
+  };
 
   // 播放/暂停切换
   const togglePlayback = async () => {

@@ -74,6 +74,7 @@ export default function AgentReviewScreen() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackPosition, setPlaybackPosition] = useState(0);
   const [playbackDuration, setPlaybackDuration] = useState(0);
+  const [audioLoadError, setAudioLoadError] = useState<string | null>(null);
   const soundRef = useRef<Audio.Sound | null>(null);
   
   // 使用 ref 避免闭包陷阱
@@ -276,43 +277,122 @@ export default function AgentReviewScreen() {
 
   // 加载音频
   const loadAudio = async () => {
-    if (!audioUri) return;
+    if (!audioUri) {
+      console.log('[AgentReview] No audio URI provided');
+      setAudioLoadError('未提供音频文件');
+      return;
+    }
     
     try {
+      console.log('[AgentReview] Checking audio file:', audioUri);
+      const fileInfo = await FileSystem.getInfoAsync(audioUri);
+      
+      console.log('[AgentReview] File info:', {
+        exists: fileInfo.exists,
+        size: fileInfo.exists ? (fileInfo as any).size : 0,
+        uri: audioUri,
+      });
+      
+      if (!fileInfo.exists) {
+        console.warn('[AgentReview] Audio file does not exist:', audioUri);
+        setAudioLoadError('音频文件不存在');
+        return;
+      }
+      
+      const fileSize = (fileInfo as any).size || 0;
+      if (fileSize === 0) {
+        console.warn('[AgentReview] Audio file is empty (0 bytes):', audioUri);
+        setAudioLoadError('音频文件为空');
+        return;
+      }
+      
+      console.log(`[AgentReview] File verified: ${fileSize} bytes`);
+      
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: false,
         playsInSilentModeIOS: true,
         staysActiveInBackground: false,
       });
       
-      console.log('[AgentReview] Loading audio:', audioUri);
+      console.log('[AgentReview] Creating audio sound object...');
       
-      const { sound } = await Audio.Sound.createAsync(
-        { uri: audioUri },
-        { shouldPlay: false, progressUpdateIntervalMillis: 100 },
-        onPlaybackStatusUpdate
-      );
+      let sound: Audio.Sound | null = null;
+      let retryCount = 0;
+      const maxRetries = 1;
+      
+      while (retryCount <= maxRetries) {
+        try {
+          const result = await Audio.Sound.createAsync(
+            { uri: audioUri },
+            { shouldPlay: false, progressUpdateIntervalMillis: 100 },
+            onPlaybackStatusUpdate
+          );
+          sound = result.sound;
+          break;
+        } catch (loadError: any) {
+          retryCount++;
+          console.warn(`[AgentReview] Audio load attempt ${retryCount} failed:`, loadError);
+          
+          if (retryCount > maxRetries) {
+            const errorMessage = loadError?.message || '';
+            const errorCode = loadError?.code || '';
+            
+            if (errorMessage.includes('-11800') || errorMessage.includes('-12842')) {
+              throw new Error('音频格式不受支持或文件已损坏（iOS 解码器错误）');
+            } else if (errorMessage.includes('does not exist')) {
+              throw new Error('音频文件路径无效');
+            } else {
+              throw new Error(`加载音频失败: ${errorMessage || '未知错误'}`);
+            }
+          }
+          
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      }
+      
+      if (!sound) {
+        throw new Error('无法创建音频播放器');
+      }
       
       soundRef.current = sound;
       
-      // 立即获取一次状态来设置时长
       const status = await sound.getStatusAsync();
-      console.log('[AgentReview] Audio status:', status);
+      console.log('[AgentReview] Audio loaded successfully:', {
+        isLoaded: status.isLoaded,
+        durationMillis: (status as any).durationMillis,
+      });
       
       if (status.isLoaded) {
-        const duration = status.durationMillis || 0;
-        const position = status.positionMillis || 0;
+        const duration = (status as any).durationMillis || 0;
+        const position = (status as any).positionMillis || 0;
         
         durationRef.current = duration;
         positionRef.current = position;
-        isPlayingRef.current = status.isPlaying;
+        isPlayingRef.current = (status as any).isPlaying;
         
         setPlaybackDuration(duration);
         setPlaybackPosition(position);
-        setIsPlaying(status.isPlaying);
+        setIsPlaying((status as any).isPlaying);
+        setAudioLoadError(null);
+      } else {
+        throw new Error('音频加载后状态异常');
       }
-    } catch (error) {
-      console.error('[AgentReview] Failed to load audio:', error);
+    } catch (error: any) {
+      const errorMessage = error?.message || '未知错误';
+      console.error('[AgentReview] Failed to load audio:', {
+        message: errorMessage,
+        code: error?.code,
+        uri: audioUri,
+      });
+      
+      setAudioLoadError(errorMessage);
+      
+      if (soundRef.current) {
+        try {
+          await soundRef.current.unloadAsync();
+        } catch {}
+        soundRef.current = null;
+      }
     }
   };
 
@@ -538,8 +618,7 @@ export default function AgentReviewScreen() {
             </Text>
           </View>
           
-          {/* 音频播放控制 */}
-          {audioUri && (
+          {audioUri && !audioLoadError && (
             <View style={styles.audioPlayerContainer}>
               <TouchableOpacity
                 style={[styles.playButton, { backgroundColor: colors.primary }]}
@@ -559,7 +638,7 @@ export default function AgentReviewScreen() {
                     style={[
                       styles.progressFill,
                       {
-                        width: playbackDuration > 0 
+                        width: playbackDuration > 0
                           ? `${Math.min((playbackPosition / playbackDuration) * 100, 100)}%`
                           : '0%',
                         backgroundColor: colors.primary,
@@ -576,6 +655,15 @@ export default function AgentReviewScreen() {
                   </Text>
                 </View>
               </View>
+            </View>
+          )}
+
+          {audioLoadError && (
+            <View style={[styles.audioErrorContainer, { backgroundColor: `${colors.danger}15` }]}>
+              <Ionicons name="alert-circle-outline" size={16} color={colors.danger} />
+              <Text style={[styles.audioErrorText, { color: colors.danger }]}>
+                无法播放音频: {audioLoadError}
+              </Text>
             </View>
           )}
 
@@ -1020,6 +1108,20 @@ const styles = StyleSheet.create({
   timeText: {
     fontSize: 12,
     fontWeight: '500',
+  },
+  audioErrorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginTop: 12,
+    gap: 8,
+  },
+  audioErrorText: {
+    fontSize: 13,
+    fontWeight: '500',
+    flex: 1,
   },
   // 联系人卡片
   contactsList: {

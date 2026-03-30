@@ -91,11 +91,15 @@ export default function RecordingScreen() {
   // 使用 ref 跟踪录音状态和录音模式，供 PanResponder 使用（避免闭包问题）
   const isRecordingRef = useRef(isRecording);
   const isHoldModeRef = useRef(isHoldMode);
-  
+  // 标记是否正在尝试开始录音（解决快速点击导致的竞态条件）
+  const isStartingRecordingRef = useRef(false);
+  // 标记是否在启动完成后需要自动停止
+  const shouldStopAfterStartRef = useRef(false);
+
   useEffect(() => {
     isRecordingRef.current = isRecording;
   }, [isRecording]);
-  
+
   useEffect(() => {
     isHoldModeRef.current = isHoldMode;
   }, [isHoldMode]);
@@ -221,30 +225,44 @@ export default function RecordingScreen() {
     transform: [{ scale: micScale.value }],
   }));
 
-  // 开始录音
-  const handleStartRecording = useCallback(async () => {
-    const canRecord = await checkAndDownloadModel();
-    if (!canRecord) {
-      return;
-    }
-    
-    await startRecording();
-  }, [startRecording]);
-
   // 停止录音并转录
   const handleStopRecording = useCallback(async () => {
     const result = await stopRecording();
-    
+
     if (result) {
       router.push({
         pathname: "/(views)/agent-review",
-        params: { 
+        params: {
           transcription: result.text,
           audioUri: result.audioUri
         }
       });
     }
   }, [stopRecording, router]);
+
+  // 开始录音
+  const handleStartRecording = useCallback(async () => {
+    isStartingRecordingRef.current = true;
+    shouldStopAfterStartRef.current = false;
+
+    try {
+      const canRecord = await checkAndDownloadModel();
+      if (!canRecord) {
+        return;
+      }
+
+      await startRecording();
+
+      if (shouldStopAfterStartRef.current) {
+        await handleStopRecording();
+      }
+    } catch (error) {
+      console.error('[Recording] Failed to start recording:', error);
+    } finally {
+      isStartingRecordingRef.current = false;
+      shouldStopAfterStartRef.current = false;
+    }
+  }, [startRecording, handleStopRecording]);
 
   // 取消录音
   const handleCancelRecording = useCallback(async () => {
@@ -279,18 +297,23 @@ export default function RecordingScreen() {
         }
       },
       onPanResponderRelease: (_, gestureState) => {
-        console.log('[Recording] Release - dy:', gestureState.dy, 'recording:', isRecordingRef.current);
-        if (isHoldModeRef.current && isRecordingRef.current) {
+        console.log('[Recording] Release - dy:', gestureState.dy, 'recording:', isRecordingRef.current, 'starting:', isStartingRecordingRef.current);
+
+        if (!isHoldModeRef.current) return;
+
+        if (isRecordingRef.current) {
           const isCancel = gestureState.dy < CANCEL_THRESHOLD;
           console.log('[Recording] Is cancel:', isCancel);
-          
+
           if (isCancel) {
             handleCancelRecording();
           } else {
             handleStopRecording();
           }
-          
           hintOpacity.value = withTiming(1);
+        } else if (isStartingRecordingRef.current) {
+          console.log('[Recording] Still starting, marking for stop after start');
+          shouldStopAfterStartRef.current = true;
         }
       },
       onPanResponderTerminate: () => {

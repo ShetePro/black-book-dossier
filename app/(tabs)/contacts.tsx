@@ -143,11 +143,11 @@ export default function ContactsScreen() {
 
   const handleImportContacts = async () => {
     if (isImporting) return;
-    
+
     setIsImporting(true);
     try {
       const importedContacts = await importDeviceContacts();
-      
+
       if (importedContacts.length === 0) {
         Alert.alert('提示', '未找到可导入的联系人');
         return;
@@ -155,14 +155,36 @@ export default function ContactsScreen() {
 
       showImportPreview(importedContacts, async (contactsToImport) => {
         try {
+          let successCount = 0;
+          let failCount = 0;
+
           for (const contact of contactsToImport) {
-            await addContact(contact as Contact);
+            try {
+              await addContact(contact);
+              successCount++;
+            } catch (error) {
+              console.error('Failed to add contact:', contact.name, error);
+              failCount++;
+            }
           }
-          Alert.alert('导入成功', `成功导入 ${contactsToImport.length} 个联系人`);
+
+          if (failCount === 0) {
+            Alert.alert('导入成功', `成功导入 ${successCount} 个联系人`);
+          } else {
+            Alert.alert(
+              '导入完成',
+              `成功: ${successCount} 个\n失败: ${failCount} 个`,
+              [{ text: '确定' }]
+            );
+          }
         } catch (error) {
-          Alert.alert('导入失败', '保存联系人时出错');
+          console.error('Import preview callback error:', error);
+          Alert.alert('导入失败', '保存联系人时发生错误');
         }
       });
+    } catch (error) {
+      console.error('Import contacts handler error:', error);
+      Alert.alert('导入失败', '读取通讯录时发生错误');
     } finally {
       setIsImporting(false);
     }

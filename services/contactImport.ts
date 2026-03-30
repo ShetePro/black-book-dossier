@@ -47,6 +47,11 @@ export const importDeviceContacts = async (): Promise<Partial<Contact>[]> => {
         title: deviceContact.jobTitle || '',
         priority: 'low',
         tags: ['通讯录导入'],
+        taboos: [],
+        preferences: [],
+        healthIssues: [],
+        familyMembers: [],
+        notes: '',
         createdAt: Date.now(),
         updatedAt: Date.now(),
       };

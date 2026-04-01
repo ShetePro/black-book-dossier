@@ -7,6 +7,7 @@ import {
   TextInput,
   StyleSheet,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -35,6 +36,7 @@ export default function EditContactScreen() {
 
   const [tags, setTags] = useState<string[]>([]);
   const [newTag, setNewTag] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (contact) {
@@ -58,6 +60,8 @@ export default function EditContactScreen() {
       return;
     }
 
+    setIsSaving(true);
+
     try {
       const updatedContact: Contact = {
         ...contact,
@@ -72,10 +76,14 @@ export default function EditContactScreen() {
       };
 
       await updateContact(updatedContact);
-      router.back();
+      Alert.alert("保存成功", "联系人信息已更新", [
+        { text: "确定", onPress: () => router.back() }
+      ]);
     } catch (error) {
       console.error("Failed to update contact:", error);
-      Alert.alert("错误", "更新联系人失败");
+      Alert.alert("错误", "更新联系人失败，请重试");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -155,7 +163,7 @@ export default function EditContactScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity onPress={() => router.back()} disabled={isSaving}>
           <Text style={[styles.cancelButton, { color: colors.textSecondary }]}>
             取消
           </Text>
@@ -163,8 +171,12 @@ export default function EditContactScreen() {
 
         <Text style={[styles.title, { color: colors.text }]}>编辑联系人</Text>
 
-        <TouchableOpacity onPress={handleSave}>
-          <Text style={[styles.saveButton, { color: colors.primary }]}>保存</Text>
+        <TouchableOpacity onPress={handleSave} disabled={isSaving}>
+          {isSaving ? (
+            <ActivityIndicator size="small" color={colors.primary} />
+          ) : (
+            <Text style={[styles.saveButton, { color: colors.primary }]}>保存</Text>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -191,12 +203,13 @@ export default function EditContactScreen() {
           >
             <InputRow
               label="姓名"
-              placeholder="输入姓名"
+              placeholder="输入姓名 *"
               value={formData.name}
               onChangeText={(text) =>
                 setFormData({ ...formData, name: text })
               }
               colors={colors}
+              required
             />
 
             <InputRow
@@ -265,6 +278,7 @@ export default function EditContactScreen() {
                 value={newTag}
                 onChangeText={setNewTag}
                 onSubmitEditing={addTag}
+                editable={!isSaving}
               />
               <TouchableOpacity
                 onPress={addTag}
@@ -272,6 +286,7 @@ export default function EditContactScreen() {
                   styles.addTagButton,
                   { backgroundColor: colors.primary },
                 ]}
+                disabled={isSaving}
               >
                 <Ionicons name="add" size={20} color="#0a0a0a" />
               </TouchableOpacity>
@@ -292,7 +307,7 @@ export default function EditContactScreen() {
                     >
                       {tag}
                     </Text>
-                    <TouchableOpacity onPress={() => removeTag(tag)}>
+                    <TouchableOpacity onPress={() => removeTag(tag)} disabled={isSaving}>
                       <Ionicons
                         name="close-circle"
                         size={16}
@@ -321,6 +336,7 @@ export default function EditContactScreen() {
               multiline
               numberOfLines={4}
               textAlignVertical="top"
+              editable={!isSaving}
             />
           </View>
         </View>
@@ -329,6 +345,7 @@ export default function EditContactScreen() {
           <TouchableOpacity
             style={[styles.deleteButton, { backgroundColor: `${colors.danger}15` }]}
             onPress={handleDelete}
+            disabled={isSaving}
           >
             <Ionicons name="trash-outline" size={20} color={colors.danger} />
             <Text style={[styles.deleteButtonText, { color: colors.danger }]}>
@@ -416,6 +433,7 @@ function InputRow({
   colors,
   keyboardType = "default",
   isLast = false,
+  required = false,
 }: {
   label: string;
   placeholder: string;
@@ -424,6 +442,7 @@ function InputRow({
   colors: any;
   keyboardType?: "default" | "phone-pad" | "email-address";
   isLast?: boolean;
+  required?: boolean;
 }) {
   return (
     <View
@@ -437,6 +456,7 @@ function InputRow({
     >
       <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>
         {label}
+        {required && <Text style={{ color: "#ef4444" }}> *</Text>}
       </Text>
       
       <TextInput

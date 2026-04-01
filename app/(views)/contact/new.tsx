@@ -6,17 +6,22 @@ import {
   TouchableOpacity,
   TextInput,
   StyleSheet,
+  Alert,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useThemeColor } from "@/hooks/useThemeColor";
+import { useContactStore } from "@/store";
+import { Contact } from "@/types";
 
 export default function NewContactScreen() {
   const router = useRouter();
   const { t } = useTranslation();
   const colors = useThemeColor();
+  const { addContact } = useContactStore();
 
   const [formData, setFormData] = useState({
     name: "",
@@ -29,11 +34,52 @@ export default function NewContactScreen() {
 
   const [tags, setTags] = useState<string[]>([]);
   const [newTag, setNewTag] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
 
-  const handleSave = () => {
-    // 保存联系人逻辑
-    console.log("Saving contact:", formData, tags);
-    router.back();
+  const handleSave = async () => {
+    // 表单验证
+    if (!formData.name.trim()) {
+      Alert.alert("提示", "请输入姓名");
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      const now = Date.now();
+      const contact: Contact = {
+        id: `contact-${now}-${Math.random().toString(36).substring(2, 10)}`,
+        name: formData.name.trim(),
+        title: formData.title.trim() || undefined,
+        company: formData.company.trim() || undefined,
+        phone: formData.phone.trim() || undefined,
+        email: formData.email.trim() || undefined,
+        wechat: undefined,
+        tags: tags.length > 0 ? tags : [],
+        taboos: [],
+        preferences: [],
+        healthIssues: [],
+        familyMembers: [],
+        notes: formData.notes.trim(),
+        priority: "low",
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      await addContact(contact);
+      
+      Alert.alert("保存成功", "联系人已创建", [
+        {
+          text: "确定",
+          onPress: () => router.back(),
+        },
+      ]);
+    } catch (error) {
+      console.error("Failed to save contact:", error);
+      Alert.alert("保存失败", "创建联系人时出错，请重试");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const addTag = () => {
@@ -51,7 +97,7 @@ export default function NewContactScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       {/* 头部导航 */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity onPress={() => router.back()} disabled={isSaving}>
           <Text style={[styles.cancelButton, { color: colors.textSecondary }]}>
             取消
           </Text>
@@ -59,8 +105,12 @@ export default function NewContactScreen() {
 
         <Text style={[styles.title, { color: colors.text }]}>新建联系人</Text>
 
-        <TouchableOpacity onPress={handleSave}>
-          <Text style={[styles.saveButton, { color: colors.primary }]}>保存</Text>
+        <TouchableOpacity onPress={handleSave} disabled={isSaving}>
+          {isSaving ? (
+            <ActivityIndicator size="small" color={colors.primary} />
+          ) : (
+            <Text style={[styles.saveButton, { color: colors.primary }]}>保存</Text>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -89,12 +139,13 @@ export default function NewContactScreen() {
           >
             <InputRow
               label="姓名"
-              placeholder="输入姓名"
+              placeholder="输入姓名 *"
               value={formData.name}
               onChangeText={(text) =>
                 setFormData({ ...formData, name: text })
               }
               colors={colors}
+              required
             />
 
             <InputRow
@@ -165,6 +216,7 @@ export default function NewContactScreen() {
                 value={newTag}
                 onChangeText={setNewTag}
                 onSubmitEditing={addTag}
+                editable={!isSaving}
               />
               <TouchableOpacity
                 onPress={addTag}
@@ -172,6 +224,7 @@ export default function NewContactScreen() {
                   styles.addTagButton,
                   { backgroundColor: colors.primary },
                 ]}
+                disabled={isSaving}
               >
                 <Ionicons name="add" size={20} color="#0a0a0a" />
               </TouchableOpacity>
@@ -192,7 +245,7 @@ export default function NewContactScreen() {
                     >
                       {tag}
                     </Text>
-                    <TouchableOpacity onPress={() => removeTag(tag)}>
+                    <TouchableOpacity onPress={() => removeTag(tag)} disabled={isSaving}>
                       <Ionicons
                         name="close-circle"
                         size={16}
@@ -222,6 +275,7 @@ export default function NewContactScreen() {
               multiline
               numberOfLines={4}
               textAlignVertical="top"
+              editable={!isSaving}
             />
           </View>
         </View>
@@ -241,6 +295,7 @@ function InputRow({
   colors,
   keyboardType = "default",
   isLast = false,
+  required = false,
 }: {
   label: string;
   placeholder: string;
@@ -249,6 +304,7 @@ function InputRow({
   colors: any;
   keyboardType?: "default" | "phone-pad" | "email-address";
   isLast?: boolean;
+  required?: boolean;
 }) {
   return (
     <View
@@ -262,6 +318,7 @@ function InputRow({
     >
       <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>
         {label}
+        {required && <Text style={{ color: "#ef4444" }}> *</Text>}
       </Text>
       
       <TextInput

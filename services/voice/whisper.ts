@@ -1,10 +1,10 @@
 import { initWhisper, WhisperContext } from 'whisper.rn';
 import { Paths } from 'expo-file-system';
 
-// Whisper Tiny 模型配置
-const MODEL_FILE_NAME = 'ggml-tiny.bin';
-const MODEL_URL = 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin';
-const MODEL_SIZE = 75; // MB
+// Whisper Medium 模型配置（最高准确率）
+const MODEL_FILE_NAME = 'ggml-medium.bin';
+const MODEL_URL = 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin';
+const MODEL_SIZE = 769; // MB
 
 // 全局 Whisper 上下文实例
 let whisperContext: WhisperContext | null = null;

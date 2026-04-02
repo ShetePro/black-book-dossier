@@ -1,0 +1,43 @@
+{
+  "app_name": "Black Book",
+  "app_subtitle": "私密人脉管理",
+  "bundle_id": "com.blackbook.app",
+  "version": "1.0.0",
+  "build_number": "1",
+  
+  "keywords": [
+    "人脉管理",
+    "CRM",
+    "联系人",
+    "关系维护",
+    "AI助手",
+    "商务社交",
+    "客户管理",
+    "销售助手"
+  ],
+  
+  "description": "Black Book 是一款专为高端商务人士打造的私密人脉管理应用。\n\n【核心功能】\n• AI 智能语音记录 - 一句话记录交往细节，AI 自动提取关键信息\n• CIA 风格档案管理 - 像管理情报一样管理您的联系人\n• 智能关系提醒 - 不再错过重要客户的生日和纪念日\n• 本地优先 - 所有数据仅存储在您的设备上，绝对隐私\n\n【隐私保护】\n• Face ID / Touch ID 生物识别锁\n• 数据不上传云端\n• 一键销毁所有数据（Kill Switch）\n• 完整的数据导出功能\n\n【适用人群】\n• 企业高管\n• 投资人\n• 销售精英\n• 创业者\n• 任何重视人脉资源的商务人士\n\nBlack Book，让您的每一次社交都有价值。",
+  
+  "whats_new": "首个版本发布\n\n- AI 智能语音记录与分析\n- CIA 风格联系人档案管理\n- 本地优先的隐私保护\n- 完整的导入导出功能",
+  
+  "support_url": "https://github.com/ShetePro/black-book/issues",
+  "marketing_url": "",
+  
+  "categories": [
+    "Business",
+    "Productivity"
+  ],
+  
+  "content_rights": false,
+  
+  "age_rating": {
+    "level": "4+",
+    " gambling": false,
+    "contests": false
+  },
+  
+  "pricing": {
+    "tier": "0",
+    "availability": "all"
+  }
+}

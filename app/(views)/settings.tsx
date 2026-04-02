@@ -21,6 +21,8 @@ import Animated, {
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { useSettingsStore } from "@/store/settingsStore";
 import { exportContactsToCSV } from "@/services/export/csvExport";
+import { clearAllAppData } from "@/services/dataClear";
+import { useContactStore } from "@/store";
 
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
@@ -133,22 +135,42 @@ export default function SettingsScreen() {
   };
 
   // Kill Switch - 销毁所有数据
-  const handleKillSwitch = () => {
+  const handleKillSwitch = async () => {
     Alert.alert(
       "⚠️ 危险操作",
-      '此操作将永久删除所有数据，无法恢复。\n\n请输入 "DELETE" 确认',
+      '此操作将永久删除所有数据，无法恢复。\n\n请输入 "DELETE" 确认删除账户',
       [
         { text: "取消", style: "cancel" },
         {
           text: "确认销毁",
           style: "destructive",
-          onPress: () => {
-            // 实际销毁逻辑
-            Alert.alert(
-              "数据已销毁",
-              "所有数据已被永久删除。应用将重启。",
-              [{ text: "确定", onPress: () => console.log("App restart") }]
-            );
+          onPress: async () => {
+            try {
+              const result = await clearAllAppData();
+              if (result.success) {
+                // 重置所有 store 状态
+                const { loadContacts } = useContactStore.getState();
+                await loadContacts();
+                
+                Alert.alert(
+                  "账户已删除",
+                  "所有数据已被永久删除。应用将返回首页。",
+                  [
+                    { 
+                      text: "确定", 
+                      onPress: () => {
+                        router.replace("/(tabs)");
+                      }
+                    }
+                  ]
+                );
+              } else {
+                Alert.alert("删除失败", result.error || "删除数据时出错，请重试");
+              }
+            } catch (error) {
+              console.error('[KillSwitch] Error:', error);
+              Alert.alert("删除失败", "删除过程中发生错误");
+            }
           },
         },
       ]

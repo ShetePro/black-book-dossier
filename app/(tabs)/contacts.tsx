@@ -23,14 +23,14 @@ import { useContactStore } from '@/store';
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
 // 搜索结果空状态组件
-const SearchEmptyState: React.FC<{ query: string; colors: ReturnType<typeof useThemeColor> }> = ({ query, colors }) => (
+const SearchEmptyState: React.FC<{ query: string; colors: ReturnType<typeof useThemeColor>; t: any }> = ({ query, colors, t }) => (
   <View style={styles.searchEmptyContainer}>
     <Ionicons name="search-outline" size={48} color={colors.textMuted} />
     <Text style={[styles.searchEmptyTitle, { color: colors.text }]}>
-      未找到联系人
+      {t('contacts.searchNoResults')}
     </Text>
     <Text style={[styles.searchEmptySubtitle, { color: colors.textMuted }]}>
-      搜索 "{query}" 没有结果
+      {t('contacts.searchQueryNoResults', { query })}
     </Text>
   </View>
 );
@@ -149,7 +149,7 @@ export default function ContactsScreen() {
       const importedContacts = await importDeviceContacts();
 
       if (importedContacts.length === 0) {
-        Alert.alert('提示', '未找到可导入的联系人');
+        Alert.alert(t('common.notice'), t('contacts.importNoContacts'));
         return;
       }
 
@@ -169,22 +169,22 @@ export default function ContactsScreen() {
           }
 
           if (failCount === 0) {
-            Alert.alert('导入成功', `成功导入 ${successCount} 个联系人`);
+            Alert.alert(t('common.success'), t('contacts.importSuccess', { count: successCount }));
           } else {
             Alert.alert(
-              '导入完成',
-              `成功: ${successCount} 个\n失败: ${failCount} 个`,
-              [{ text: '确定' }]
+              t('contacts.importCompleted'),
+              `${t('contacts.importSuccessCount', { success: successCount })}\n${t('contacts.importFailCount', { fail: failCount })}`,
+              [{ text: t('common.ok') }]
             );
           }
         } catch (error) {
           console.error('Import preview callback error:', error);
-          Alert.alert('导入失败', '保存联系人时发生错误');
+          Alert.alert(t('contacts.importError'), t('contacts.importSaveError'));
         }
       });
     } catch (error) {
       console.error('Import contacts handler error:', error);
-      Alert.alert('导入失败', '读取通讯录时发生错误');
+      Alert.alert(t('contacts.importError'), t('contacts.importReadError'));
     } finally {
       setIsImporting(false);
     }
@@ -290,7 +290,7 @@ export default function ContactsScreen() {
           </Animated.View>
           <TouchableOpacity style={styles.cancelButton} onPress={closeSearch}>
             <Text style={[styles.cancelText, { color: colors.primary }]}>
-              取消
+              {t('common.cancel')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -299,8 +299,8 @@ export default function ContactsScreen() {
         <View style={styles.searchContent}>
           {isSearching ? (
             <ContactList contacts={[]} isLoading={true} />
-          ) : query.trim() && searchResults.length === 0 ? (
-            <SearchEmptyState query={query} colors={colors} />
+          )           : query.trim() && searchResults.length === 0 ? (
+            <SearchEmptyState query={query} colors={colors} t={t} />
           ) : (
             <ContactList
               contacts={searchResults}

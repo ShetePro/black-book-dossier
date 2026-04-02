@@ -20,6 +20,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { useSettingsStore } from "@/store/settingsStore";
+import { exportContactsToCSV } from "@/services/export/csvExport";
 
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
@@ -155,16 +156,26 @@ export default function SettingsScreen() {
   };
 
   // 导出数据
-  const handleExport = () => {
-    Alert.alert(
-      "导出数据",
-      "选择导出格式",
-      [
-        { text: "取消", style: "cancel" },
-        { text: "JSON", onPress: () => console.log("Export JSON") },
-        { text: "CSV", onPress: () => console.log("Export CSV") },
-      ]
-    );
+  const handleExport = async (format: 'json' | 'csv') => {
+    if (format === 'csv') {
+      try {
+        const result = await exportContactsToCSV();
+        if (result.success) {
+          Alert.alert(
+            "导出成功",
+            `联系人已导出到:\n${result.filePath}`,
+            [{ text: "确定" }]
+          );
+        } else {
+          Alert.alert("导出失败", result.error || "导出失败，请重试");
+        }
+      } catch (error) {
+        console.error('[Settings] CSV export error:', error);
+        Alert.alert("导出失败", "导出过程中发生错误");
+      }
+    } else {
+      Alert.alert("JSON 导出", "JSON 格式导出功能开发中...");
+    }
   };
 
   // 导入数据
@@ -249,9 +260,9 @@ export default function SettingsScreen() {
           <View style={styles.card}>
             <SettingItem
               icon="download"
-              title="导出数据"
-              subtitle="备份到文件"
-              onPress={handleExport}
+              title="导出 CSV"
+              subtitle="导出联系人为 CSV 格式"
+              onPress={() => handleExport('csv')}
               colors={colors}
             />
 

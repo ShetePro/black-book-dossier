@@ -161,13 +161,13 @@ export default function RecordingScreen() {
       if (result.success) {
         setDownloadResult(true);
       } else {
-        Alert.alert('下载失败', result.error || '请检查网络连接后重试');
+        Alert.alert(t('aiModels.downloadError'), result.error || t('errors.network'));
         setDownloadResult(false);
       }
     } catch (error) {
       console.error('Download error:', error);
       setIsCheckingModel(false);
-      Alert.alert('下载失败', '下载过程中出现错误');
+      Alert.alert(t('aiModels.downloadError'), t('errors.unknown'));
       setDownloadResult(false);
     }
   };
@@ -375,7 +375,7 @@ export default function RecordingScreen() {
         </TouchableOpacity>
 
         <Text style={[styles.title, { color: colors.text }]}>
-          {isTranscribing ? '正在转录...' : isRecording ? '正在录音' : '录音'}
+          {isTranscribing ? t('recording.transcribing') : isRecording ? t('recording.recording') : t('navigation.addInteraction')}
         </Text>
 
         {/* 倒计时显示 */}
@@ -412,7 +412,7 @@ export default function RecordingScreen() {
               styles.hintText, 
               { color: isInCancelZone ? colors.danger : colors.textMuted }
             ]}>
-              {isInCancelZone ? '松开手指，取消发送' : '手指上滑，取消发送'}
+              {isInCancelZone ? t('recording.releaseToCancelSend') : t('recording.slideToCancel')}
             </Text>
           </Animated.View>
         )}
@@ -420,17 +420,17 @@ export default function RecordingScreen() {
         {/* 点击模式的提示 */}
         {!isHoldMode && !isTranscribing && !isCheckingModel && !isRecording && (
           <Text style={[styles.hint, { color: colors.textMuted }]}>
-            点击麦克风开始录音
+            {t('recording.tapToStart')}
           </Text>
         )}
 
         {showDownloadConfirm && (
           <View style={[styles.confirmContainer, { backgroundColor: colors.surface }]}>
             <Text style={[styles.confirmTitle, { color: colors.text }]}>
-              下载语音模型
+              {t('aiModels.downloadModelTitle')}
             </Text>
             <Text style={[styles.confirmMessage, { color: colors.textMuted }]}>
-              首次使用需要下载 Whisper Tiny 语音模型（{formatFileSize(getModelInfo().size * 1024 * 1024)}）。{"\n\n"}建议在 Wi-Fi 环境下下载。
+              {t('aiModels.downloadModelWifi', { size: formatFileSize(getModelInfo().size * 1024 * 1024) })}
             </Text>
             <View style={styles.confirmButtons}>
               <TouchableOpacity
@@ -438,7 +438,7 @@ export default function RecordingScreen() {
                 onPress={handleDownloadCancel}
               >
                 <Text style={[styles.confirmButtonText, { color: colors.text }]}>
-                  取消
+                  {t('common.cancel')}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -446,7 +446,7 @@ export default function RecordingScreen() {
                 onPress={handleDownloadConfirm}
               >
                 <Text style={[styles.confirmButtonText, { color: '#0a0a0a' }]}>
-                  下载
+                  {t('aiModels.downloadModel')}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -457,10 +457,10 @@ export default function RecordingScreen() {
           <View style={styles.transcribingContainer}>
             <ActivityIndicator size="large" color={colors.primary} />
             <Text style={[styles.transcribingText, { color: colors.text }]} >
-              正在识别语音...
+              {t('recording.processing')}
             </Text>
             <Text style={[styles.transcribingSubtext, { color: colors.textMuted }]} >
-              请稍候
+              {t('recording.pleaseWait')}
             </Text>
           </View>
         )}
@@ -469,7 +469,7 @@ export default function RecordingScreen() {
           <View style={styles.transcribingContainer}>
             <ActivityIndicator size="large" color={colors.primary} />
             <Text style={[styles.transcribingText, { color: colors.text }]} >
-              正在下载语音模型...
+              {t('aiModels.downloadingModel')}...
             </Text>
             <View style={[styles.progressBar, { backgroundColor: colors.elevated }]}>
               <View
@@ -506,7 +506,7 @@ export default function RecordingScreen() {
                 onPress={handleCancelRecording}
               >
                 <Text style={[styles.secondaryButtonText, { color: colors.text }]}>
-                  取消
+                  {t('common.cancel')}
                 </Text>
               </TouchableOpacity>
 
@@ -527,7 +527,7 @@ export default function RecordingScreen() {
               {/* 长按模式提示文字 */}
               {isHoldMode && !isRecording && (
                 <Text style={[styles.holdHint, { color: colors.textMuted }]}>
-                  按住 说话
+                  {t('recording.holdToRecord')}
                 </Text>
               )}
 
@@ -568,7 +568,7 @@ export default function RecordingScreen() {
               {/* 长按模式录音时的提示 */}
               {isHoldMode && isRecording && (
                 <Text style={[styles.recordingLabel, { color: colors.textMuted }]}>
-                  松开发送
+                  {t('recording.releaseToComplete')}
                 </Text>
               )}
             </View>

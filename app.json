@@ -11,9 +11,9 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSFaceIDUsageDescription": "Black Book 使用 Face ID 保护您的私密人脉数据，确保只有您本人可以访问。",
-        "NSMicrophoneUsageDescription": "Black Book 需要访问麦克风来录制语音备忘录，所有数据仅存储在本地设备。",
-        "NSContactsUsageDescription": "Black Book 需要访问通讯录来导入联系人，我们不会上传任何数据到服务器，所有信息仅存储在本地设备。"
+        "NSFaceIDUsageDescription": "Black Book uses Face ID to protect your private network data, ensuring only you can access it.",
+        "NSMicrophoneUsageDescription": "Black Book needs microphone access to record voice memos. All data is stored locally on your device.",
+        "NSContactsUsageDescription": "Black Book needs access to your contacts to import them. All data is stored locally on your device and will never be uploaded to any server."
       },
       "bundleIdentifier": "com.blackbook.app"
     },
@@ -60,13 +60,19 @@
       [
         "expo-local-authentication",
         {
-          "faceIDPermission": "允许 Black Book 使用 Face ID 进行身份验证。"
+          "faceIDPermission": "Allow Black Book to use Face ID for authentication."
         }
       ],
       [
         "expo-av",
         {
-          "microphonePermission": "Black Book 需要麦克风权限来录制语音备忘录。"
+          "microphonePermission": "Black Book needs microphone permission to record voice memos."
+        }
+      ],
+      [
+        "expo-contacts",
+        {
+          "contactsPermission": "Black Book needs access to your contacts to import them. All data is stored locally and will never be uploaded to any server."
         }
       ]
     ],

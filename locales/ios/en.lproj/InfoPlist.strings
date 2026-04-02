@@ -1,0 +1,5 @@
+{
+  "NSContactsUsageDescription": "Black Book needs access to your contacts to import them. All data is stored locally on your device and will never be uploaded to any server.",
+  "NSMicrophoneUsageDescription": "Black Book needs microphone access to record voice memos. All recordings are stored locally on your device.",
+  "NSFaceIDUsageDescription": "Black Book uses Face ID to protect your private network data, ensuring only you can access it."
+}

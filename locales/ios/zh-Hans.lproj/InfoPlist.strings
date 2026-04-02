@@ -1,0 +1,5 @@
+{
+  "NSContactsUsageDescription": "Black Book 需要访问通讯录来导入联系人，所有数据仅存储在本地，不会上传到任何服务器。",
+  "NSMicrophoneUsageDescription": "Black Book 需要访问麦克风来录制语音备忘录，所有数据仅存储在本地设备。",
+  "NSFaceIDUsageDescription": "Black Book 使用 Face ID 保护您的私密人脉数据，确保只有您本人可以访问。"
+}

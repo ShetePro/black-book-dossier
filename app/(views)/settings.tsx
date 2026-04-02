@@ -478,7 +478,7 @@ export default function SettingsScreen() {
             <SettingItem
               icon="document-text"
               title="隐私政策"
-              onPress={() => console.log("Privacy")}
+              onPress={() => router.push("/(views)/privacy")}
               colors={colors}
             />
 

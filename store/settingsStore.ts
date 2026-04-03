@@ -94,6 +94,10 @@ export interface AppSettings {
       autoMergeHighConfidence: boolean;  // 自动合并高置信度
       showSimilarContacts: boolean;      // 显示相似联系人
     };
+    // 转录设置
+    transcription: {
+      useLLMCorrection: boolean;  // 使用 LLM 修正
+    };
   };
   
   // 录音设置
@@ -115,6 +119,7 @@ export type SettingPath = keyof AppSettings |
   `map.${keyof AppSettings['map']}` |
   `ai.localModel.${keyof AppSettings['ai']['localModel']}` |
   `ai.matching.${keyof AppSettings['ai']['matching']}` |
+  `ai.transcription.${keyof AppSettings['ai']['transcription']}` |
   `recording.${keyof AppSettings['recording']}`;
 
 // ==================== 默认值 ====================
@@ -188,9 +193,12 @@ export const DEFAULT_SETTINGS: AppSettings = {
       version: "1.0",
     },
     matching: {
-      threshold: 0.7,           // 默认匹配阈值 70%
-      autoMergeHighConfidence: false,  // 默认不自动合并
-      showSimilarContacts: true,       // 默认显示相似联系人建议
+      threshold: 0.7,
+      autoMergeHighConfidence: false,
+      showSimilarContacts: true,
+    },
+    transcription: {
+      useLLMCorrection: true,
     },
   },
   // 录音设置默认值

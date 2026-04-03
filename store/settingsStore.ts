@@ -2,10 +2,11 @@ import { create } from "zustand";
 import { getStorageItemAsync, setStorageItemAsync } from "@/hooks/useStorageState";
 import { colorScheme as nativeWindColorScheme } from "nativewind";
 import i18n from "@/locales/i18n";
+import * as Localization from "expo-localization";
 
 // ==================== 类型定义 ====================
 
-export type Language = "cn" | "en";
+export type Language = "zh-CN" | "en-US";
 export type DistanceUnit = "km" | "mi";
 export type ThemeMode = "light" | "dark" | "system";
 export type MapType = "standard" | "satellite" | "hybrid";
@@ -82,6 +83,7 @@ export interface AppSettings {
     localModel: {
       enabled: boolean;           // 是否启用本地模型
       downloaded: boolean;        // 是否已下载
+      modelId: string;            // 模型 ID (如 "qwen2.5-0.5b")
       modelName: string;          // 模型名称
       modelSize: number;          // 模型大小 (MB)
       version: string;            // 模型版本
@@ -117,12 +119,22 @@ export type SettingPath = keyof AppSettings |
 
 // ==================== 默认值 ====================
 
+const getSystemLanguage = (): Language => {
+  const locale = Localization.getLocales()[0]?.languageTag || 'zh-CN';
+  
+  if (locale.startsWith('zh')) {
+    return 'zh-CN';
+  }
+  
+  return 'en-US';
+};
+
 /**
  * 默认设置
  * 所有新设置项都应在这里定义默认值
  */
 export const DEFAULT_SETTINGS: AppSettings = {
-  language: "cn",
+  language: getSystemLanguage(),
   themeMode: "system",
   distanceUnit: "km",
   privacy: {
@@ -168,10 +180,11 @@ export const DEFAULT_SETTINGS: AppSettings = {
   // AI 设置默认值
   ai: {
     localModel: {
-      enabled: false,           // 默认不启用，需要用户手动下载
-      downloaded: false,        // 默认未下载
-      modelName: "Phi-3 Mini",  // 默认模型
-      modelSize: 3800,          // 3.8GB (MB)
+      enabled: false,
+      downloaded: false,
+      modelId: "qwen2.5-0.5b",
+      modelName: "Qwen 2.5 (0.5B)",
+      modelSize: 350,
       version: "1.0",
     },
     matching: {
@@ -410,8 +423,8 @@ export function useSetting<K extends SettingPath>(path: K):
 // ==================== 常量/辅助数据 ====================
 
 export const LANGUAGE_NAMES: Record<Language, string> = {
-  cn: "中文",
-  en: "English",
+  "zh-CN": "中文",
+  "en-US": "English",
 };
 
 export const THEME_NAMES: Record<ThemeMode, string> = {

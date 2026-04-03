@@ -105,6 +105,7 @@ export default function AIModelsScreen() {
   const handleEnable = async () => {
     if (selectedModel) {
       await updateSetting('ai.localModel.enabled', true);
+      await updateSetting('ai.localModel.modelId', selectedModel);
       await updateSetting('ai.localModel.modelName', AVAILABLE_MODELS[selectedModel].name);
       await updateSetting('ai.localModel.modelSize', AVAILABLE_MODELS[selectedModel].size);
     }

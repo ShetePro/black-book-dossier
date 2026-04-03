@@ -45,12 +45,13 @@ const initializeLLM = async (modelId: ModelId): Promise<boolean> => {
     const modelPath = getModelPath(modelId);
     
     // 动态导入 llama.rn
-    const { LlamaContext } = await import('llama.rn');
+    const { initLlama } = await import('llama.rn');
     
-    llmContext = await LlamaContext.init({
+    llmContext = await initLlama({
       model: modelPath,
-      useMetal: true,
+      use_mlock: true,
       n_ctx: 2048,
+      n_gpu_layers: 99,
     });
     
     currentModelId = modelId;
@@ -138,7 +139,8 @@ export const correctTranscriptionWithLLM = async (
     console.log('[LLMInference] Starting inference with model:', modelId);
     const startTime = Date.now();
     
-    const result = await llmContext.completion(prompt, {
+    const result = await llmContext.completion({
+      prompt,
       n_predict: 512,
       temperature: 0.3,
       top_k: 40,

@@ -6,16 +6,25 @@ import { useSettingsStore } from '@/store/settingsStore';
 import { useContactStore } from '@/store';
 import { getTranscriptionEnhancer } from '@/services/transcription/postProcessor';
 
-/**
- * 将应用语言设置映射到 Whisper 语言代码
- */
 const mapLanguageToWhisper = (appLanguage: string): string => {
   const languageMap: Record<string, string> = {
-    'cn': 'zh',  // 中文 -> 中文
-    'en': 'en',  // 英文 -> 英文
-    'auto': 'auto', // 自动检测
+    'zh-CN': 'zh',
+    'zh-TW': 'zh',
+    'en-US': 'en',
+    'en': 'en',
+    'zh': 'zh',
+    'auto': 'auto',
   };
-  return languageMap[appLanguage] || 'zh';
+  
+  const mappedLang = languageMap[appLanguage];
+  if (mappedLang) return mappedLang;
+  
+  if (appLanguage.includes('-')) {
+    const mainLang = appLanguage.split('-')[0];
+    return languageMap[mainLang] || mainLang;
+  }
+  
+  return appLanguage || 'zh';
 };
 
 export type RecordingStatus = 'idle' | 'recording' | 'transcribing' | 'error';
@@ -226,7 +235,7 @@ export const useRecorder = (): UseRecorderReturn => {
         console.log(`[Recorder] Loaded ${currentContacts.length} contacts`);
       }
       
-      const enhancedText = enhancer.quickEnhance(result.text, currentContacts);
+      const enhancedText = await enhancer.quickEnhance(result.text, currentContacts);
       
       if (enhancedText !== result.text) {
         console.log('[Recorder] Enhanced transcription:', {

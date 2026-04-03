@@ -35,8 +35,8 @@ export default function LanguageView() {
   const { settings, updateSetting } = useSettingsStore();
 
   const languages: { code: Language; name: string }[] = [
-    { code: "cn", name: LANGUAGE_NAMES.cn },
-    { code: "en", name: LANGUAGE_NAMES.en },
+    { code: "zh-CN", name: LANGUAGE_NAMES["zh-CN"] },
+    { code: "en-US", name: LANGUAGE_NAMES["en-US"] },
   ];
 
   return (

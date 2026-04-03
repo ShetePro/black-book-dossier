@@ -1,5 +1,6 @@
 import { Contact } from '@/types';
 import { getContactNameMatcher, ContactNameMatcher } from './nameMatcher';
+import { correctTranscriptionWithLLM, isLLMAvailable } from '@/services/ai/llmInference';
 
 export interface EnhancementResult {
   originalText: string;
@@ -10,6 +11,7 @@ export interface EnhancementResult {
     confidence: number;
   }>;
   applied: boolean;
+  llmApplied?: boolean;
 }
 
 // 默认行业词汇
@@ -77,15 +79,17 @@ class TranscriptionEnhancer {
    * 增强转录文本
    * @param text 原始转录文本
    * @param threshold 相似度阈值（默认0.75）
+   * @param useLLM 是否使用 LLM 修正（默认 true）
    * @returns 增强结果
    */
-  enhance(text: string, threshold: number = 0.75): EnhancementResult {
+  async enhance(text: string, threshold: number = 0.75, useLLM: boolean = true): Promise<EnhancementResult> {
     if (!text || text.trim().length === 0) {
       return {
         originalText: text,
         enhancedText: text,
         corrections: [],
         applied: false,
+        llmApplied: false,
       };
     }
 
@@ -94,23 +98,41 @@ class TranscriptionEnhancer {
       this.loadDefaultVocabulary();
     }
 
+    // 1. 规则修正
     const { corrected, corrections } = this.matcher.correctText(text, threshold);
+    
+    // 2. LLM 修正（可选）
+    let finalText = corrected;
+    let llmApplied = false;
+    
+    if (useLLM && await isLLMAvailable()) {
+      console.log('[TranscriptionEnhancer] Applying LLM correction...');
+      const llmResult = await correctTranscriptionWithLLM(corrected);
+      if (llmResult.success && llmResult.text) {
+        finalText = llmResult.text;
+        llmApplied = true;
+        console.log('[TranscriptionEnhancer] LLM correction applied');
+      }
+    }
 
     console.log('[TranscriptionEnhancer] Enhancement result:', {
       original: text,
-      corrected,
+      ruleCorrected: corrected,
+      finalText,
       correctionsCount: corrections.length,
+      llmApplied,
     });
 
     return {
       originalText: text,
-      enhancedText: corrected,
+      enhancedText: finalText,
       corrections: corrections.map(c => ({
         original: c.original,
         corrected: c.corrected,
         confidence: c.confidence,
       })),
-      applied: corrections.length > 0,
+      applied: corrections.length > 0 || llmApplied,
+      llmApplied,
     };
   }
 
@@ -120,12 +142,12 @@ class TranscriptionEnhancer {
    * @param contacts 联系人列表（可选，不传则使用已加载的）
    * @returns 增强后的文本
    */
-  quickEnhance(text: string, contacts?: Contact[]): string {
+  async quickEnhance(text: string, contacts?: Contact[]): Promise<string> {
     if (contacts && contacts.length > 0) {
       this.loadContacts(contacts);
     }
 
-    const result = this.enhance(text);
+    const result = await this.enhance(text);
     return result.enhancedText;
   }
 }
@@ -156,9 +178,9 @@ export const resetTranscriptionEnhancer = (): void => {
  * @param contacts 联系人列表
  * @returns 增强后的文本
  */
-export const enhanceTranscription = (text: string, contacts?: Contact[]): string => {
+export const enhanceTranscription = async (text: string, contacts?: Contact[]): Promise<string> => {
   const enhancer = getTranscriptionEnhancer();
-  return enhancer.quickEnhance(text, contacts);
+  return await enhancer.quickEnhance(text, contacts);
 };
 
 /**
@@ -167,13 +189,13 @@ export const enhanceTranscription = (text: string, contacts?: Contact[]): string
  * @param contacts 联系人列表
  * @returns 增强结果（包含纠正详情）
  */
-export const enhanceTranscriptionWithDetails = (
+export const enhanceTranscriptionWithDetails = async (
   text: string,
   contacts?: Contact[]
-): EnhancementResult => {
+): Promise<EnhancementResult> => {
   const enhancer = getTranscriptionEnhancer();
   if (contacts) {
     enhancer.loadContacts(contacts);
   }
-  return enhancer.enhance(text);
+  return await enhancer.enhance(text);
 };

@@ -512,6 +512,13 @@ const resources = {
         downloadModelTitle: '下载语音模型',
         downloadModelForeground: '首次使用需要下载语音识别模型，请保持应用在前台',
         downloadModelWifi: '首次使用需要下载语音识别模型（{{size}}），建议在 Wi-Fi 环境下下载。',
+        checking: '检查 AI 模型状态...',
+        notSet: 'AI 模型未设置',
+        tapToSet: '点击前往 AI 模型管理页面设置',
+        notDownloaded: '模型未下载',
+        tapToDownload: '点击前往下载',
+        ready: 'AI 模型已就绪',
+        available: '已可用',
       },
       // 隐私政策
       privacy: {
@@ -1061,6 +1068,13 @@ const resources = {
         downloadModelTitle: 'Download Voice Model',
         downloadModelForeground: 'Voice recognition model needs to be downloaded for first use. Please keep the app in foreground.',
         downloadModelWifi: 'Voice recognition model needs to be downloaded for first use ({{size}}). Wi-Fi recommended.',
+        checking: 'Checking AI model status...',
+        notSet: 'AI Model Not Set',
+        tapToSet: 'Tap to go to AI Model Management',
+        notDownloaded: 'Model Not Downloaded',
+        tapToDownload: 'Tap to download',
+        ready: 'AI Model Ready',
+        available: 'is available',
       },
       // Privacy
       privacy: {

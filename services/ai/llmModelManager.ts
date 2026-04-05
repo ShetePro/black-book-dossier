@@ -88,7 +88,9 @@ const getModelDirectory = (): string => {
   if (!dir) {
     throw new Error('Storage directory not available');
   }
-  return `${dir}ai-models/`;
+  // 移除 file:// 前缀（如果存在），llama.rn 需要绝对路径
+  const cleanDir = dir.replace(/^file:\/\//, '');
+  return `${cleanDir}ai-models/`;
 };
 
 // 获取特定模型的路径

@@ -44,6 +44,18 @@ const initializeLLM = async (modelId: ModelId): Promise<boolean> => {
 
     const modelPath = getModelPath(modelId);
     
+    // 调试：检查原始路径
+    console.log('[LLMInference] Raw model path:', modelPath);
+    
+    // llama.rn 在 iOS 上需要使用完整路径，不需要 file:// 前缀
+    // 检查路径是否正确
+    if (!modelPath.endsWith('.gguf')) {
+      throw new Error(`Invalid model path: ${modelPath}`);
+    }
+    
+    console.log('[LLMInference] Loading model:', modelId);
+    console.log('[LLMInference] Model path:', modelPath);
+    
     // 动态导入 llama.rn
     const { initLlama } = await import('llama.rn');
     
@@ -51,7 +63,7 @@ const initializeLLM = async (modelId: ModelId): Promise<boolean> => {
       model: modelPath,
       use_mlock: true,
       n_ctx: 2048,
-      n_gpu_layers: 99,
+      n_gpu_layers: 0, // 暂时禁用 GPU，先测试 CPU 加载
     });
     
     currentModelId = modelId;

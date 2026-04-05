@@ -23,7 +23,10 @@ import { Audio } from 'expo-av';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import { extractEntities } from '@/services/ai/entityExtractor';
-import { ExtractedEntity, ActionItem } from '@/types';
+import { analyzeVoiceContent, SmartAnalysisResult } from '@/services/ai/smartAnalyzer';
+import { useAutoInteraction } from '@/hooks/useAutoInteraction';
+import { AutoInteractionConfirm } from '@/components/interaction/AutoInteractionConfirm';
+import { ExtractedEntity, ActionItem, Contact } from '@/types';
 import { useContactStore } from '@/store';
 import { useSettingsStore } from '@/store/settingsStore';
 import { hasAnyModelDownloaded } from '@/services/ai/llmModelManager';
@@ -69,6 +72,12 @@ export default function AgentReviewScreen() {
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
   const [usingLocalLLM, setUsingLocalLLM] = useState(false);
   const [isTranscriptionExpanded, setIsTranscriptionExpanded] = useState(false);
+  
+  // 智能交往记录分析状态
+  const [smartAnalysis, setSmartAnalysis] = useState<SmartAnalysisResult | null>(null);
+  const [showAutoInteractionConfirm, setShowAutoInteractionConfirm] = useState(false);
+  const [isCreatingInteraction, setIsCreatingInteraction] = useState(false);
+  const { createInteractionFromVoice } = useAutoInteraction();
 
   // 音频播放状态
   const [isPlaying, setIsPlaying] = useState(false);
@@ -158,6 +167,26 @@ export default function AgentReviewScreen() {
         if (matches.length > 0 && shouldAutoSelect(matches[0].confidence)) {
           setSelectedContactId(matches[0].contact.id);
         }
+      }
+      
+      // 3. 智能分析交往记录
+      try {
+        const smartResult = await analyzeVoiceContent(transcription, contacts);
+        setSmartAnalysis(smartResult);
+        
+        // 如果置信度高且匹配到联系人，显示自动创建弹窗
+        if (smartResult.confidence > 0.7 && smartResult.extractedContactName) {
+          const matchedContact = contacts.find(c => 
+            c.name === smartResult.extractedContactName || 
+            c.name.includes(smartResult.extractedContactName!) ||
+            smartResult.extractedContactName!.includes(c.name)
+          );
+          if (matchedContact) {
+            setShowAutoInteractionConfirm(true);
+          }
+        }
+      } catch (smartError) {
+        console.error('[AgentReview] Smart analysis failed:', smartError);
       }
     } catch (error) {
       console.error('Analysis failed:', error);
@@ -540,6 +569,42 @@ export default function AgentReviewScreen() {
         editMode: 'true',
       }
     });
+  };
+
+  // 处理智能交往记录确认
+  const handleAutoInteractionConfirm = async () => {
+    if (!smartAnalysis || !selectedContactId) return;
+    
+    setIsCreatingInteraction(true);
+    try {
+      const selectedContact = contacts.find(c => c.id === selectedContactId);
+      if (!selectedContact) {
+        Alert.alert('错误', '未找到选中的联系人');
+        return;
+      }
+      
+      const result = await createInteractionFromVoice(
+        smartAnalysis,
+        selectedContact,
+        transcription
+      );
+      
+      if (result.success) {
+        Alert.alert('成功', '交往记录已自动创建');
+        setShowAutoInteractionConfirm(false);
+      } else {
+        Alert.alert('失败', result.error || '创建交往记录失败');
+      }
+    } catch (error) {
+      console.error('[AgentReview] Auto interaction creation failed:', error);
+      Alert.alert('错误', '创建交往记录时发生错误');
+    } finally {
+      setIsCreatingInteraction(false);
+    }
+  };
+
+  const handleAutoInteractionCancel = () => {
+    setShowAutoInteractionConfirm(false);
   };
 
   if (isAnalyzing) {
@@ -939,6 +1004,15 @@ export default function AgentReviewScreen() {
           </Text>
         </TouchableOpacity>
       </View>
+      
+      {/* 智能交往记录确认弹窗 */}
+      <AutoInteractionConfirm
+        visible={showAutoInteractionConfirm}
+        analysis={smartAnalysis}
+        matchedContact={contacts.find(c => c.id === selectedContactId)}
+        onConfirm={handleAutoInteractionConfirm}
+        onCancel={handleAutoInteractionCancel}
+      />
     </SafeAreaView>
   );
 }

@@ -23,6 +23,7 @@ import { useThemeColor } from "@/hooks/useThemeColor";
 import { StatusBar } from "expo-status-bar";
 import { useRecorder } from "@/hooks/useRecorder";
 import { isModelDownloaded, downloadModel, formatFileSize, getModelInfo } from "@/services/voice/whisper";
+import { ModelDownloadSheet } from "@/components/ui/ModelDownloadSheet";
 import { Alert } from "react-native";
 import { useSettingsStore } from "@/store/settingsStore";
 
@@ -424,34 +425,16 @@ export default function RecordingScreen() {
           </Text>
         )}
 
-        {showDownloadConfirm && (
-          <View style={[styles.confirmContainer, { backgroundColor: colors.surface }]}>
-            <Text style={[styles.confirmTitle, { color: colors.text }]}>
-              {t('aiModels.downloadModelTitle')}
-            </Text>
-            <Text style={[styles.confirmMessage, { color: colors.textMuted }]}>
-              {t('aiModels.downloadModelWifi', { size: formatFileSize(getModelInfo().size * 1024 * 1024) })}
-            </Text>
-            <View style={styles.confirmButtons}>
-              <TouchableOpacity
-                style={[styles.confirmButton, { borderColor: colors.border }]}
-                onPress={handleDownloadCancel}
-              >
-                <Text style={[styles.confirmButtonText, { color: colors.text }]}>
-                  {t('common.cancel')}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.confirmButton, { backgroundColor: colors.primary }]}
-                onPress={handleDownloadConfirm}
-              >
-                <Text style={[styles.confirmButtonText, { color: '#0a0a0a' }]}>
-                  {t('aiModels.downloadModel')}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
+        <ModelDownloadSheet
+          visible={showDownloadConfirm}
+          title={t('aiModels.downloadModelTitle')}
+          message={t('aiModels.downloadModelWifi', { size: formatFileSize(getModelInfo().size * 1024 * 1024) })}
+          size={formatFileSize(getModelInfo().size * 1024 * 1024)}
+          isDownloading={isCheckingModel}
+          progress={modelDownloadProgress}
+          onConfirm={handleDownloadConfirm}
+          onCancel={handleDownloadCancel}
+        />
 
         {isTranscribing && (
           <View style={styles.transcribingContainer}>

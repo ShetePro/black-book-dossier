@@ -1,10 +1,7 @@
 {
-  "active_plan": "/Users/zijianlin/ghq/github.com/ShetePro/black-book-dossier/.sisyphus/plans/LLM-Correction-Implementation-Plan.md",
-  "started_at": "2026-04-03T08:31:56.148Z",
-  "session_ids": [
-    "ses_2c64076f4ffeT5jORYkaGSCP6n",
-    "ses_2ad821776ffe4PZ07EjSsF10w2"
-  ],
-  "plan_name": "LLM-Correction-Implementation-Plan",
+  "active_plan": "/Users/zijianlin/ghq/github.com/ShetePro/black-book-dossier/.sisyphus/plans/Smart-Interaction-Extraction-Plan.md",
+  "started_at": "2026-04-05T09:00:00.000Z",
+  "session_ids": ["ses_smart_interaction_extraction"],
+  "plan_name": "Smart-Interaction-Extraction-Plan",
   "task_sessions": {}
 }

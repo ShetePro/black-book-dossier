@@ -23,7 +23,6 @@ import { Audio } from 'expo-av';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import { extractEntities } from '@/services/ai/entityExtractor';
-import { analyzeVoiceContent, SmartAnalysisResult } from '@/services/ai/smartAnalyzer';
 import { analyzeWithLLM, LLMAnalysisResult } from '@/services/ai/llmAnalyzer';
 import { LLMReasoningCard } from '@/components/analysis/LLMReasoningCard';
 import { useAutoInteraction } from '@/hooks/useAutoInteraction';
@@ -76,7 +75,7 @@ export default function AgentReviewScreen() {
   const [isTranscriptionExpanded, setIsTranscriptionExpanded] = useState(false);
 
   // 智能交往记录分析状态
-  const [smartAnalysis, setSmartAnalysis] = useState<SmartAnalysisResult | null>(null);
+  // SmartAnalyzer related state removed - using LLM analyzer only
   const [llmAnalysis, setLlmAnalysis] = useState<LLMAnalysisResult | null>(null);
   const [showAutoInteractionConfirm, setShowAutoInteractionConfirm] = useState(false);
   const [isCreatingInteraction, setIsCreatingInteraction] = useState(false);
@@ -171,7 +170,8 @@ export default function AgentReviewScreen() {
         }
       }
 
-      // 3. 智能分析交往记录
+      // 3. 智能分析交往记录（已禁用，使用 LLM 分析替代）
+      /*
       try {
         const smartResult = await analyzeVoiceContent(transcription, contacts);
         setSmartAnalysis(smartResult);
@@ -190,6 +190,7 @@ export default function AgentReviewScreen() {
       } catch (smartError) {
         console.error('[AgentReview] Smart analysis failed:', smartError);
       }
+      */
     } catch (error) {
       console.error('Analysis failed:', error);
       Alert.alert('分析失败', '无法解析语音内容，请重试');
@@ -610,40 +611,77 @@ export default function AgentReviewScreen() {
     });
   };
 
-  // 处理智能交往记录确认
+  // 处理智能交往记录确认（已禁用 SmartAnalyzer）
   const handleAutoInteractionConfirm = async () => {
-    if (!smartAnalysis || !selectedContactId) return;
-
-    setIsCreatingInteraction(true);
-    try {
-      const selectedContact = contacts.find(c => c.id === selectedContactId);
-      if (!selectedContact) {
-        Alert.alert('错误', '未找到选中的联系人');
-        return;
-      }
-
-      const result = await createInteractionFromVoice(
-        smartAnalysis,
-        selectedContact,
-        transcription
-      );
-
-      if (result.success) {
-        Alert.alert('成功', '交往记录已自动创建');
-        setShowAutoInteractionConfirm(false);
-      } else {
-        Alert.alert('失败', result.error || '创建交往记录失败');
-      }
-    } catch (error) {
-      console.error('[AgentReview] Auto interaction creation failed:', error);
-      Alert.alert('错误', '创建交往记录时发生错误');
-    } finally {
-      setIsCreatingInteraction(false);
-    }
+    // SmartAnalyzer 已禁用，此功能暂不可用
+    console.log('[AgentReview] Auto interaction creation disabled - SmartAnalyzer removed');
+    return;
   };
 
   const handleAutoInteractionCancel = () => {
     setShowAutoInteractionConfirm(false);
+  };
+
+  // 取消分析
+  const handleCancelAnalysis = async () => {
+    await deleteAudioFile();
+    router.back();
+  };
+
+  // 添加活动到已匹配的联系人
+  const handleAddActivityToContact = async () => {
+    if (!llmAnalysis?.contactMatch?.matchedName) {
+      Alert.alert('错误', '未找到匹配的联系人');
+      return;
+    }
+    
+    const matchedContact = contacts.find(
+      c => c.name === llmAnalysis.contactMatch.matchedName
+    );
+    
+    if (!matchedContact) {
+      Alert.alert('错误', '联系人不存在');
+      return;
+    }
+    
+    // 准备传递的数据
+    const activities = llmAnalysis.insights?.activities || [];
+    const preferences = llmAnalysis.insights?.preferences || [];
+    
+    await deleteAudioFile();
+    router.push({
+      pathname: '/(views)/contact/[id]',
+      params: {
+        id: matchedContact.id,
+        mode: 'addInteraction',
+        transcription,
+        activities: JSON.stringify(activities),
+        preferences: JSON.stringify(preferences),
+        summary: analyzedData?.summary || '',
+      }
+    });
+  };
+
+  // 创建新联系人并带入数据
+  const handleCreateContactWithData = async () => {
+    const suggestedName = llmAnalysis?.contactMatch?.suggestedName || 
+                         analyzedData?.contactName || '';
+    
+    // 准备传递的数据
+    const activities = llmAnalysis?.insights?.activities || [];
+    const preferences = llmAnalysis?.insights?.preferences || [];
+    
+    await deleteAudioFile();
+    router.push({
+      pathname: '/(views)/contact/new',
+      params: {
+        name: suggestedName,
+        transcription,
+        activities: JSON.stringify(activities),
+        preferences: JSON.stringify(preferences),
+        summary: analyzedData?.summary || '',
+      }
+    });
   };
 
   if (isAnalyzing) {
@@ -1022,14 +1060,59 @@ export default function AgentReviewScreen() {
         <View style={styles.bottomSpacer} />
       </Animated.ScrollView>
 
-      {/* 智能交往记录确认弹窗 */}
-      <AutoInteractionConfirm
-        visible={showAutoInteractionConfirm}
-        analysis={smartAnalysis || null}
-        matchedContact={contacts.find(c => c.id === selectedContactId) || null}
-        onConfirm={handleAutoInteractionConfirm}
-        onCancel={handleAutoInteractionCancel}
-      />
+      {/* 智能交往记录确认弹窗 - 已禁用 */}
+      {showAutoInteractionConfirm && (
+        <AutoInteractionConfirm
+          visible={showAutoInteractionConfirm}
+          analysis={null}
+          matchedContact={contacts.find(c => c.id === selectedContactId) || null}
+          onConfirm={handleAutoInteractionConfirm}
+          onCancel={handleAutoInteractionCancel}
+        />
+      )}
+
+      {/* 底部操作按钮 */}
+      {!isAnalyzing && analyzedData && (
+        <View style={[styles.footer, { backgroundColor: colors.background, borderTopColor: colors.border }]}>
+          {llmAnalysis?.contactMatch?.found ? (
+            <>
+              <TouchableOpacity
+                style={[styles.footerButton, { backgroundColor: colors.surface }]}
+                onPress={handleCancelAnalysis}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.footerButtonText, { color: colors.textMuted }]}>取消</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.footerButton, styles.footerButtonPrimary, { backgroundColor: colors.primary }]}
+                onPress={handleAddActivityToContact}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="add-circle" size={20} color="#0a0a0a" />
+                <Text style={[styles.footerButtonText, styles.footerButtonTextPrimary]}>添加活动</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <TouchableOpacity
+                style={[styles.footerButton, { backgroundColor: colors.surface }]}
+                onPress={handleCancelAnalysis}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.footerButtonText, { color: colors.textMuted }]}>取消</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.footerButton, styles.footerButtonPrimary, { backgroundColor: colors.primary }]}
+                onPress={handleCreateContactWithData}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="person-add" size={20} color="#0a0a0a" />
+                <Text style={[styles.footerButtonText, styles.footerButtonTextPrimary]}>创建联系人</Text>
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -1114,7 +1197,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   contentContainer: {
-    paddingBottom: 120,
+    paddingBottom: 140,
   },
   section: {
     borderRadius: 20,
@@ -1457,5 +1540,36 @@ const styles = StyleSheet.create({
   secondaryButtonText: {
     fontSize: 15,
     fontWeight: '500',
+  },
+  footer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    paddingBottom: 34,
+    gap: 12,
+    borderTopWidth: 1,
+  },
+  footerButton: {
+    flex: 1,
+    height: 48,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  footerButtonPrimary: {
+    flex: 1.5,
+  },
+  footerButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  footerButtonTextPrimary: {
+    color: '#0a0a0a',
   },
 });

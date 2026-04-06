@@ -5,27 +5,25 @@ import { initializeWhisper, transcribeAudio } from '@/services/voice/whisper';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useContactStore } from '@/store';
 import { getTranscriptionEnhancer } from '@/services/transcription/postProcessor';
-import { analyzeVoiceContent, SmartAnalysisResult } from '@/services/ai/smartAnalyzer';
 import { findMatchingContacts, MatchResult, CONFIDENCE_THRESHOLDS } from '@/services/ai/contactMatcher';
 
 const mapLanguageToWhisper = (appLanguage: string): string => {
   const languageMap: Record<string, string> = {
     'zh-CN': 'zh',
-    'zh-TW': 'zh',
     'en-US': 'en',
     'en': 'en',
     'zh': 'zh',
     'auto': 'auto',
   };
-  
+
   const mappedLang = languageMap[appLanguage];
   if (mappedLang) return mappedLang;
-  
+
   if (appLanguage.includes('-')) {
     const mainLang = appLanguage.split('-')[0];
     return languageMap[mainLang] || mainLang;
   }
-  
+
   return appLanguage || 'zh';
 };
 
@@ -34,7 +32,6 @@ export type RecordingStatus = 'idle' | 'recording' | 'transcribing' | 'error';
 export interface RecordingResult {
   text: string;
   audioUri: string;
-  analysis?: SmartAnalysisResult;
   matchedContact?: MatchResult | null;
 }
 
@@ -83,15 +80,15 @@ export const useRecorder = (): UseRecorderReturn => {
       console.log('[Recorder] Already starting, ignoring duplicate call');
       return;
     }
-    
+
     // 如果已经在录音中，先停止
     if (status === 'recording') {
       console.log('[Recorder] Already recording, stopping first');
       return;
     }
-    
+
     isStartingRef.current = true;
-    
+
     try {
       // 清理之前的录音实例
       if (recordingRef.current) {
@@ -197,22 +194,22 @@ export const useRecorder = (): UseRecorderReturn => {
 
       await recordingRef.current.stopAndUnloadAsync();
       const uri = recordingRef.current.getURI();
-      
+
       if (!uri) {
         throw new Error('Failed to get recording URI');
       }
 
       recordingRef.current = null;
-      
+
       // 获取当前语言设置
       const { settings } = useSettingsStore.getState();
       const language = mapLanguageToWhisper(settings.language);
       console.log('[Recorder] Using language:', settings.language, '->', language);
-      
+
       // 开始转录
       console.log('[Recorder] Starting transcription...');
       setStatus('transcribing');
-      
+
       const result = await transcribeAudio(uri, language);
 
       if (!result.success || !result.text) {
@@ -228,7 +225,7 @@ export const useRecorder = (): UseRecorderReturn => {
       // 转录后处理：纠正联系人姓名和常用词
       console.log('[Recorder] Enhancing transcription with contact names...');
       const enhancer = getTranscriptionEnhancer();
-      
+
       // 确保联系人数据已加载（方案 A：录音前检查并加载）
       const { contacts, loadContacts } = useContactStore.getState();
       let currentContacts = contacts;
@@ -238,9 +235,9 @@ export const useRecorder = (): UseRecorderReturn => {
         currentContacts = useContactStore.getState().contacts;
         console.log(`[Recorder] Loaded ${currentContacts.length} contacts`);
       }
-      
+
       const enhancedText = await enhancer.quickEnhance(result.text, currentContacts);
-      
+
       if (enhancedText !== result.text) {
         console.log('[Recorder] Enhanced transcription:', {
           original: result.text,
@@ -248,45 +245,34 @@ export const useRecorder = (): UseRecorderReturn => {
         });
       }
 
-      // 智能分析语音内容
-      let smartAnalysis: SmartAnalysisResult | undefined;
+      // 智能分析语音内容（已禁用，保留本地静态匹配）
       let matchedContact: MatchResult | null = null;
-      
+
+      // 如果提取到联系人姓名，尝试本地匹配
+      // 注意：不再调用 analyzeVoiceContent，直接使用本地模糊匹配
+      /*
       try {
         console.log('[Recorder] Performing smart analysis...');
         smartAnalysis = await analyzeVoiceContent(enhancedText, currentContacts);
         console.log('[Recorder] Smart analysis result:', smartAnalysis);
-        
-        // 如果提取到联系人姓名，尝试匹配
+
         if (smartAnalysis.extractedContactName) {
           console.log('[Recorder] Matching contact:', smartAnalysis.extractedContactName);
-          const matches = await findMatchingContacts(
-            smartAnalysis.extractedContactName,
-            currentContacts,
-            { entities: [] },
-            {
-              threshold: CONFIDENCE_THRESHOLDS.LOW,
-              maxResults: 3,
-              useContext: true,
-            }
-          );
-          
+          const matches = await findMatchingContacts(...);
           if (matches.length > 0) {
             matchedContact = matches[0];
-            console.log('[Recorder] Contact matched:', matchedContact.contact.name, 'confidence:', matchedContact.confidence);
           }
         }
       } catch (analysisError) {
         console.error('[Recorder] Smart analysis failed:', analysisError);
-        // 分析失败不影响主流程，继续返回转录结果
       }
+      */
 
       setStatus('idle');
       console.log('[Recorder] Transcription complete:', enhancedText);
       return {
         text: enhancedText,
         audioUri: uri,
-        analysis: smartAnalysis,
         matchedContact,
       };
 

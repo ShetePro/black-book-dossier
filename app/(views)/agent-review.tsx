@@ -24,6 +24,8 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import { extractEntities } from '@/services/ai/entityExtractor';
 import { analyzeVoiceContent, SmartAnalysisResult } from '@/services/ai/smartAnalyzer';
+import { analyzeWithLLM, LLMAnalysisResult } from '@/services/ai/llmAnalyzer';
+import { LLMReasoningCard } from '@/components/analysis/LLMReasoningCard';
 import { useAutoInteraction } from '@/hooks/useAutoInteraction';
 import { AutoInteractionConfirm } from '@/components/interaction/AutoInteractionConfirm';
 import { ExtractedEntity, ActionItem, Contact } from '@/types';
@@ -65,16 +67,17 @@ export default function AgentReviewScreen() {
   const params = useLocalSearchParams();
   const { contacts } = useContactStore();
   const { settings } = useSettingsStore();
-  
+
   const [isAnalyzing, setIsAnalyzing] = useState(true);
   const [analyzedData, setAnalyzedData] = useState<AnalyzedData | null>(null);
   const [matchedContacts, setMatchedContacts] = useState<MatchResult[]>([]);
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
   const [usingLocalLLM, setUsingLocalLLM] = useState(false);
   const [isTranscriptionExpanded, setIsTranscriptionExpanded] = useState(false);
-  
+
   // 智能交往记录分析状态
   const [smartAnalysis, setSmartAnalysis] = useState<SmartAnalysisResult | null>(null);
+  const [llmAnalysis, setLlmAnalysis] = useState<LLMAnalysisResult | null>(null);
   const [showAutoInteractionConfirm, setShowAutoInteractionConfirm] = useState(false);
   const [isCreatingInteraction, setIsCreatingInteraction] = useState(false);
   const { createInteractionFromVoice } = useAutoInteraction();
@@ -85,7 +88,7 @@ export default function AgentReviewScreen() {
   const [playbackDuration, setPlaybackDuration] = useState(0);
   const [audioLoadError, setAudioLoadError] = useState<string | null>(null);
   const soundRef = useRef<Audio.Sound | null>(null);
-  
+
   // 使用 ref 避免闭包陷阱
   const positionRef = useRef(0);
   const durationRef = useRef(0);
@@ -113,7 +116,7 @@ export default function AgentReviewScreen() {
     // 启动入场动画
     headerProgress.value = withSpring(1, { damping: 15 });
     contentProgress.value = withDelay(200, withSpring(1, { damping: 15 }));
-    
+
     // 加载音频
     if (audioUri) {
       loadAudio();
@@ -133,14 +136,13 @@ export default function AgentReviewScreen() {
   const analyzeTranscription = async () => {
     try {
       setIsAnalyzing(true);
-      
+
       // 检查是否可以使用本地 LLM
       const hasLocalModel = await hasAnyModelDownloaded();
       const useLLM = hasLocalModel && settings.ai.localModel.enabled;
       setUsingLocalLLM(useLLM);
-      
       let result;
-      
+
       if (useLLM) {
         // 使用本地 LLM 进行分析
         console.log('[AgentReview] Using local LLM for analysis');
@@ -150,7 +152,7 @@ export default function AgentReviewScreen() {
         console.log('[AgentReview] Using rule-based extraction');
         result = await extractEntities(transcription);
       }
-      
+
       setAnalyzedData({
         transcription,
         entities: result.entities,
@@ -168,16 +170,16 @@ export default function AgentReviewScreen() {
           setSelectedContactId(matches[0].contact.id);
         }
       }
-      
+
       // 3. 智能分析交往记录
       try {
         const smartResult = await analyzeVoiceContent(transcription, contacts);
         setSmartAnalysis(smartResult);
-        
+
         // 如果置信度高且匹配到联系人，显示自动创建弹窗
         if (smartResult.confidence > 0.7 && smartResult.extractedContactName) {
-          const matchedContact = contacts.find(c => 
-            c.name === smartResult.extractedContactName || 
+          const matchedContact = contacts.find(c =>
+            c.name === smartResult.extractedContactName ||
             c.name.includes(smartResult.extractedContactName!) ||
             smartResult.extractedContactName!.includes(c.name)
           );
@@ -201,34 +203,71 @@ export default function AgentReviewScreen() {
     const personEntities = entities.filter(e => e.type === 'person');
     const healthIssues = entities.filter(e => e.type === 'health_issue');
     const needs = entities.filter(e => e.type === 'need');
-    
+
     let summary = '';
-    
+
     if (personEntities.length > 0) {
       summary += `识别到 ${personEntities.length} 位相关人物`;
     }
-    
+
     if (healthIssues.length > 0) {
       summary += summary ? `，提及 ${healthIssues.length} 项健康信息` : `提及 ${healthIssues.length} 项健康信息`;
     }
-    
+
     if (needs.length > 0) {
       summary += summary ? `，发现 ${needs.length} 个需求` : `发现 ${needs.length} 个需求`;
     }
-    
+
     if (actionItems.length > 0) {
       summary += summary ? `，生成 ${actionItems.length} 个待办` : `生成 ${actionItems.length} 个待办`;
     }
-    
+
     return summary || '已分析语音内容';
   };
 
-  // 本地 LLM 分析（占位实现）
+  // 本地 LLM 分析
   const analyzeWithLocalLLM = async (text: string) => {
-    // TODO: 实现本地 LLM 推理
-    // 目前先回退到规则引擎
-    console.log('[AgentReview] Local LLM not fully implemented, falling back to rules');
-    return await extractEntities(text);
+    console.log('[AgentReview] Using LLM analyzer for analysis');
+    const result = await analyzeWithLLM(text, contacts);
+    console.log(result, '大模型分析')
+    setLlmAnalysis(result);
+
+    // Convert LLM result to AnalyzedData format
+    const entities: ExtractedEntity[] = [];
+
+    // Add contact entity if matched
+    if (result.contactMatch.found || result.contactMatch.suggestedName) {
+      entities.push({
+        type: 'person',
+        value: result.contactMatch.suggestedName || result.contactMatch.matchedName || '',
+        confidence: result.contactMatch.confidence,
+        context: result.contactMatch.reason,
+      });
+    }
+
+    // Add activity entities
+    result.insights.activities.forEach(activity => {
+      entities.push({
+        type: 'event',
+        value: activity,
+        confidence: 0.8,
+      });
+    });
+
+    // Add preference entities
+    result.insights.preferences.forEach(pref => {
+      entities.push({
+        type: 'preference',
+        value: pref,
+        confidence: 0.75,
+      });
+    });
+
+    return {
+      entities,
+      actionItems: [],
+      contactName: result.contactMatch.suggestedName || result.contactMatch.matchedName || undefined,
+    };
   };
 
   // 使用新的 AI 联系人匹配服务进行匹配
@@ -257,7 +296,7 @@ export default function AgentReviewScreen() {
         return char;
       }).join('');
     };
-    
+
     return getInitials(name1) === getInitials(name2);
   };
 
@@ -290,7 +329,7 @@ export default function AgentReviewScreen() {
       Alert.alert('请选择联系人', '请先选择一个要更新的联系人');
       return;
     }
-    
+
     await deleteAudioFile();
     router.push({
       pathname: '/(views)/contact/[id]',
@@ -311,44 +350,44 @@ export default function AgentReviewScreen() {
       setAudioLoadError('未提供音频文件');
       return;
     }
-    
+
     try {
       console.log('[AgentReview] Checking audio file:', audioUri);
       const fileInfo = await FileSystem.getInfoAsync(audioUri);
-      
+
       console.log('[AgentReview] File info:', {
         exists: fileInfo.exists,
         size: fileInfo.exists ? (fileInfo as any).size : 0,
         uri: audioUri,
       });
-      
+
       if (!fileInfo.exists) {
         console.warn('[AgentReview] Audio file does not exist:', audioUri);
         setAudioLoadError('音频文件不存在');
         return;
       }
-      
+
       const fileSize = (fileInfo as any).size || 0;
       if (fileSize === 0) {
         console.warn('[AgentReview] Audio file is empty (0 bytes):', audioUri);
         setAudioLoadError('音频文件为空');
         return;
       }
-      
+
       console.log(`[AgentReview] File verified: ${fileSize} bytes`);
-      
+
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: false,
         playsInSilentModeIOS: true,
         staysActiveInBackground: false,
       });
-      
+
       console.log('[AgentReview] Creating audio sound object...');
-      
+
       let sound: Audio.Sound | null = null;
       let retryCount = 0;
       const maxRetries = 1;
-      
+
       while (retryCount <= maxRetries) {
         try {
           const result = await Audio.Sound.createAsync(
@@ -361,11 +400,11 @@ export default function AgentReviewScreen() {
         } catch (loadError: any) {
           retryCount++;
           console.warn(`[AgentReview] Audio load attempt ${retryCount} failed:`, loadError);
-          
+
           if (retryCount > maxRetries) {
             const errorMessage = loadError?.message || '';
             const errorCode = loadError?.code || '';
-            
+
             if (errorMessage.includes('-11800') || errorMessage.includes('-12842')) {
               throw new Error('音频格式不受支持或文件已损坏（iOS 解码器错误）');
             } else if (errorMessage.includes('does not exist')) {
@@ -374,31 +413,31 @@ export default function AgentReviewScreen() {
               throw new Error(`加载音频失败: ${errorMessage || '未知错误'}`);
             }
           }
-          
+
           await new Promise(resolve => setTimeout(resolve, 100));
         }
       }
-      
+
       if (!sound) {
         throw new Error('无法创建音频播放器');
       }
-      
+
       soundRef.current = sound;
-      
+
       const status = await sound.getStatusAsync();
       console.log('[AgentReview] Audio loaded successfully:', {
         isLoaded: status.isLoaded,
         durationMillis: (status as any).durationMillis,
       });
-      
+
       if (status.isLoaded) {
         const duration = (status as any).durationMillis || 0;
         const position = (status as any).positionMillis || 0;
-        
+
         durationRef.current = duration;
         positionRef.current = position;
         isPlayingRef.current = (status as any).isPlaying;
-        
+
         setPlaybackDuration(duration);
         setPlaybackPosition(position);
         setIsPlaying((status as any).isPlaying);
@@ -413,9 +452,9 @@ export default function AgentReviewScreen() {
         code: error?.code,
         uri: audioUri,
       });
-      
+
       setAudioLoadError(errorMessage);
-      
+
       if (soundRef.current) {
         try {
           await soundRef.current.unloadAsync();
@@ -434,30 +473,30 @@ export default function AgentReviewScreen() {
       durationMillis: status.durationMillis,
       didJustFinish: status.didJustFinish,
     });
-    
+
     if (!status.isLoaded) {
       console.log('[AgentReview] Status not loaded, skipping update');
       return;
     }
-    
+
     const position = status.positionMillis || 0;
     const duration = status.durationMillis || 0;
     const playing = status.isPlaying;
-    
+
     // 更新 React state
     setPlaybackPosition(position);
     setIsPlaying(playing);
-    
+
     // 更新时长
     if (duration > 0 && duration !== durationRef.current) {
       setPlaybackDuration(duration);
       durationRef.current = duration;
     }
-    
+
     // 更新 refs
     positionRef.current = position;
     isPlayingRef.current = playing;
-    
+
     // 播放完成处理
     if (status.didJustFinish) {
       console.log('[AgentReview] Playback finished');
@@ -474,28 +513,28 @@ export default function AgentReviewScreen() {
   // 播放/暂停切换
   const togglePlayback = async () => {
     console.log('[AgentReview] Toggle playback, current state:', isPlayingRef.current);
-    
+
     if (!soundRef.current) {
       console.log('[AgentReview] Loading audio first...');
       await loadAudio();
       // 加载完成后返回，等待下一次点击
       return;
     }
-    
+
     try {
       const status = await soundRef.current.getStatusAsync();
       console.log('[AgentReview] Current status before toggle:', status);
-      
+
       if (!status.isLoaded) {
         console.error('[AgentReview] Sound not loaded');
         return;
       }
-      
+
       // 检查是否播放完成或接近完成
-      const isFinished = status.didJustFinish || 
+      const isFinished = status.didJustFinish ||
                         positionRef.current >= durationRef.current - 100 ||
                         (durationRef.current > 0 && positionRef.current / durationRef.current > 0.99);
-      
+
       if (isFinished) {
         console.log('[AgentReview] Resetting to start...');
         await soundRef.current.setPositionAsync(0);
@@ -574,7 +613,7 @@ export default function AgentReviewScreen() {
   // 处理智能交往记录确认
   const handleAutoInteractionConfirm = async () => {
     if (!smartAnalysis || !selectedContactId) return;
-    
+
     setIsCreatingInteraction(true);
     try {
       const selectedContact = contacts.find(c => c.id === selectedContactId);
@@ -582,13 +621,13 @@ export default function AgentReviewScreen() {
         Alert.alert('错误', '未找到选中的联系人');
         return;
       }
-      
+
       const result = await createInteractionFromVoice(
         smartAnalysis,
         selectedContact,
         transcription
       );
-      
+
       if (result.success) {
         Alert.alert('成功', '交往记录已自动创建');
         setShowAutoInteractionConfirm(false);
@@ -631,7 +670,7 @@ export default function AgentReviewScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar style="light" />
-      
+
       {/* Header */}
       <Animated.View style={[styles.header, headerAnimatedStyle]}>
         <TouchableOpacity
@@ -660,14 +699,14 @@ export default function AgentReviewScreen() {
         <View style={styles.placeholder} />
       </Animated.View>
 
-      <Animated.ScrollView 
-        style={styles.content} 
+      <Animated.ScrollView
+        style={styles.content}
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
       >
         {/* 原始语音文本 - 可折叠 */}
         <View style={[styles.section, { backgroundColor: colors.surface }]}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.transcriptionHeader}
             onPress={() => setIsTranscriptionExpanded(!isTranscriptionExpanded)}
             activeOpacity={0.8}
@@ -678,13 +717,13 @@ export default function AgentReviewScreen() {
               </View>
               <Text style={[styles.sectionTitle, { color: colors.text }]}>原始语音</Text>
             </View>
-            <Ionicons 
-              name={isTranscriptionExpanded ? "chevron-up" : "chevron-down"} 
-              size={20} 
-              color={colors.textMuted} 
+            <Ionicons
+              name={isTranscriptionExpanded ? "chevron-up" : "chevron-down"}
+              size={20}
+              color={colors.textMuted}
             />
           </TouchableOpacity>
-          
+
           <View style={[
             styles.transcriptionContent,
             !isTranscriptionExpanded && styles.transcriptionCollapsed
@@ -693,7 +732,7 @@ export default function AgentReviewScreen() {
               {transcription}
             </Text>
           </View>
-          
+
           {audioUri && !audioLoadError && (
             <View style={styles.audioPlayerContainer}>
               <TouchableOpacity
@@ -764,19 +803,19 @@ export default function AgentReviewScreen() {
                 </Text>
               </View>
             </View>
-            
+
             <View style={styles.contactsList}>
               {matchedContacts.map((match, index) => (
                 <TouchableOpacity
                   key={match.contact.id}
                   style={[
                     styles.contactCard,
-                    { 
-                      backgroundColor: selectedContactId === match.contact.id 
-                        ? `${colors.primary}15` 
-                        : colors.elevated 
+                    {
+                      backgroundColor: selectedContactId === match.contact.id
+                        ? `${colors.primary}15`
+                        : colors.elevated
                     },
-                    selectedContactId === match.contact.id && { 
+                    selectedContactId === match.contact.id && {
                       borderColor: colors.primary,
                       borderWidth: 1.5,
                     },
@@ -798,10 +837,10 @@ export default function AgentReviewScreen() {
                     </Text>
                     <View style={[styles.confidenceBadge, { backgroundColor: `${colors.primary}15` }]}>
                       <Ionicons name="flash" size={12} color={colors.primary} />
-                      <Text style={[styles.confidenceText, { color: colors.primary }]}> 
+                      <Text style={[styles.confidenceText, { color: colors.primary }]}>
                         {Math.round(match.confidence * 100)}% · {match.reason}
                       </Text>
-                    
+
                     {match.matchedFields?.length ? (
                       <Text style={{ fontSize: 12, color: colors.textMuted }}>
                         匹配字段: {match.matchedFields.join(', ')}
@@ -821,10 +860,10 @@ export default function AgentReviewScreen() {
                 </TouchableOpacity>
               ))}
             </View>
-            
+
             <TouchableOpacity
               style={[
-                styles.newContactOption, 
+                styles.newContactOption,
                 { borderColor: selectedContactId === null ? colors.primary : colors.border }
               ]}
               onPress={() => setSelectedContactId(null)}
@@ -834,14 +873,14 @@ export default function AgentReviewScreen() {
                 styles.newContactIcon,
                 { backgroundColor: selectedContactId === null ? `${colors.primary}20` : colors.elevated }
               ]}>
-                <Ionicons 
-                  name="add" 
-                  size={20} 
-                  color={selectedContactId === null ? colors.primary : colors.textMuted} 
+                <Ionicons
+                  name="add"
+                  size={20}
+                  color={selectedContactId === null ? colors.primary : colors.textMuted}
                 />
               </View>
               <Text style={[
-                styles.newContactText, 
+                styles.newContactText,
                 { color: selectedContactId === null ? colors.primary : colors.text }
               ]}>
                 创建新联系人
@@ -862,16 +901,16 @@ export default function AgentReviewScreen() {
               </View>
               <Text style={[styles.sectionTitle, { color: colors.text }]}>提取的关键信息</Text>
             </View>
-            
+
             <View style={styles.entitiesContainer}>
               {Object.entries(groupedEntities).map(([type, entities]) => {
-                const config = ENTITY_CONFIG[type] || { 
-                  label: type, 
-                  icon: 'information-circle', 
+                const config = ENTITY_CONFIG[type] || {
+                  label: type,
+                  icon: 'information-circle',
                   color: colors.textMuted,
                   bgColor: `${colors.textMuted}20`,
                 };
-                
+
                 return (
                   <View key={type} style={styles.entityGroupCard}>
                     <View style={[styles.entityGroupHeader, { backgroundColor: config.bgColor }]}>
@@ -883,7 +922,7 @@ export default function AgentReviewScreen() {
                         <Text style={styles.entityCountText}>{entities.length}</Text>
                       </View>
                     </View>
-                    
+
                     <View style={styles.entityItemsContainer}>
                       {entities.map((entity, idx) => (
                         <View key={idx} style={styles.entityItem}>
@@ -898,15 +937,15 @@ export default function AgentReviewScreen() {
                             )}
                           </View>
                           <View style={styles.confidenceIndicator}>
-                            <View 
+                            <View
                               style={[
-                                styles.confidenceBar, 
-                                { 
+                                styles.confidenceBar,
+                                {
                                   width: `${entity.confidence * 100}%`,
-                                  backgroundColor: entity.confidence > 0.7 ? '#10b981' : 
+                                  backgroundColor: entity.confidence > 0.7 ? '#10b981' :
                                                   entity.confidence > 0.4 ? '#f59e0b' : '#ef4444'
                                 }
-                              ]} 
+                              ]}
                             />
                           </View>
                         </View>
@@ -933,7 +972,7 @@ export default function AgentReviewScreen() {
                 </Text>
               </View>
             </View>
-            
+
             <View style={styles.actionItemsList}>
               {analyzedData.actionItems.map((item, index) => (
                 <View key={item.id} style={styles.actionItemCard}>
@@ -947,15 +986,15 @@ export default function AgentReviewScreen() {
                     <View style={styles.actionItemMeta}>
                       <View style={[
                         styles.priorityBadge,
-                        { backgroundColor: item.priority === 'high' ? '#ef444420' : 
+                        { backgroundColor: item.priority === 'high' ? '#ef444420' :
                                           item.priority === 'medium' ? '#f59e0b20' : '#10b98120' }
                       ]}>
                         <Text style={[
                           styles.priorityText,
-                          { color: item.priority === 'high' ? '#ef4444' : 
+                          { color: item.priority === 'high' ? '#ef4444' :
                                    item.priority === 'medium' ? '#f59e0b' : '#10b981' }
                         ]}>
-                          {item.priority === 'high' ? '高优先级' : 
+                          {item.priority === 'high' ? '高优先级' :
                            item.priority === 'medium' ? '中优先级' : '低优先级'}
                         </Text>
                       </View>
@@ -967,49 +1006,27 @@ export default function AgentReviewScreen() {
           </View>
         )}
 
+        {/* LLM 推理结果展示 */}
+        {llmAnalysis && !isAnalyzing && (
+          <View style={{ marginHorizontal: 20, marginBottom: 16 }}>
+            <LLMReasoningCard
+              result={llmAnalysis}
+              onApplyCorrection={(original, corrected) => {
+                console.log('[AgentReview] Apply correction:', original, '->', corrected);
+              }}
+            />
+          </View>
+        )}
+
         {/* 底部留白 */}
         <View style={styles.bottomSpacer} />
       </Animated.ScrollView>
 
-      {/* 底部操作栏 */}
-      <View style={[styles.bottomBar, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
-        {selectedContactId ? (
-          <TouchableOpacity
-            style={[styles.primaryButton, { backgroundColor: colors.primary }]}
-            onPress={handleAddToExisting}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="person-add" size={20} color="#0a0a0a" />
-            <Text style={styles.primaryButtonText}>添加到现有联系人</Text>
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity
-            style={[styles.primaryButton, { backgroundColor: colors.primary }]}
-            onPress={handleCreateNewContact}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="add-circle" size={20} color="#0a0a0a" />
-            <Text style={styles.primaryButtonText}>创建新联系人</Text>
-          </TouchableOpacity>
-        )}
-        
-        <TouchableOpacity
-          style={[styles.secondaryButton, { borderColor: colors.border }]}
-          onPress={handleEditInfo}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="create" size={18} color={colors.text} />
-          <Text style={[styles.secondaryButtonText, { color: colors.text }]}>
-            编辑
-          </Text>
-        </TouchableOpacity>
-      </View>
-      
       {/* 智能交往记录确认弹窗 */}
       <AutoInteractionConfirm
         visible={showAutoInteractionConfirm}
-        analysis={smartAnalysis}
-        matchedContact={contacts.find(c => c.id === selectedContactId)}
+        analysis={smartAnalysis || null}
+        matchedContact={contacts.find(c => c.id === selectedContactId) || null}
         onConfirm={handleAutoInteractionConfirm}
         onCancel={handleAutoInteractionCancel}
       />

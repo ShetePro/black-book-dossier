@@ -6,6 +6,7 @@ import {
   isModelDownloaded 
 } from './llmModelManager';
 import { useSettingsStore } from '@/store/settingsStore';
+import { findBestMatch, shouldAutoSelect, shouldShowSuggestion } from './contactMatcher';
 
 /**
  * LLM 分析结果类型
@@ -116,27 +117,38 @@ export const isLLMAvailable = async (): Promise<boolean> => {
  * 构建分析 Prompt
  */
 const buildAnalysisPrompt = (text: string, contacts: Contact[]): string => {
-  const contactsList = contacts.map(c => c.name).join(', ');
+  return `You are an information extraction assistant. Extract entities from the text and return a JSON object.
 
-  return `你是一位智能助手，负责分析语音转录文本并提取关键信息。
+Input text: "${text}"
 
-## 任务
-1. 分析文本中的关键人物
-2. 尝试匹配已知联系人
-3. 提取活动、偏好、性格特征
-4. 生成合适的标签
-5. 修正语音识别错误
+Extract and return ONLY this JSON format (replace example values with actual extracted values):
+{
+  "reasoning": "brief explanation of what you found",
+  "suggestedTags": [],
+  "insights": {
+    "activities": [],
+    "preferences": [],
+    "personality": [],
+    "profession": null
+  },
+  "contactMatch": {
+    "found": false,
+    "matchedName": null,
+    "suggestedName": null,
+    "confidence": 0,
+    "reason": ""
+  },
+  "corrections": []
+}
 
-## 已知联系人列表
-${contactsList || '无'}
+Instructions:
+- Put person names in suggestedTags as plain strings (e.g., "John", "Mary")
+- Put time expressions in suggestedTags with "time:" prefix (e.g., "time:today", "time:3pm")
+- Put locations in suggestedTags with "location:" prefix (e.g., "location:cafe", "location:office")
+- Put activities in insights.activities array (e.g., "coding", "meeting")
+- Put preferences in insights.preferences array
 
-## 待分析文本
-"${text}"
-
-## 输出格式（严格JSON）
-你必须只输出以下格式的JSON，不要输出任何其他文字、解释或markdown标记：
-
-{\n  "reasoning": "详细的推理过程描述...",\n  "contactMatch": {\n    "found": false,\n    "matchedName": null,\n    "suggestedName": "施佳祺",\n    "confidence": 0.85,\n    "reason": "匹配原因..."\n  },\n  "corrections": [],\n  "insights": {\n    "activities": [],\n    "preferences": [],\n    "personality": [],\n    "profession": null\n  },\n  "suggestedTags": []\n}\n\n重要规则：\n1. 只输出JSON，不要任何其他文字\n2. 不要输出markdown代码块（\`\`\`）\n3. 确保JSON格式完整，所有字段都存在\n4. 如果文本中没有明确信息，使用空数组或null值`;
+Return ONLY the JSON object, no explanation text.`;
 };
 
 /**
@@ -144,44 +156,49 @@ ${contactsList || '无'}
  */
 const parseLLMResult = (text: string): Partial<LLMAnalysisResult> | null => {
   try {
-    // 清理文本：移除 markdown 代码块标记
-    const cleanedText = text
-      .replace(/```json\s*/gi, '')
-      .replace(/```\s*$/gi, '')
-      .replace(/```/g, '')
-      .trim();
+    // 首先尝试找到第一个 JSON 对象（从第一个 { 开始）
+    const firstBrace = text.indexOf('{');
+    if (firstBrace === -1) return null;
     
-    // 尝试直接解析整个文本
-    try {
-      const parsed = JSON.parse(cleanedText);
-      return {
-        reasoning: parsed.reasoning || '未提供推理过程',
-        contactMatch: parsed.contactMatch || {
-          found: false,
-          matchedName: null,
-          suggestedName: null,
-          confidence: 0,
-          reason: '未找到匹配',
-        },
-        corrections: parsed.corrections || [],
-        insights: parsed.insights || {
-          activities: [],
-          preferences: [],
-          personality: [],
-          profession: null,
-        },
-        suggestedTags: parsed.suggestedTags || [],
-      };
-    } catch {
-      // 直接解析失败，尝试提取 JSON
+    // 使用括号计数找到匹配的结束位置
+    let braceCount = 0;
+    let jsonEnd = -1;
+    let inString = false;
+    let escapeNext = false;
+    
+    for (let i = firstBrace; i < text.length; i++) {
+      const char = text[i];
+      
+      if (escapeNext) {
+        escapeNext = false;
+        continue;
+      }
+      
+      if (char === '\\') {
+        escapeNext = true;
+        continue;
+      }
+      
+      if (char === '"' && !escapeNext) {
+        inString = !inString;
+        continue;
+      }
+      
+      if (!inString) {
+        if (char === '{') braceCount++;
+        if (char === '}') {
+          braceCount--;
+          if (braceCount === 0) {
+            jsonEnd = i;
+            break;
+          }
+        }
+      }
     }
     
-    // 尝试找到 JSON 对象 - 查找第一个 { 和最后一个匹配的 }
-    const firstBrace = cleanedText.indexOf('{');
-    const lastBrace = cleanedText.lastIndexOf('}');
-    
-    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-      const jsonCandidate = cleanedText.substring(firstBrace, lastBrace + 1);
+    // 如果找到了完整的 JSON
+    if (jsonEnd !== -1) {
+      const jsonCandidate = text.substring(firstBrace, jsonEnd + 1);
       try {
         const parsed = JSON.parse(jsonCandidate);
         return {
@@ -203,32 +220,45 @@ const parseLLMResult = (text: string): Partial<LLMAnalysisResult> | null => {
           suggestedTags: parsed.suggestedTags || [],
         };
       } catch {
-        // 继续尝试其他方法
+        // 解析失败
       }
     }
     
-    // 使用正则表达式匹配 JSON 对象
-    const jsonMatch = cleanedText.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[0]);
-      return {
-        reasoning: parsed.reasoning || '未提供推理过程',
-        contactMatch: parsed.contactMatch || {
-          found: false,
-          matchedName: null,
-          suggestedName: null,
-          confidence: 0,
-          reason: '未找到匹配',
-        },
-        corrections: parsed.corrections || [],
-        insights: parsed.insights || {
-          activities: [],
-          preferences: [],
-          personality: [],
-          profession: null,
-        },
-        suggestedTags: parsed.suggestedTags || [],
-      };
+    // 回退：清理后尝试解析
+    const cleanedText = text
+      .replace(/```json\s*/gi, '')
+      .replace(/```\s*$/gi, '')
+      .replace(/```/g, '')
+      .trim();
+    
+    const firstBrace2 = cleanedText.indexOf('{');
+    const lastBrace = cleanedText.lastIndexOf('}');
+    
+    if (firstBrace2 !== -1 && lastBrace !== -1 && lastBrace > firstBrace2) {
+      const jsonCandidate = cleanedText.substring(firstBrace2, lastBrace + 1);
+      try {
+        const parsed = JSON.parse(jsonCandidate);
+        return {
+          reasoning: parsed.reasoning || '未提供推理过程',
+          contactMatch: parsed.contactMatch || {
+            found: false,
+            matchedName: null,
+            suggestedName: null,
+            confidence: 0,
+            reason: '未找到匹配',
+          },
+          corrections: parsed.corrections || [],
+          insights: parsed.insights || {
+            activities: [],
+            preferences: [],
+            personality: [],
+            profession: null,
+          },
+          suggestedTags: parsed.suggestedTags || [],
+        };
+      } catch {
+        // 解析失败
+      }
     }
   } catch (error) {
     console.error('[LLMAnalyzer] Failed to parse result:', error);
@@ -293,20 +323,70 @@ export const analyzeWithLLM = async (
     });
 
     console.log('[LLMAnalyzer] Inference completed in', Date.now() - startTime, 'ms');
+    console.log('[LLMAnalyzer] Result length:', result.text ? result.text.length : 0);
+    console.log('[LLMAnalyzer] Full raw response:', result.text || 'EMPTY');
 
-    if (!result.text) {
+    if (!result.text || result.text.trim().length === 0) {
       console.warn('[LLMAnalyzer] Empty response');
       return defaultResult;
     }
 
-    console.log('[LLMAnalyzer] Raw response:', result.text.substring(0, 200));
+    console.log('[LLMAnalyzer] Raw response:', result.text.substring(0, 500));
 
     const parsed = parseLLMResult(result.text);
     if (parsed) {
       console.log('[LLMAnalyzer] Analysis successful');
+      console.log('[LLMAnalyzer] Parsed result:', JSON.stringify(parsed, null, 2));
+      
+      // 打印分析过程
+      if (parsed.reasoning) {
+        console.log('[LLMAnalyzer] Reasoning:', parsed.reasoning);
+      }
+      
+      // 打印提取的信息
+      console.log('[LLMAnalyzer] Extracted info:', {
+        suggestedTags: parsed.suggestedTags || [],
+        activities: parsed.insights?.activities || [],
+        preferences: parsed.insights?.preferences || [],
+      });
+      
+      // 从 suggestedTags 获取提取到的人名，进行模糊匹配
+      const extractedNames = parsed.suggestedTags || [];
+      let contactMatch = parsed.contactMatch || defaultResult.contactMatch;
+      
+      for (const name of extractedNames) {
+        const match = findBestMatch(name, contacts);
+        
+        if (match) {
+          if (shouldAutoSelect(match.confidence)) {
+            // 高置信度匹配
+            contactMatch = {
+              found: true,
+              matchedName: match.contact.name,
+              suggestedName: null,
+              confidence: match.confidence,
+              reason: match.reason,
+            };
+            break; // 找到高置信度匹配，停止
+          } else if (shouldShowSuggestion(match.confidence)) {
+            // 中置信度，显示建议
+            contactMatch = {
+              found: false,
+              matchedName: null,
+              suggestedName: match.contact.name,
+              confidence: match.confidence,
+              reason: match.reason,
+            };
+          }
+        }
+      }
+      
+      // 打印最终匹配结果
+      console.log('[LLMAnalyzer] Contact match result:', contactMatch);
+      
       return {
         reasoning: parsed.reasoning || defaultResult.reasoning,
-        contactMatch: parsed.contactMatch || defaultResult.contactMatch,
+        contactMatch,
         corrections: parsed.corrections || [],
         insights: parsed.insights || defaultResult.insights,
         suggestedTags: parsed.suggestedTags || [],

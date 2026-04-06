@@ -177,6 +177,14 @@ export class ContactNameMatcher {
     
     return { corrected, corrections };
   }
+
+  /**
+   * 获取所有已加载的联系人姓名
+   * @returns 联系人姓名列表
+   */
+  getNames(): string[] {
+    return [...this.names];
+  }
 }
 
 // 单例实例

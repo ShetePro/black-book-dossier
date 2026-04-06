@@ -1,6 +1,7 @@
 import { Contact } from '@/types';
 import { getContactNameMatcher, ContactNameMatcher } from './nameMatcher';
 import { correctTranscriptionWithLLM, isLLMAvailable } from '@/services/ai/llmInference';
+import { useSettingsStore } from '@/store/settingsStore';
 
 export interface EnhancementResult {
   originalText: string;
@@ -107,7 +108,16 @@ class TranscriptionEnhancer {
     
     if (useLLM && await isLLMAvailable()) {
       console.log('[TranscriptionEnhancer] Applying LLM correction...');
-      const llmResult = await correctTranscriptionWithLLM(corrected);
+      
+      // 获取联系人列表传递给 LLM
+      const contactNames = this.contactsLoaded ? this.matcher.getNames() : [];
+      const { settings } = useSettingsStore.getState();
+      
+      const llmResult = await correctTranscriptionWithLLM(corrected, {
+        contacts: contactNames,
+        language: settings.language,
+      });
+      
       if (llmResult.success && llmResult.text) {
         finalText = llmResult.text;
         llmApplied = true;

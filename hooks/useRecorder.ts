@@ -5,6 +5,8 @@ import { initializeWhisper, transcribeAudio } from '@/services/voice/whisper';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useContactStore } from '@/store';
 import { getTranscriptionEnhancer } from '@/services/transcription/postProcessor';
+import { analyzeVoiceContent, SmartAnalysisResult } from '@/services/ai/smartAnalyzer';
+import { findMatchingContacts, MatchResult, CONFIDENCE_THRESHOLDS } from '@/services/ai/contactMatcher';
 
 const mapLanguageToWhisper = (appLanguage: string): string => {
   const languageMap: Record<string, string> = {
@@ -32,6 +34,8 @@ export type RecordingStatus = 'idle' | 'recording' | 'transcribing' | 'error';
 export interface RecordingResult {
   text: string;
   audioUri: string;
+  analysis?: SmartAnalysisResult;
+  matchedContact?: MatchResult | null;
 }
 
 export interface UseRecorderReturn {
@@ -244,11 +248,46 @@ export const useRecorder = (): UseRecorderReturn => {
         });
       }
 
+      // 智能分析语音内容
+      let smartAnalysis: SmartAnalysisResult | undefined;
+      let matchedContact: MatchResult | null = null;
+      
+      try {
+        console.log('[Recorder] Performing smart analysis...');
+        smartAnalysis = await analyzeVoiceContent(enhancedText, currentContacts);
+        console.log('[Recorder] Smart analysis result:', smartAnalysis);
+        
+        // 如果提取到联系人姓名，尝试匹配
+        if (smartAnalysis.extractedContactName) {
+          console.log('[Recorder] Matching contact:', smartAnalysis.extractedContactName);
+          const matches = await findMatchingContacts(
+            smartAnalysis.extractedContactName,
+            currentContacts,
+            { entities: [] },
+            {
+              threshold: CONFIDENCE_THRESHOLDS.LOW,
+              maxResults: 3,
+              useContext: true,
+            }
+          );
+          
+          if (matches.length > 0) {
+            matchedContact = matches[0];
+            console.log('[Recorder] Contact matched:', matchedContact.contact.name, 'confidence:', matchedContact.confidence);
+          }
+        }
+      } catch (analysisError) {
+        console.error('[Recorder] Smart analysis failed:', analysisError);
+        // 分析失败不影响主流程，继续返回转录结果
+      }
+
       setStatus('idle');
       console.log('[Recorder] Transcription complete:', enhancedText);
       return {
         text: enhancedText,
         audioUri: uri,
+        analysis: smartAnalysis,
+        matchedContact,
       };
 
     } catch (err) {

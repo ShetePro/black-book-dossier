@@ -9,7 +9,7 @@ import Animated, { FadeInUp } from 'react-native-reanimated';
 
 interface AutoInteractionConfirmProps {
   visible: boolean;
-  analysis: SmartAnalysisResult;
+  analysis: SmartAnalysisResult | null;
   matchedContact: Contact | null;
   onConfirm: () => void;
   onCancel: () => void;
@@ -27,7 +27,7 @@ export const AutoInteractionConfirm: React.FC<AutoInteractionConfirmProps> = ({
   const colors = useThemeColor();
   const [isEditing, setIsEditing] = useState(false);
 
-  if (!visible) return null;
+  if (!visible || !analysis) return null;
 
   const getEventTypeLabel = (type: string) => {
     const labels: Record<string, string> = {
@@ -41,8 +41,8 @@ export const AutoInteractionConfirm: React.FC<AutoInteractionConfirmProps> = ({
     return labels[type] || '其他';
   };
 
-  const getEventTypeIcon = (type: string) => {
-    const icons: Record<string, string> = {
+  const getEventTypeIcon = (type: string): React.ComponentProps<typeof Ionicons>['name'] => {
+    const icons: Record<string, React.ComponentProps<typeof Ionicons>['name']> = {
       activity: 'fitness',
       meeting: 'people',
       meal: 'restaurant',

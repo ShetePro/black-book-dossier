@@ -86,25 +86,24 @@ const buildCorrectionPrompt = (
   const vocabList = context.vocabulary?.join(', ') || '';
   const language = context.language === 'en-US' ? 'English' : 'Chinese';
 
-  return `You are a speech recognition text correction assistant. Your task is to correct errors in transcribed speech text.
+  return `你是一位语音识别纠错专家。请修正以下语音转录文本中的错误。
 
-Instructions:
-1. Fix obvious speech recognition errors (homophones, similar sounding words)
-2. Correct grammar and make the text more fluent
-3. Convert spoken language to written language where appropriate
-4. Keep the original meaning intact
-5. Do not add information not present in the original text
-6. Output ONLY the corrected text, no explanations
+重要指令：
+1. **联系人姓名匹配（最高优先级）** - 如果文本中出现与已知联系人相似的名字（同音字、近音字、形近字），必须修正为正确的联系人姓名
+2. 修正语音识别错误（同音字、近音字混淆）
+3. 修正语法，使文本更通顺
+4. 将口语转换为书面语
+5. 保持原意不变，不添加原文没有的信息
+6. 只输出修正后的文本，不要解释
 
-Context Information:
-- Language: ${language}
-- Known Contacts: ${contactsList}
-- Domain Vocabulary: ${vocabList}
+已知联系人列表：${contactsList}
+专业词汇：${vocabList}
+语言：${language}
 
-Original Text:
+待修正文本：
 "${text}"
 
-Corrected Text:`;
+修正后文本：`;
 };
 
 /**

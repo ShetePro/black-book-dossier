@@ -54,12 +54,89 @@ export const LLMReasoningCard: React.FC<LLMReasoningCardProps> = ({
     return (
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Ionicons name="close-circle" size={18} color="#ef4444" />
-          <ThemedText style={styles.sectionTitle}>✗ 未找到匹配</ThemedText>
+          <Ionicons name="bulb" size={18} color="#60a5fa" />
+          <ThemedText style={styles.sectionTitle}>智能分析结果</ThemedText>
         </View>
-        <ThemedText style={styles.noMatchText}>
-          未在联系人中找到匹配的名字
-        </ThemedText>
+        
+        {/* 显示从文本中提取的实体信息 */}
+        {result.suggestedTags && result.suggestedTags.length > 0 && (
+          <View style={styles.extractedEntitiesCard}>
+            <ThemedText style={styles.extractedTitle}>提取的信息：</ThemedText>
+            
+            {/* 人名 */}
+            {result.suggestedTags.filter(tag => !tag.includes(':'))?.length > 0 && (
+              <View style={styles.entityRow}>
+                <ThemedText style={styles.entityLabel}>人物:</ThemedText>
+                <View style={styles.tagsRow}>
+                  {result.suggestedTags.filter(tag => !tag.includes(':')).map((tag, i) => (
+                    <View key={i} style={[styles.tagBadge, styles.personTag]}>
+                      <ThemedText style={styles.tagText}>{tag}</ThemedText>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
+            
+            {/* 时间 */}
+            {result.suggestedTags.filter(tag => tag.startsWith('时间:'))?.length > 0 && (
+              <View style={styles.entityRow}>
+                <ThemedText style={styles.entityLabel}>时间:</ThemedText>
+                <View style={styles.tagsRow}>
+                  {result.suggestedTags.filter(tag => tag.startsWith('时间:')).map((tag, i) => (
+                    <View key={i} style={[styles.tagBadge, styles.timeTag]}>
+                      <ThemedText style={styles.tagText}>{tag.replace('时间:', '')}</ThemedText>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
+            
+            {/* 地点 */}
+            {result.suggestedTags.filter(tag => tag.startsWith('地点:'))?.length > 0 && (
+              <View style={styles.entityRow}>
+                <ThemedText style={styles.entityLabel}>地点:</ThemedText>
+                <View style={styles.tagsRow}>
+                  {result.suggestedTags.filter(tag => tag.startsWith('地点:')).map((tag, i) => (
+                    <View key={i} style={[styles.tagBadge, styles.locationTag]}>
+                      <ThemedText style={styles.tagText}>{tag.replace('地点:', '')}</ThemedText>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
+          </View>
+        )}
+        
+        {/* 显示活动和偏好 */}
+        {result.insights && (
+          <View style={styles.insightsCard}>
+            {result.insights.activities?.length > 0 && (
+              <View style={styles.entityRow}>
+                <ThemedText style={styles.entityLabel}>活动:</ThemedText>
+                <View style={styles.tagsRow}>
+                  {result.insights.activities.map((activity, i) => (
+                    <View key={i} style={[styles.tagBadge, styles.activityTag]}>
+                      <ThemedText style={styles.tagText}>{activity}</ThemedText>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
+            
+            {result.insights.preferences?.length > 0 && (
+              <View style={styles.entityRow}>
+                <ThemedText style={styles.entityLabel}>偏好:</ThemedText>
+                <View style={styles.tagsRow}>
+                  {result.insights.preferences.map((pref, i) => (
+                    <View key={i} style={styles.tagBadge}>
+                      <ThemedText style={styles.tagText}>{pref}</ThemedText>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
+          </View>
+        )}
       </View>
     );
   };
@@ -100,9 +177,12 @@ export const LLMReasoningCard: React.FC<LLMReasoningCardProps> = ({
 
   const renderInsights = () => {
     const { insights } = result;
-    const hasInsights = insights.activities.length > 0 || 
-                        insights.preferences.length > 0 || 
-                        insights.personality.length > 0 ||
+    
+    if (!insights) return null;
+    
+    const hasInsights = insights.activities?.length > 0 || 
+                        insights.preferences?.length > 0 || 
+                        insights.personality?.length > 0 ||
                         insights.profession;
 
     if (!hasInsights) return null;
@@ -123,7 +203,7 @@ export const LLMReasoningCard: React.FC<LLMReasoningCardProps> = ({
             </View>
           )}
           
-          {insights.activities.length > 0 && (
+          {insights.activities?.length > 0 && (
             <View style={styles.insightRow}>
               <ThemedText style={styles.insightLabel}>活动:</ThemedText>
               <View style={styles.tagsRow}>
@@ -136,7 +216,7 @@ export const LLMReasoningCard: React.FC<LLMReasoningCardProps> = ({
             </View>
           )}
 
-          {insights.preferences.length > 0 && (
+          {insights.preferences?.length > 0 && (
             <View style={styles.insightRow}>
               <ThemedText style={styles.insightLabel}>偏好:</ThemedText>
               <View style={styles.tagsRow}>
@@ -149,7 +229,7 @@ export const LLMReasoningCard: React.FC<LLMReasoningCardProps> = ({
             </View>
           )}
 
-          {insights.personality.length > 0 && (
+          {insights.personality?.length > 0 && (
             <View style={styles.insightRow}>
               <ThemedText style={styles.insightLabel}>性格:</ThemedText>
               <View style={styles.tagsRow}>
@@ -350,6 +430,42 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#d4d4d4',
     lineHeight: 20,
+  },
+  extractedEntitiesCard: {
+    backgroundColor: 'rgba(59,130,246,0.1)',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+  },
+  extractedTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#60a5fa',
+    marginBottom: 10,
+  },
+  entityRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+    gap: 8,
+  },
+  entityLabel: {
+    fontSize: 12,
+    color: '#a3a3a3',
+    width: 40,
+    marginTop: 4,
+  },
+  personTag: {
+    backgroundColor: 'rgba(16,185,129,0.3)',
+  },
+  timeTag: {
+    backgroundColor: 'rgba(245,158,11,0.3)',
+  },
+  locationTag: {
+    backgroundColor: 'rgba(139,92,246,0.3)',
+  },
+  activityTag: {
+    backgroundColor: 'rgba(59,130,246,0.3)',
   },
 });
 

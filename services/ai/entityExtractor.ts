@@ -6,138 +6,87 @@ interface ExtractionResult {
   contactName?: string;
 }
 
+/**
+ * 使用静态正则提取实体
+ */
 export const extractEntities = async (text: string): Promise<ExtractionResult> => {
   const entities: ExtractedEntity[] = [];
   const actionItems: ActionItem[] = [];
   
-  const namePattern = /([老王|老李|老张|老刘|老陈|老杨|老赵|老黄|老周|老吴|老徐|老孙|老朱|老高|老林|老何])([^，。,.\s]{1,2})/g;
+  // 提取人物（2-4个中文字符）
+  const namePattern = /[\u4e00-\u9fa5]{2,4}/g;
   let match;
+  const foundNames = new Set<string>();
+  
   while ((match = namePattern.exec(text)) !== null) {
-    entities.push({
-      type: 'person',
-      value: match[0],
-      confidence: 0.8,
-      context: text.substring(Math.max(0, match.index - 10), match.index + match[0].length + 10),
-    });
-  }
-  
-  const healthPatterns = [
-    { pattern: /(痛风|高血压|糖尿病|心脏病|胃病|腰痛|颈椎)/g, type: 'health_issue' },
-    { pattern: /(生病|不舒服|住院|看病|吃药|治疗)/g, type: 'health_issue' },
-  ];
-  
-  healthPatterns.forEach(({ pattern, type }) => {
-    while ((match = pattern.exec(text)) !== null) {
+    const name = match[0];
+    // 过滤常见非人名词
+    const nonNames = ['今天', '明天', '后天', '昨天', '一起', '然后', '但是', '因为', '所以'];
+    if (!foundNames.has(name) && !nonNames.includes(name) && name.length >= 2 && name.length <= 4) {
+      foundNames.add(name);
       entities.push({
-        type: type as any,
-        value: match[1] || match[0],
-        confidence: 0.75,
+        type: 'person',
+        value: name,
+        confidence: 0.7,
         context: text.substring(Math.max(0, match.index - 10), match.index + match[0].length + 10),
       });
     }
-  });
+  }
   
+  // 提取时间
+  const datePattern = /(今天|明天|后天|昨天|下周|上周|\d{1,2}月\d{1,2}日?|\d{4}年)/g;
+  while ((match = datePattern.exec(text)) !== null) {
+    entities.push({
+      type: 'date',
+      value: match[1],
+      confidence: 0.85,
+      context: text,
+    });
+  }
+  
+  // 提取地点
   const locationPatterns = [
-    /(北京|上海|广州|深圳|杭州|成都|伦敦|纽约|东京|新加坡|香港|台湾)/g,
-    /(\w+)(?:市|省|国|岛)/g,
+    /(在|去|到|于)([\u4e00-\u9fa5]{2,10})(?:的|里|处|)/,
+    /([\u4e00-\u9fa5]+)(?:咖啡厅|餐厅|公司|家里|办公室|酒店|银行|医院|学校)/,
   ];
   
-  locationPatterns.forEach((pattern) => {
-    while ((match = pattern.exec(text)) !== null) {
-      entities.push({
-        type: 'location',
-        value: match[1] || match[0],
-        confidence: 0.7,
-        context: text.substring(Math.max(0, match.index - 5), match.index + match[0].length + 5),
-      });
-    }
-  });
-  
-  const needPatterns = [
-    /找(.+?)(?:药|公寓|房子|工作|机会|资源)/g,
-    /需要(.+?)(?:帮忙|协助|支持)/g,
-    /想(?:要|找)(.+?)(?:的|了)/g,
-  ];
-  
-  needPatterns.forEach((pattern) => {
-    while ((match = pattern.exec(text)) !== null) {
-      const need = match[1]?.trim();
-      if (need && need.length < 20) {
+  for (const pattern of locationPatterns) {
+    const locMatch = text.match(pattern);
+    if (locMatch) {
+      const location = locMatch[2] || locMatch[1];
+      if (location && location.length >= 2) {
         entities.push({
-          type: 'need',
-          value: need,
-          confidence: 0.65,
-          context: text.substring(Math.max(0, match.index - 10), match.index + match[0].length + 10),
+          type: 'location',
+          value: location,
+          confidence: 0.75,
+          context: text,
         });
-        
-        actionItems.push({
-          id: generateId(),
-          description: `协助寻找：${need}`,
-          completed: false,
-          priority: 'medium',
-          createdAt: Date.now(),
-        });
+        break;
       }
     }
-  });
+  }
   
-  const familyPatterns = [
-    { pattern: /(女儿|儿子|妻子|丈夫|父亲|母亲|老婆|老公)(.{1,10}?)(?:去|在|要)/g, type: 'event' },
+  // 提取活动/事件
+  const activityPatterns = [
+    /(一起|去|来)([\u4e00-\u9fa5]{2,8})(?:了|过|的)?/,
+    /([\u4e00-\u9fa5]{2,6})(?:代码|项目|会议|吃饭|咖啡|茶|运动|旅游)/,
   ];
   
-  familyPatterns.forEach(({ pattern, type }) => {
-    while ((match = pattern.exec(text)) !== null) {
-      const relation = match[1];
-      const context = match[2];
-      
-      entities.push({
-        type: 'person',
-        value: `${relation}`,
-        confidence: 0.7,
-        context: text.substring(Math.max(0, match.index - 5), match.index + match[0].length + 20),
-      });
-      
-      if (context.includes('读研') || context.includes('读书') || context.includes('学校')) {
+  for (const pattern of activityPatterns) {
+    const actMatch = text.match(pattern);
+    if (actMatch) {
+      const activity = actMatch[2] || actMatch[1];
+      if (activity && activity.length >= 2) {
         entities.push({
           type: 'event',
-          value: `${relation}求学`,
-          confidence: 0.75,
-          context: text.substring(Math.max(0, match.index - 5), match.index + match[0].length + 20),
+          value: activity,
+          confidence: 0.8,
+          context: text,
         });
+        break;
       }
     }
-  });
-  
-  const preferencePatterns = [
-    /(?:喜欢|爱|偏好|只)(.+?)(?:的|了|。)/g,
-    /(?:不喝|不吃|不用)(.+?)(?:，|。|；)/g,
-  ];
-  
-  preferencePatterns.forEach((pattern) => {
-    while ((match = pattern.exec(text)) !== null) {
-      entities.push({
-        type: 'preference',
-        value: match[1]?.trim(),
-        confidence: 0.6,
-        context: text.substring(Math.max(0, match.index - 5), match.index + match[0].length + 5),
-      });
-    }
-  });
-  
-  const datePatterns = [
-    /(下(?:个)?月|明[天年]|今[天年]|后[天]|\d{1,2}月|\d{1,2}号)/g,
-  ];
-  
-  datePatterns.forEach((pattern) => {
-    while ((match = pattern.exec(text)) !== null) {
-      entities.push({
-        type: 'date',
-        value: match[1],
-        confidence: 0.7,
-        context: text.substring(Math.max(0, match.index - 5), match.index + match[0].length + 5),
-      });
-    }
-  });
+  }
   
   const personEntities = entities.filter((e) => e.type === 'person');
   const contactName = personEntities[0]?.value;
@@ -148,7 +97,3 @@ export const extractEntities = async (text: string): Promise<ExtractionResult> =
     contactName,
   };
 };
-
-function generateId(): string {
-  return Math.random().toString(36).substring(2, 15);
-}

@@ -131,6 +131,10 @@ export default function AIModelsScreen() {
   // 获取当前启用的模型ID
   const getEnabledModelId = (): ModelId | null => {
     if (!settings.ai.localModel.enabled) return null;
+    const storedModelId = settings.ai.localModel.modelId as ModelId | undefined;
+    if (storedModelId && AVAILABLE_MODELS[storedModelId]) {
+      return storedModelId;
+    }
     const enabledModel = models.find(m => m.name === settings.ai.localModel.modelName);
     return enabledModel?.id || null;
   };

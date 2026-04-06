@@ -102,10 +102,12 @@ class TranscriptionEnhancer {
     // 1. 规则修正
     const { corrected, corrections } = this.matcher.correctText(text, threshold);
     
-    // 2. LLM 修正（可选）
-    let finalText = corrected;
-    let llmApplied = false;
+    // 2. LLM 修正（暂时禁用，因为小模型会截断文本）
+    // TODO: 使用更大的模型或改进 prompt 后再启用
+    const finalText = corrected;
+    const llmApplied = false;
     
+    /*
     if (useLLM && await isLLMAvailable()) {
       console.log('[TranscriptionEnhancer] Applying LLM correction...');
       
@@ -124,6 +126,7 @@ class TranscriptionEnhancer {
         console.log('[TranscriptionEnhancer] LLM correction applied');
       }
     }
+    */
 
     console.log('[TranscriptionEnhancer] Enhancement result:', {
       original: text,

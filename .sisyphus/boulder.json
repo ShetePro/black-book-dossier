@@ -1,7 +1,16 @@
 {
   "active_plan": "/Users/zijianlin/ghq/github.com/ShetePro/black-book-dossier/.sisyphus/plans/Smart-Interaction-Extraction-Plan.md",
   "started_at": "2026-04-05T09:00:00.000Z",
-  "session_ids": ["ses_smart_interaction_extraction"],
+  "session_ids": [
+    "ses_smart_interaction_extraction",
+    "ses_2c64076f4ffeT5jORYkaGSCP6n",
+    "ses_2a21f250cffe0LZmTwk7V7uaHE",
+    "ses_2a213a295ffeC82tTe77rlkq25",
+    "ses_2a200a58cffep5JopFqsMLUIAv",
+    "ses_2a1f065f1ffeT4BkOrMcV0rGds",
+    "ses_2a1be92c8ffe5syC1IkMk2S6c8",
+    "ses_29edd8d4bffeIJoH5vhqHaeTlx"
+  ],
   "plan_name": "Smart-Interaction-Extraction-Plan",
   "task_sessions": {}
 }

@@ -172,37 +172,13 @@ export const useAutoInteraction = () => {
 ### 任务 7: 集成到录音流程
 **文件**: `hooks/useRecorder.ts`
 
+**状态**: ✅ 已完成
+
 **修改**:
-```typescript
-const stopRecording = useCallback(async () => {
-  // ... 现有代码 ...
-  
-  // 1. 转录语音
-  const result = await transcribeAudio(uri, language);
-  
-  // 2. 智能分析
-  const analysis = await analyzeVoiceContent(result.text, contacts);
-  
-  // 3. 匹配联系人
-  const matchedContact = await findBestContactMatch(
-    analysis.extractedContactName, 
-    contacts
-  );
-  
-  // 4. 如果置信度高，自动跳转到确认页面
-  if (matchedContact && matchedContact.confidence > 0.8) {
-    router.push({
-      pathname: '/(views)/auto-interaction-confirm',
-      params: {
-        contactId: matchedContact.id,
-        analysis: JSON.stringify(analysis),
-      },
-    });
-  }
-  
-  return { text: result.text, audioUri: uri, analysis };
-}, []);
-```
+- 导入 `analyzeVoiceContent` 和 `findMatchingContacts`
+- 更新 `RecordingResult` 接口，添加 `analysis` 和 `matchedContact` 字段
+- 在转录成功后执行智能分析和联系人匹配
+- 返回分析结果供调用者使用
 
 ## 数据模型
 

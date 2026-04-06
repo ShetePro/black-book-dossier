@@ -170,11 +170,40 @@ export const correctTranscriptionWithLLM = async (
       };
     }
 
-    // 清理输出
-    const correctedText = result.text
+    // 清理输出 - 移除重复的 "修正后文本" 和多余内容
+    let correctedText = result.text
       .trim()
       .replace(/^["']|["']$/g, '')
       .trim();
+    
+    // 如果文本包含 "修正后文本"，只取最后一部分
+    const correctionMarker = '修正后文本：';
+    if (correctedText.includes(correctionMarker)) {
+      const parts = correctedText.split(correctionMarker);
+      // 取最后一部分（实际的修正结果）
+      correctedText = parts[parts.length - 1].trim();
+    }
+    
+    // 移除可能重复的原始文本
+    const lines = correctedText.split('\n');
+    const uniqueLines: string[] = [];
+    const seen = new Set<string>();
+    
+    for (const line of lines) {
+      const trimmed = line.trim();
+      // 跳过空行和重复行
+      if (trimmed && !seen.has(trimmed)) {
+        seen.add(trimmed);
+        uniqueLines.push(trimmed);
+      }
+    }
+    
+    correctedText = uniqueLines.join('\n');
+    
+    // 如果结果太长（超过原始文本3倍），可能是重复了，取第一行
+    if (correctedText.length > text.length * 3) {
+      correctedText = uniqueLines[0] || text;
+    }
 
     return {
       success: true,

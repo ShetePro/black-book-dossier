@@ -26,6 +26,7 @@ import { DefaultAvatar } from "@/components/DefaultAvatar";
 import { getStorageItem } from "@/hooks/useStorageState";
 import { useActionItems } from "@/hooks/actionItem";
 import { ActionItemList } from "@/components/actionItem";
+import { TextInputSheet } from "@/components/ui/TextInputSheet";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
@@ -36,6 +37,7 @@ export default function HomeScreen() {
   const colors = useThemeColor();
   const [userInfo, setUserInfo] = useState<{ nickname?: string; avatar?: string }>({});
   const { actionItems, isLoading, toggleComplete, deleteActionItem } = useActionItems();
+  const [showTextInput, setShowTextInput] = useState(false);
 
   // 动画值
   const micScale = useSharedValue(1);
@@ -95,6 +97,13 @@ export default function HomeScreen() {
     router.push("/(views)/recording");
   };
 
+  const handleTextSubmit = (text: string) => {
+    router.push({
+      pathname: "/(views)/agent-review",
+      params: { text, mode: 'text' }
+    });
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]} collapsable={false}>
       <ScrollView 
@@ -132,29 +141,42 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* 主录音按钮 - 奢华金 */}
-        <Animated.View style={[styles.micContainer, micAnimatedStyle]}>
+        {/* 主录音按钮和文本输入按钮 */}
+        <View style={styles.inputButtonsContainer}>
+          <Animated.View style={[styles.micContainer, micAnimatedStyle]}>
+            <TouchableOpacity
+              onPress={handleMicPress}
+              onPressIn={handleMicPressIn}
+              onPressOut={handleMicPressOut}
+              activeOpacity={0.9}
+              style={[styles.micButton, { backgroundColor: colors.primary }]}
+            >
+              {/* 内发光效果 */}
+              <View style={[styles.micInnerGlow, { backgroundColor: colors.primaryLight }]} />
+              
+              <Ionicons name="mic" size={48} color="#0a0a0a" />
+              
+              <Text style={styles.micText}>
+                {t("recording.holdToRecord")}
+              </Text>
+              
+              {/* 装饰性光点 */}
+              <View style={[styles.sparkle, { top: 20, left: 30 }]} />
+              <View style={[styles.sparkle, { top: 40, right: 35, width: 4, height: 4 }]} />
+            </TouchableOpacity>
+          </Animated.View>
+
+          {/* 文本输入按钮 */}
           <TouchableOpacity
-            onPress={handleMicPress}
-            onPressIn={handleMicPressIn}
-            onPressOut={handleMicPressOut}
-            activeOpacity={0.9}
-            style={[styles.micButton, { backgroundColor: colors.primary }]}
+            onPress={() => setShowTextInput(true)}
+            style={[styles.textInputButton, { backgroundColor: colors.surface, borderColor: colors.primary }]}
           >
-            {/* 内发光效果 */}
-            <View style={[styles.micInnerGlow, { backgroundColor: colors.primaryLight }]} />
-            
-            <Ionicons name="mic" size={48} color="#0a0a0a" />
-            
-            <Text style={styles.micText}>
-              {t("recording.holdToRecord")}
+            <Ionicons name="create-outline" size={32} color={colors.primary} />
+            <Text style={[styles.textInputButtonText, { color: colors.text }]}>
+              文本输入
             </Text>
-            
-            {/* 装饰性光点 */}
-            <View style={[styles.sparkle, { top: 20, left: 30 }]} />
-            <View style={[styles.sparkle, { top: 40, right: 35, width: 4, height: 4 }]} />
           </TouchableOpacity>
-        </Animated.View>
+        </View>
 
         {/* 快捷入口卡片 */}
         <Animated.View style={[styles.cardsContainer, cardAnimatedStyle]}>
@@ -294,6 +316,13 @@ export default function HomeScreen() {
           </View>
         </Animated.View>
       </ScrollView>
+
+      {/* 文本输入弹窗 */}
+      <TextInputSheet
+        visible={showTextInput}
+        onClose={() => setShowTextInput(false)}
+        onSubmit={handleTextSubmit}
+      />
     </View>
   );
 }
@@ -354,9 +383,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 1,
   },
+  inputButtonsContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 20,
+    marginBottom: 40,
+    paddingHorizontal: 24,
+  },
   micContainer: {
     alignItems: "center",
-    marginBottom: 40,
   },
   micButton: {
     width: 200,
@@ -395,6 +431,24 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     backgroundColor: "#ffffff",
     opacity: 0.6,
+  },
+  textInputButton: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  textInputButtonText: {
+    marginTop: 4,
+    fontSize: 12,
+    fontWeight: "600",
   },
   cardsContainer: {
     marginBottom: 32,

@@ -94,6 +94,8 @@ export default function AgentReviewScreen() {
   const isPlayingRef = useRef(false);
 
   const audioUri = params.audioUri as string;
+  const textInput = params.text as string;
+  const inputMode = (params.mode as 'voice' | 'text') || 'voice';
 
   // 获取当前语言显示
   const getLanguageDisplay = () => {
@@ -104,7 +106,7 @@ export default function AgentReviewScreen() {
     return langMap[settings.language] || settings.language;
   };
 
-  const transcription = params.transcription as string;
+  const transcription = params.transcription as string || textInput;
 
   // 动画值
   const headerProgress = useSharedValue(0);
@@ -116,8 +118,8 @@ export default function AgentReviewScreen() {
     headerProgress.value = withSpring(1, { damping: 15 });
     contentProgress.value = withDelay(200, withSpring(1, { damping: 15 }));
 
-    // 加载音频
-    if (audioUri) {
+    // 加载音频（仅语音模式）
+    if (audioUri && inputMode === 'voice') {
       loadAudio();
     }
   }, []);
@@ -751,9 +753,11 @@ export default function AgentReviewScreen() {
           >
             <View style={styles.sectionTitleRow}>
               <View style={[styles.iconBadge, { backgroundColor: `${colors.primary}20` }]}>
-                <Ionicons name="mic" size={16} color={colors.primary} />
+                <Ionicons name={inputMode === 'voice' ? 'mic' : 'create'} size={16} color={colors.primary} />
               </View>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>原始语音</Text>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                {inputMode === 'voice' ? '原始语音' : '输入文本'}
+              </Text>
             </View>
             <Ionicons
               name={isTranscriptionExpanded ? "chevron-up" : "chevron-down"}
@@ -771,7 +775,7 @@ export default function AgentReviewScreen() {
             </Text>
           </View>
 
-          {audioUri && !audioLoadError && (
+          {audioUri && !audioLoadError && inputMode === 'voice' && (
             <View style={styles.audioPlayerContainer}>
               <TouchableOpacity
                 style={[styles.playButton, { backgroundColor: colors.primary }]}
@@ -811,7 +815,7 @@ export default function AgentReviewScreen() {
             </View>
           )}
 
-          {audioLoadError && (
+          {audioLoadError && inputMode === 'voice' && (
             <View style={[styles.audioErrorContainer, { backgroundColor: `${colors.danger}15` }]}>
               <Ionicons name="alert-circle-outline" size={16} color={colors.danger} />
               <Text style={[styles.audioErrorText, { color: colors.danger }]}>

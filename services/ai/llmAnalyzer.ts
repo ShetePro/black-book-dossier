@@ -1,12 +1,14 @@
 import { Contact } from '@/types';
-import { 
-  getModelPath, 
-  getCurrentModelId, 
-  ModelId, 
-  isModelDownloaded 
+import {
+  getModelPath,
+  getCurrentModelId,
+  ModelId,
+  isModelDownloaded
 } from './llmModelManager';
 import { useSettingsStore } from '@/store/settingsStore';
 import { findBestMatch, shouldAutoSelect, shouldShowSuggestion } from './contactMatcher';
+import { initLlama } from 'llama.rn';
+import { Platform } from 'react-native';
 
 /**
  * LLM 分析结果类型
@@ -52,30 +54,40 @@ const initializeLLM = async (modelId: ModelId): Promise<boolean> => {
 
   try {
     const downloaded = await isModelDownloaded(modelId);
+    console.log('[LLMAnalyzer] isModelDownloaded:', downloaded);
     if (!downloaded) {
       throw new Error(`Model ${modelId} not downloaded`);
     }
 
     const modelPath = getModelPath(modelId);
+    console.log('[LLMAnalyzer] Loading model:', modelId);
+    console.log('[LLMAnalyzer] Model path:', modelPath);
+
+    const { File } = await import('expo-file-system');
+    const file = new File(modelPath);
+    console.log('[LLMAnalyzer] File exists:', file.exists, 'Size:', file.size);
+
     if (!modelPath.endsWith('.gguf')) {
       throw new Error(`Invalid model path: ${modelPath}`);
     }
 
-    console.log('[LLMAnalyzer] Loading model:', modelId);
-    const { initLlama } = await import('llama.rn');
-    
     llmContext = await initLlama({
       model: modelPath,
-      use_mlock: true,
+      use_mlock: Platform.OS !== 'ios',
       n_ctx: 2048,
       n_gpu_layers: 0,
     });
-    
+
     currentModelId = modelId;
     console.log('[LLMAnalyzer] Model loaded successfully');
     return true;
   } catch (error) {
     console.error('[LLMAnalyzer] Failed to load model:', error);
+    if (error instanceof Error) {
+      console.error('[LLMAnalyzer] Error name:', error.name);
+      console.error('[LLMAnalyzer] Error message:', error.message);
+      console.error('[LLMAnalyzer] Error stack:', error.stack);
+    }
     return false;
   }
 };
@@ -103,13 +115,13 @@ export const isLLMAvailable = async (): Promise<boolean> => {
   if (!settings.ai.localModel.enabled || !settings.ai.localModel.downloaded) {
     return false;
   }
-  
+
   const modelId = settings.ai.localModel.modelId as ModelId;
   const downloaded = await isModelDownloaded(modelId);
   if (!downloaded) {
     return false;
   }
-  
+
   return await initializeLLM(modelId);
 };
 
@@ -117,40 +129,19 @@ export const isLLMAvailable = async (): Promise<boolean> => {
  * 构建分析 Prompt
  */
 const buildAnalysisPrompt = (text: string, contacts: Contact[]): string => {
-  return `You are an information extraction assistant. Extract entities from the text and return a JSON object.
+  const contactsList = contacts.map((c) => c.name).join(", ");
 
-Input text: "${text}"
+  return `分析文本，提取人名、时间、地点、活动，返回JSON。
 
-Extract and return ONLY this JSON format (replace example values with actual extracted values):
-{
-  "reasoning": "brief explanation of what you found",
-  "suggestedTags": [],
-  "insights": {
-    "activities": [],
-    "preferences": [],
-    "personality": [],
-    "profession": null
-  },
-  "contactMatch": {
-    "found": false,
-    "matchedName": null,
-    "suggestedName": null,
-    "confidence": 0,
-    "reason": ""
-  },
-  "corrections": []
-}
+示例：
+输入：昨天和李明在公园散步
+输出：{"reasoning":"提取到人名李明","suggestedTags":["李明","time:昨天","location:公园"],"insights":{"activities":["散步"],"preferences":[],"personality":[],"profession":null},"contactMatch":{"found":false,"matchedName":null,"suggestedName":null,"confidence":0,"reason":""},"corrections":[]}
 
-Instructions:
-- Put person names in suggestedTags as plain strings (e.g., "John", "Mary")
-- Put time expressions in suggestedTags with "time:" prefix (e.g., "time:today", "time:3pm")
-- Put locations in suggestedTags with "location:" prefix (e.g., "location:cafe", "location:office")
-- Put activities in insights.activities array (e.g., "coding", "meeting")
-- Put preferences in insights.preferences array
+输入：${text}
+已知联系人：${contactsList || "无"}
 
-Return ONLY the JSON object, no explanation text.`;
+输出：`;
 };
-
 /**
  * 解析 LLM 输出
  */
@@ -159,31 +150,31 @@ const parseLLMResult = (text: string): Partial<LLMAnalysisResult> | null => {
     // 首先尝试找到第一个 JSON 对象（从第一个 { 开始）
     const firstBrace = text.indexOf('{');
     if (firstBrace === -1) return null;
-    
+
     // 使用括号计数找到匹配的结束位置
     let braceCount = 0;
     let jsonEnd = -1;
     let inString = false;
     let escapeNext = false;
-    
+
     for (let i = firstBrace; i < text.length; i++) {
       const char = text[i];
-      
+
       if (escapeNext) {
         escapeNext = false;
         continue;
       }
-      
+
       if (char === '\\') {
         escapeNext = true;
         continue;
       }
-      
+
       if (char === '"' && !escapeNext) {
         inString = !inString;
         continue;
       }
-      
+
       if (!inString) {
         if (char === '{') braceCount++;
         if (char === '}') {
@@ -195,7 +186,7 @@ const parseLLMResult = (text: string): Partial<LLMAnalysisResult> | null => {
         }
       }
     }
-    
+
     // 如果找到了完整的 JSON
     if (jsonEnd !== -1) {
       const jsonCandidate = text.substring(firstBrace, jsonEnd + 1);
@@ -223,17 +214,17 @@ const parseLLMResult = (text: string): Partial<LLMAnalysisResult> | null => {
         // 解析失败
       }
     }
-    
+
     // 回退：清理后尝试解析
     const cleanedText = text
       .replace(/```json\s*/gi, '')
       .replace(/```\s*$/gi, '')
       .replace(/```/g, '')
       .trim();
-    
+
     const firstBrace2 = cleanedText.indexOf('{');
     const lastBrace = cleanedText.lastIndexOf('}');
-    
+
     if (firstBrace2 !== -1 && lastBrace !== -1 && lastBrace > firstBrace2) {
       const jsonCandidate = cleanedText.substring(firstBrace2, lastBrace + 1);
       try {
@@ -295,7 +286,7 @@ export const analyzeWithLLM = async (
 
   try {
     console.log('[LLMAnalyzer] Starting analysis...');
-    
+
     const available = await isLLMAvailable();
     if (!available) {
       console.warn('[LLMAnalyzer] LLM not available');
@@ -304,22 +295,21 @@ export const analyzeWithLLM = async (
 
     const { settings } = useSettingsStore.getState();
     const modelId = settings.ai.localModel.modelId as ModelId;
-    
+
     await initializeLLM(modelId);
-    
+
     const prompt = buildAnalysisPrompt(text, contacts);
-    
-    console.log('[LLMAnalyzer] Running inference...');
+
+    console.log("[LLMAnalyzer] Running inference...", prompt);
     const startTime = Date.now();
-    
+
     const result = await llmContext.completion({
       prompt,
-      n_predict: 1024,
-      temperature: 0.3,
-      top_k: 40,
-      top_p: 0.9,
-      repeat_penalty: 1.1,
-      stop: ['\n\n'],
+      n_predict: 512,
+      temperature: 0.1,
+      top_k: 20,
+      top_p: 0.7,
+      repeat_penalty: 1.4,
     });
 
     console.log('[LLMAnalyzer] Inference completed in', Date.now() - startTime, 'ms');
@@ -337,26 +327,26 @@ export const analyzeWithLLM = async (
     if (parsed) {
       console.log('[LLMAnalyzer] Analysis successful');
       console.log('[LLMAnalyzer] Parsed result:', JSON.stringify(parsed, null, 2));
-      
+
       // 打印分析过程
       if (parsed.reasoning) {
         console.log('[LLMAnalyzer] Reasoning:', parsed.reasoning);
       }
-      
+
       // 打印提取的信息
       console.log('[LLMAnalyzer] Extracted info:', {
         suggestedTags: parsed.suggestedTags || [],
         activities: parsed.insights?.activities || [],
         preferences: parsed.insights?.preferences || [],
       });
-      
+
       // 从 suggestedTags 获取提取到的人名，进行模糊匹配
       const extractedNames = parsed.suggestedTags || [];
       let contactMatch = parsed.contactMatch || defaultResult.contactMatch;
-      
+
       for (const name of extractedNames) {
         const match = findBestMatch(name, contacts);
-        
+
         if (match) {
           if (shouldAutoSelect(match.confidence)) {
             // 高置信度匹配
@@ -380,10 +370,10 @@ export const analyzeWithLLM = async (
           }
         }
       }
-      
+
       // 打印最终匹配结果
       console.log('[LLMAnalyzer] Contact match result:', contactMatch);
-      
+
       return {
         reasoning: parsed.reasoning || defaultResult.reasoning,
         contactMatch,
@@ -432,11 +422,11 @@ export const extractContactSuggestion = (
  */
 export const formatTags = (result: LLMAnalysisResult): string[] => {
   const tags = [...result.suggestedTags];
-  
+
   if (result.insights.profession) {
     tags.push(result.insights.profession);
   }
-  
+
   return [...new Set(tags)];
 };
 

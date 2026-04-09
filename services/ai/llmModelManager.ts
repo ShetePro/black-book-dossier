@@ -38,8 +38,8 @@ export const AVAILABLE_MODELS = {
     name: 'Gemma (2B)',
     description: 'Google 出品，多语言支持',
     filename: 'gemma-2b-it.Q4_K_M.gguf',
-    downloadUrl: 'https://huggingface.co/TheBloke/gemma-2b-it-GGUF/resolve/main/gemma-2b-it.Q4_K_M.gguf',
-    size: 1500, // MB
+    downloadUrl: 'https://huggingface.co/bartowski/gemma-2-2b-it-GGUF/resolve/main/gemma-2-2b-it-Q4_K_M.gguf',
+    size: 1500,
     format: 'gguf' as const,
     recommended: false,
   },
@@ -48,8 +48,8 @@ export const AVAILABLE_MODELS = {
     name: 'Llama 3.2 (1B)',
     description: 'Meta 最新，多语言，长上下文',
     filename: 'Llama-3.2-1B-Instruct.Q4_K_M.gguf',
-    downloadUrl: 'https://huggingface.co/TheBloke/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct.Q4_K_M.gguf',
-    size: 800, // MB
+    downloadUrl: 'https://huggingface.co/hugging-quants/Llama-3.2-1B-Instruct-Q4_K_M-GGUF/resolve/main/llama-3.2-1b-instruct-q4_k_m.gguf',
+    size: 800,
     format: 'gguf' as const,
     recommended: false,
   },
@@ -114,7 +114,13 @@ export const isModelDownloaded = async (modelId: ModelId): Promise<boolean> => {
     const { File } = await import('expo-file-system');
     const modelPath = getModelPath(modelId);
     const file = new File(modelPath);
-    return file.exists;
+    if (!file.exists) return false;
+    // 检查文件大小，至少 10MB 才认为是有效文件
+    if (file.size < 10 * 1024 * 1024) {
+      console.warn(`[LLMManager] Model file too small (${file.size} bytes), considered incomplete`);
+      return false;
+    }
+    return true;
   } catch (error) {
     console.error('[LLMManager] Error checking model:', error);
     return false;
@@ -188,6 +194,12 @@ export const downloadModel = async (
     const modelPath = getModelPath(modelId);
     const file = new File(modelPath);
     
+    // 检查是否存在不完整的文件，如果有则删除重新下载
+    if (file.exists && file.size < 10 * 1024 * 1024) {
+      console.log(`[LLMManager] Found incomplete file (${file.size} bytes), deleting and re-downloading`);
+      file.delete();
+    }
+    
     // 检查是否已存在
     if (file.exists) {
       console.log(`[LLMManager] ${config.name} already exists`);
@@ -222,6 +234,7 @@ export const downloadModel = async (
     // 下载成功，更新设置
     const { updateSetting } = useSettingsStore.getState();
     await updateSetting('ai.localModel.downloaded', true);
+    await updateSetting('ai.localModel.modelId', modelId);
     await updateSetting('ai.localModel.modelName', config.name);
     await updateSetting('ai.localModel.modelSize', config.size);
     

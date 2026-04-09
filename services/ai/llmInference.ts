@@ -1,5 +1,7 @@
 import { getModelPath, getCurrentModelId, ModelId, isModelDownloaded } from './llmModelManager';
 import { useSettingsStore } from '@/store/settingsStore';
+import { initLlama } from 'llama.rn';
+import { Platform } from 'react-native';
 
 // LLM 上下文类型
 interface LLMContext {
@@ -56,14 +58,11 @@ const initializeLLM = async (modelId: ModelId): Promise<boolean> => {
     console.log('[LLMInference] Loading model:', modelId);
     console.log('[LLMInference] Model path:', modelPath);
     
-    // 动态导入 llama.rn
-    const { initLlama } = await import('llama.rn');
-    
     llmContext = await initLlama({
       model: modelPath,
-      use_mlock: true,
+      use_mlock: Platform.OS !== 'ios',
       n_ctx: 2048,
-      n_gpu_layers: 0, // 暂时禁用 GPU，先测试 CPU 加载
+      n_gpu_layers: 0,
     });
     
     currentModelId = modelId;

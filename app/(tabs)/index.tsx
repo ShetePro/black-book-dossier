@@ -26,7 +26,6 @@ import { DefaultAvatar } from "@/components/DefaultAvatar";
 import { getStorageItem } from "@/hooks/useStorageState";
 import { useActionItems } from "@/hooks/actionItem";
 import { ActionItemList } from "@/components/actionItem";
-import { TextInputSheet } from "@/components/ui/TextInputSheet";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
@@ -37,11 +36,10 @@ export default function HomeScreen() {
   const colors = useThemeColor();
   const [userInfo, setUserInfo] = useState<{ nickname?: string; avatar?: string }>({});
   const { actionItems, isLoading, toggleComplete, deleteActionItem } = useActionItems();
-  const [showTextInput, setShowTextInput] = useState(false);
 
   // 动画值
-  const micScale = useSharedValue(1);
-  const micPulse = useSharedValue(1);
+  const addButtonScale = useSharedValue(1);
+  const addButtonPulse = useSharedValue(1);
   const cardY = useSharedValue(20);
   const cardOpacity = useSharedValue(0);
 
@@ -61,9 +59,9 @@ export default function HomeScreen() {
   useEffect(() => {
     cardY.value = withSpring(0, { damping: 15, stiffness: 100 });
     cardOpacity.value = withTiming(1, { duration: 600 });
-    
-    // 麦克风脉冲动画
-    micPulse.value = withRepeat(
+
+    // 添加按钮脉冲动画
+    addButtonPulse.value = withRepeat(
       withSequence(
         withTiming(1.05, { duration: 1000 }),
         withTiming(1, { duration: 1000 })
@@ -73,10 +71,10 @@ export default function HomeScreen() {
     );
   }, []);
 
-  const micAnimatedStyle = useAnimatedStyle(() => ({
+  const addButtonAnimatedStyle = useAnimatedStyle(() => ({
     transform: [
-      { scale: micScale.value },
-      { scale: interpolate(micPulse.value, [1, 1.05], [1, 1.02]) }
+      { scale: addButtonScale.value },
+      { scale: interpolate(addButtonPulse.value, [1, 1.05], [1, 1.02]) }
     ],
   }));
 
@@ -85,28 +83,21 @@ export default function HomeScreen() {
     opacity: cardOpacity.value,
   }));
 
-  const handleMicPressIn = () => {
-    micScale.value = withSpring(0.95, { damping: 20, stiffness: 300 });
+  const handleAddPressIn = () => {
+    addButtonScale.value = withSpring(0.95, { damping: 20, stiffness: 300 });
   };
 
-  const handleMicPressOut = () => {
-    micScale.value = withSpring(1, { damping: 20, stiffness: 300 });
+  const handleAddPressOut = () => {
+    addButtonScale.value = withSpring(1, { damping: 20, stiffness: 300 });
   };
 
-  const handleMicPress = () => {
-    router.push("/(views)/recording");
-  };
-
-  const handleTextSubmit = (text: string) => {
-    router.push({
-      pathname: "/(views)/agent-review",
-      params: { text, mode: 'text' }
-    });
+  const handleAddPress = () => {
+    router.push("/(views)/input");
   };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]} collapsable={false}>
-      <ScrollView 
+      <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
@@ -120,8 +111,8 @@ export default function HomeScreen() {
               {t("app.tagline")}
             </Text>
           </View>
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
             onPress={() => router.push("/(views)/profile")}
             style={styles.avatarButton}
           >
@@ -141,41 +132,29 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* 主录音按钮和文本输入按钮 */}
-        <View style={styles.inputButtonsContainer}>
-          <Animated.View style={[styles.micContainer, micAnimatedStyle]}>
+        {/* 添加按钮区域 */}
+        <View style={styles.addButtonContainer}>
+          <Animated.View style={[addButtonAnimatedStyle]}>
             <TouchableOpacity
-              onPress={handleMicPress}
-              onPressIn={handleMicPressIn}
-              onPressOut={handleMicPressOut}
+              onPress={handleAddPress}
+              onPressIn={handleAddPressIn}
+              onPressOut={handleAddPressOut}
               activeOpacity={0.9}
-              style={[styles.micButton, { backgroundColor: colors.primary }]}
+              style={[styles.addButton, { backgroundColor: colors.primary }]}
             >
               {/* 内发光效果 */}
-              <View style={[styles.micInnerGlow, { backgroundColor: colors.primaryLight }]} />
-              
-              <Ionicons name="mic" size={48} color="#0a0a0a" />
-              
-              <Text style={styles.micText}>
-                {t("recording.holdToRecord")}
-              </Text>
-              
+              <View style={[styles.addButtonInnerGlow, { backgroundColor: colors.primaryLight }]} />
+
+              <Ionicons name="add" size={40} color="#0a0a0a" />
+
               {/* 装饰性光点 */}
-              <View style={[styles.sparkle, { top: 20, left: 30 }]} />
-              <View style={[styles.sparkle, { top: 40, right: 35, width: 4, height: 4 }]} />
+              <View style={[styles.sparkle, { top: 16, left: 24 }]} />
+              <View style={[styles.sparkle, { top: 32, right: 28, width: 4, height: 4 }]} />
             </TouchableOpacity>
           </Animated.View>
-
-          {/* 文本输入按钮 */}
-          <TouchableOpacity
-            onPress={() => setShowTextInput(true)}
-            style={[styles.textInputButton, { backgroundColor: colors.surface, borderColor: colors.primary }]}
-          >
-            <Ionicons name="create-outline" size={32} color={colors.primary} />
-            <Text style={[styles.textInputButtonText, { color: colors.text }]}>
-              文本输入
-            </Text>
-          </TouchableOpacity>
+          <Text style={[styles.addButtonLabel, { color: colors.textMuted }]}>
+            点击添加记录
+          </Text>
         </View>
 
         {/* 快捷入口卡片 */}
@@ -183,7 +162,7 @@ export default function HomeScreen() {
           <Text style={[styles.sectionTitle, { color: colors.text }]}>
             {t("contacts.title")}
           </Text>
-          
+
           <View style={styles.cardsRow}>
             <TouchableOpacity
               style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
@@ -228,7 +207,7 @@ export default function HomeScreen() {
             <View style={styles.sectionActions}>
               <TouchableOpacity
                 onPress={() => router.push("/(views)/action-item/new")}
-                style={[styles.addButton, { backgroundColor: `${colors.primary}15` }]}
+                style={[styles.addButtonSmall, { backgroundColor: `${colors.primary}15` }]}
               >
                 <Ionicons name="add" size={18} color={colors.primary} />
               </TouchableOpacity>
@@ -303,26 +282,19 @@ export default function HomeScreen() {
             <Text style={[styles.emptySubtitle, { color: colors.textMuted }]}>
               {t("contacts.addByRecording")}
             </Text>
-            
+
             <TouchableOpacity
               style={[styles.emptyButton, { backgroundColor: colors.surface, borderColor: colors.primary }]}
-              onPress={() => router.push("/(views)/recording")}
+              onPress={handleAddPress}
             >
-              <Ionicons name="mic" size={18} color={colors.primary} />
+              <Ionicons name="add" size={18} color={colors.primary} />
               <Text style={[styles.emptyButtonText, { color: colors.primary }]}>
-                {t("recording.holdToRecord")}
+                添加记录
               </Text>
             </TouchableOpacity>
           </View>
         </Animated.View>
       </ScrollView>
-
-      {/* 文本输入弹窗 */}
-      <TextInputSheet
-        visible={showTextInput}
-        onClose={() => setShowTextInput(false)}
-        onSubmit={handleTextSubmit}
-      />
     </View>
   );
 }
@@ -383,21 +355,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 1,
   },
-  inputButtonsContainer: {
-    flexDirection: "row",
-    justifyContent: "center",
+  addButtonContainer: {
     alignItems: "center",
-    gap: 20,
     marginBottom: 40,
     paddingHorizontal: 24,
   },
-  micContainer: {
-    alignItems: "center",
-  },
-  micButton: {
-    width: 200,
-    height: 200,
-    borderRadius: 100,
+  addButton: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     justifyContent: "center",
     alignItems: "center",
     position: "relative",
@@ -408,20 +374,19 @@ const styles = StyleSheet.create({
     shadowRadius: 24,
     elevation: 12,
   },
-  micInnerGlow: {
+  addButtonInnerGlow: {
     position: "absolute",
-    top: 10,
-    left: 10,
-    right: 10,
-    bottom: 10,
-    borderRadius: 90,
+    top: 8,
+    left: 8,
+    right: 8,
+    bottom: 8,
+    borderRadius: 32,
     opacity: 0.3,
   },
-  micText: {
-    marginTop: 8,
+  addButtonLabel: {
+    marginTop: 12,
     fontSize: 14,
-    fontWeight: "600",
-    color: "#0a0a0a",
+    fontWeight: "500",
     letterSpacing: 0.5,
   },
   sparkle: {
@@ -431,24 +396,6 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     backgroundColor: "#ffffff",
     opacity: 0.6,
-  },
-  textInputButton: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 2,
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  textInputButtonText: {
-    marginTop: 4,
-    fontSize: 12,
-    fontWeight: "600",
   },
   cardsContainer: {
     marginBottom: 32,
@@ -515,7 +462,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 12,
   },
-  addButton: {
+  addButtonSmall: {
     width: 32,
     height: 32,
     borderRadius: 16,

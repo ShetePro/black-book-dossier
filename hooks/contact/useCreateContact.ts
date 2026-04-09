@@ -19,6 +19,11 @@ export const useCreateContact = (): UseCreateContactReturn => {
     setError(null);
     
     try {
+      const { contacts } = useContactStore.getState();
+      if (contacts.length >= 10) {
+        setError('联系人数量已达上限（最多10个）');
+        return false;
+      }
       await addContact(contact);
       return true;
     } catch (err) {

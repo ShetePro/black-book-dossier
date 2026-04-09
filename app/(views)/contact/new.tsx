@@ -43,6 +43,12 @@ export default function NewContactScreen() {
       return;
     }
 
+    const { contacts } = useContactStore.getState();
+    if (contacts.length >= 10) {
+      Alert.alert("提示", "联系人数量已达上限（最多10个）");
+      return;
+    }
+
     setIsSaving(true);
 
     try {

@@ -1,9 +1,9 @@
 {
-  "active_plan": "/Users/zijianlin/ghq/github.com/ShetePro/black-book-dossier/.sisyphus/plans/add-text-input-feature.md",
+  "active_plan": "/Users/zijianlin/ghq/github.com/ShetePro/black-book-dossier/.sisyphus/plans/redesign-input-interface.md",
   "started_at": "2026-04-08T00:00:00.000Z",
   "session_ids": [
-    "ses_text_input_feature"
+    "ses_redesign_input"
   ],
-  "plan_name": "add-text-input-feature",
+  "plan_name": "redesign-input-interface",
   "task_sessions": {}
 }

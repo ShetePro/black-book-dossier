@@ -225,7 +225,6 @@ const calculateMatchScore = (
   if (normalizedQuery === normalizedContactName) {
     confidence = 1.0;
     matchType = 'exact';
-    matchedFields.push('name_exact');
   }
   // 2. 包含匹配（置信度：0.8）
   else if (

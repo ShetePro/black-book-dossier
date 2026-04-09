@@ -255,7 +255,7 @@ export default function AIModelsScreen() {
         onDelete={() => selectedModel && handleDelete(selectedModel)}
         onEnable={handleEnable}
         onDisable={handleDisable}
-        isEnabled={settings.ai.localModel.enabled}
+        isEnabled={enabledModelId === selectedModel}
       />
     </SafeAreaView>
   );

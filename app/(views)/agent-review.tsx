@@ -266,6 +266,23 @@ export default function AgentReviewScreen() {
       });
     });
 
+    // Add time and location entities from suggestedTags
+    result.suggestedTags.forEach(tag => {
+      if (tag.startsWith('time:')) {
+        entities.push({
+          type: 'date',
+          value: tag.replace('time:', ''),
+          confidence: 0.8,
+        });
+      } else if (tag.startsWith('location:')) {
+        entities.push({
+          type: 'location',
+          value: tag.replace('location:', ''),
+          confidence: 0.8,
+        });
+      }
+    });
+
     return {
       entities,
       actionItems: [],

@@ -27,6 +27,7 @@ export const useContactStore = create<ContactState>((set, get) => ({
     try {
       const database = await db.getDatabase();
       const contacts = await db.getAllContacts(database);
+      console.log(`[ContactStore] Loaded ${contacts.length} contacts`);
       set({ contacts, isLoading: false });
     } catch (error) {
       console.error('Failed to load contacts:', error);
@@ -38,6 +39,7 @@ export const useContactStore = create<ContactState>((set, get) => ({
     try {
       const database = await db.getDatabase();
       await db.createContact(database, contact);
+      console.log(`[ContactStore] Created contact: ${contact.name}`);
       await get().loadContacts();
     } catch (error) {
       console.error('Failed to add contact:', error);

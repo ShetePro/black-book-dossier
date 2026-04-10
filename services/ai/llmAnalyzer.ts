@@ -129,16 +129,17 @@ export const isLLMAvailable = async (): Promise<boolean> => {
  * 构建分析 Prompt
  */
 const buildAnalysisPrompt = (text: string, contacts: Contact[]): string => {
-  const contactsList = contacts.map((c) => c.name).join(", ");
+  return `分析文本，提取所有人名、时间、地点、活动，返回JSON。
 
-  return `分析文本，提取人名、时间、地点、活动，返回JSON。
-
-示例：
+示例1（单人）：
 输入：昨天和李明在公园散步
 输出：{"reasoning":"提取到人名李明","suggestedTags":["李明","time:昨天","location:公园"],"insights":{"activities":["散步"],"preferences":[],"personality":[],"profession":null},"contactMatch":{"found":false,"matchedName":null,"suggestedName":null,"confidence":0,"reason":""},"corrections":[]}
 
+示例2（多人）：
+输入：今天和施佳祺、胡方林去爬山
+输出：{"reasoning":"提取到人名施佳祺、胡方林","suggestedTags":["施佳祺","胡方林","time:今天","location:山"],"insights":{"activities":["爬山"],"preferences":[],"personality":[],"profession":null},"contactMatch":{"found":false,"matchedName":null,"suggestedName":null,"confidence":0,"reason":""},"corrections":[]}
+
 输入：${text}
-已知联系人：${contactsList || "无"}
 
 输出：`;
 };
@@ -192,6 +193,8 @@ const parseLLMResult = (text: string): Partial<LLMAnalysisResult> | null => {
       const jsonCandidate = text.substring(firstBrace, jsonEnd + 1);
       try {
         const parsed = JSON.parse(jsonCandidate);
+        const tags: string[] = parsed.suggestedTags || [];
+        const uniqueTags = [...new Set(tags)];
         return {
           reasoning: parsed.reasoning || '未提供推理过程',
           contactMatch: parsed.contactMatch || {
@@ -208,7 +211,7 @@ const parseLLMResult = (text: string): Partial<LLMAnalysisResult> | null => {
             personality: [],
             profession: null,
           },
-          suggestedTags: parsed.suggestedTags || [],
+          suggestedTags: uniqueTags,
         };
       } catch {
         // 解析失败
@@ -229,6 +232,8 @@ const parseLLMResult = (text: string): Partial<LLMAnalysisResult> | null => {
       const jsonCandidate = cleanedText.substring(firstBrace2, lastBrace + 1);
       try {
         const parsed = JSON.parse(jsonCandidate);
+        const tags: string[] = parsed.suggestedTags || [];
+        const uniqueTags = [...new Set(tags)];
         return {
           reasoning: parsed.reasoning || '未提供推理过程',
           contactMatch: parsed.contactMatch || {
@@ -245,7 +250,7 @@ const parseLLMResult = (text: string): Partial<LLMAnalysisResult> | null => {
             personality: [],
             profession: null,
           },
-          suggestedTags: parsed.suggestedTags || [],
+          suggestedTags: uniqueTags,
         };
       } catch {
         // 解析失败
@@ -305,11 +310,12 @@ export const analyzeWithLLM = async (
 
     const result = await llmContext.completion({
       prompt,
-      n_predict: 512,
-      temperature: 0.1,
-      top_k: 20,
-      top_p: 0.7,
-      repeat_penalty: 1.4,
+      n_predict: 256,
+      temperature: 0.2,
+      top_k: 15,
+      top_p: 0.6,
+      repeat_penalty: 1.8,
+      stop: ['}\n', '}\n\n', '```'],
     });
 
     console.log('[LLMAnalyzer] Inference completed in', Date.now() - startTime, 'ms');

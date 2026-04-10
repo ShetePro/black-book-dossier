@@ -40,13 +40,13 @@ const VALUE_EXCHANGE_OPTIONS: {
 
 export default function NewInteractionScreen() {
   const router = useRouter();
-  const { contactId } = useLocalSearchParams();
+  const { contactId, content: prefillContent, location: prefillLocation, transcription } = useLocalSearchParams();
   const colors = useThemeColor();
   const { addInteraction } = useInteractionStore();
 
   const [selectedType, setSelectedType] = useState<Interaction['type']>('meeting');
-  const [content, setContent] = useState('');
-  const [location, setLocation] = useState('');
+  const [content, setContent] = useState((prefillContent as string) || '');
+  const [location, setLocation] = useState((prefillLocation as string) || '');
   const [valueExchange, setValueExchange] = useState<Interaction['valueExchange']>('neutral');
   const [valueDescription, setValueDescription] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -70,6 +70,7 @@ export default function NewInteractionScreen() {
         contactId: contactId as string,
         type: selectedType,
         content: content.trim(),
+        rawTranscript: (transcription as string) || undefined,
         extractedEntities: [],
         actionItems: [],
         location: location.trim() || undefined,

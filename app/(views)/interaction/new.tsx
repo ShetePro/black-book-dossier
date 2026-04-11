@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import { useInteractionStore } from '@/store/interactions/interactionStore';
-import { Interaction } from '@/types';
+import { useContactStore } from '@/store';
+import { Interaction, Contact } from '@/types';
 
 const INTERACTION_TYPES: {
   type: Interaction['type'];
@@ -40,13 +41,30 @@ const VALUE_EXCHANGE_OPTIONS: {
 
 export default function NewInteractionScreen() {
   const router = useRouter();
-  const { contactId, content: prefillContent, location: prefillLocation, transcription } = useLocalSearchParams();
+  const params = useLocalSearchParams();
   const colors = useThemeColor();
   const { addInteraction } = useInteractionStore();
+  const { contacts } = useContactStore();
+
+  // 解析传入的联系人 ID（支持单个 contactId 或多个 contactIds）
+  const targetContactIds = useMemo(() => {
+    if (params.contactIds) {
+      try {
+        return JSON.parse(params.contactIds as string) as string[];
+      } catch {
+        return params.contactId ? [params.contactId as string] : [];
+      }
+    }
+    return params.contactId ? [params.contactId as string] : [];
+  }, [params.contactId, params.contactIds]);
+
+  const targetContacts = useMemo(() => {
+    return contacts.filter(c => targetContactIds.includes(c.id));
+  }, [contacts, targetContactIds]);
 
   const [selectedType, setSelectedType] = useState<Interaction['type']>('meeting');
-  const [content, setContent] = useState((prefillContent as string) || '');
-  const [location, setLocation] = useState((prefillLocation as string) || '');
+  const [content, setContent] = useState((params.content as string) || '');
+  const [location, setLocation] = useState((params.location as string) || '');
   const [valueExchange, setValueExchange] = useState<Interaction['valueExchange']>('neutral');
   const [valueDescription, setValueDescription] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -57,31 +75,39 @@ export default function NewInteractionScreen() {
       return;
     }
 
-    if (!contactId) {
-      Alert.alert('错误', '联系人ID不存在');
+    if (targetContactIds.length === 0) {
+      Alert.alert('错误', '未指定联系人');
       return;
     }
 
     setIsSaving(true);
 
     try {
-      const newInteraction: Interaction = {
-        id: `interaction_${Date.now()}`,
-        contactId: contactId as string,
-        type: selectedType,
-        content: content.trim(),
-        rawTranscript: (transcription as string) || undefined,
-        extractedEntities: [],
-        actionItems: [],
-        location: location.trim() || undefined,
-        date: Date.now(),
-        valueExchange,
-        valueDescription: valueDescription.trim() || undefined,
-        createdAt: Date.now(),
-      };
+      const promises = targetContactIds.map(contactId => {
+        const newInteraction: Interaction = {
+          id: `interaction_${Date.now()}_${contactId}`,
+          contactId,
+          type: selectedType,
+          content: content.trim(),
+          rawTranscript: (params.transcription as string) || undefined,
+          extractedEntities: [],
+          actionItems: [],
+          location: location.trim() || undefined,
+          date: Date.now(),
+          valueExchange,
+          valueDescription: valueDescription.trim() || undefined,
+          createdAt: Date.now(),
+        };
+        return addInteraction(newInteraction);
+      });
 
-      await addInteraction(newInteraction);
-      router.back();
+      await Promise.all(promises);
+      
+      // 跳转到第一个联系人的详情页
+      router.replace({
+        pathname: '/(views)/contact/[id]',
+        params: { id: targetContactIds[0] },
+      });
     } catch (error) {
       console.error('Failed to save interaction:', error);
       Alert.alert('错误', '保存失败，请重试');
@@ -110,6 +136,25 @@ export default function NewInteractionScreen() {
           </Text>
         </TouchableOpacity>
       </View>
+
+      {/* 目标联系人展示区域 */}
+      {targetContacts.length > 0 && (
+        <View style={[styles.contactsBanner, { backgroundColor: colors.surface }]}>
+          <Ionicons name="people" size={18} color={colors.primary} />
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.contactsScroll}>
+            {targetContacts.map((contact, index) => (
+              <View key={contact.id} style={styles.contactChip}>
+                <Text style={[styles.contactChipText, { color: colors.text }]}>
+                  {contact.name}
+                </Text>
+                {index < targetContacts.length - 1 && (
+                  <Text style={[styles.contactChipDivider, { color: colors.textMuted }]}>·</Text>
+                )}
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+      )}
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -330,5 +375,30 @@ const styles = StyleSheet.create({
   valueLabel: {
     fontSize: 14,
     fontWeight: '500',
+  },
+  contactsBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginBottom: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 12,
+    gap: 8,
+  },
+  contactsScroll: {
+    flex: 1,
+  },
+  contactChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  contactChipText: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  contactChipDivider: {
+    fontSize: 13,
+    marginHorizontal: 6,
   },
 });

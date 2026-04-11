@@ -32,6 +32,7 @@ import { useContactStore } from '@/store';
 import { useInteractionStore } from '@/store/interactions/interactionStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { hasAnyModelDownloaded } from '@/services/ai/llmModelManager';
+import { ContactSelectorSheet } from '@/components/contact/ContactSelectorSheet';
 import { StatusBar } from 'expo-status-bar';
 import Animated, {
   useSharedValue,
@@ -73,6 +74,8 @@ export default function AgentReviewScreen() {
   const [analyzedData, setAnalyzedData] = useState<AnalyzedData | null>(null);
   const [matchedContacts, setMatchedContacts] = useState<MatchResult[]>([]);
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
+  const [showContactSelector, setShowContactSelector] = useState(false);
+  const [selectingContactIndex, setSelectingContactIndex] = useState<number | null>(null);
   const [usingLocalLLM, setUsingLocalLLM] = useState(false);
   const [isTranscriptionExpanded, setIsTranscriptionExpanded] = useState(false);
 
@@ -248,7 +251,7 @@ export default function AgentReviewScreen() {
 
     // 1. 从 suggestedTags 中提取所有人名并匹配
     const personTags = [...new Set(result.suggestedTags.filter(t => !t.startsWith('time:') && !t.startsWith('location:')))];
-    
+
     for (const personName of personTags) {
       // 精确匹配
       const exactMatch = contacts.find(c => c.name === personName);
@@ -669,6 +672,33 @@ export default function AgentReviewScreen() {
     router.back();
   };
 
+  // 打开联系人选择器
+  const handleOpenContactSelector = (index: number) => {
+    setSelectingContactIndex(index);
+    setShowContactSelector(!showContactSelector);
+  };
+
+  // 关闭联系人选择器
+  const handleCloseContactSelector = () => {
+    setShowContactSelector(false);
+    setSelectingContactIndex(null);
+  };
+
+  // 选择联系人替换
+  const handleSelectContact = (contact: Contact) => {
+    if (selectingContactIndex !== null) {
+      const newMatchedContacts = [...matchedContacts];
+      newMatchedContacts[selectingContactIndex] = {
+        contact,
+        confidence: 1.0,
+        reason: '手动选择',
+        matchedFields: ['manual'],
+      };
+      setMatchedContacts(newMatchedContacts);
+      handleCloseContactSelector();
+    }
+  };
+
   // 添加活动到已匹配的联系人
   const handleAddActivityToContact = async () => {
     const activities = llmAnalysis?.insights?.activities || [];
@@ -679,108 +709,36 @@ export default function AgentReviewScreen() {
       Alert.alert('提示', '未提取到活动信息');
       return;
     }
-    
-    // 从 suggestedTags 中提取所有人名（不带前缀的标签）
-    const personTags = llmAnalysis?.suggestedTags?.filter(
-      t => !t.startsWith('time:') && !t.startsWith('location:')
-    ) || [];
-    
-    // 匹配所有联系人
-    const matchedContacts: Contact[] = [];
-    for (const personName of personTags) {
-      const matched = contacts.find(c => 
-        c.name === personName || 
-        c.name.includes(personName) || 
-        personName.includes(c.name)
-      );
-      if (matched && !matchedContacts.find(c => c.id === matched.id)) {
-        matchedContacts.push(matched);
-      }
-    }
-    
-    // 如果也匹配到了 contactMatch 中的联系人
-    const contactMatchName = llmAnalysis?.contactMatch?.matchedName || llmAnalysis?.contactMatch?.suggestedName;
-    if (contactMatchName) {
-      const matched = contacts.find(c => 
-        c.name === contactMatchName || 
-        c.name.includes(contactMatchName) || 
-        contactMatchName.includes(c.name)
-      );
-      if (matched && !matchedContacts.find(c => c.id === matched.id)) {
-        matchedContacts.push(matched);
-      }
-    }
-    
-    if (matchedContacts.length === 0) {
+
+    // 使用当前状态中的 matchedContacts（包含用户手动替换的联系人）
+    const targetContacts = matchedContacts.map(m => m.contact);
+
+    if (targetContacts.length === 0) {
       Alert.alert('提示', '未找到匹配的联系人，请先创建联系人');
       return;
     }
-    
-    // 如果只有 1 个匹配，跳转到编辑页面
-    if (matchedContacts.length === 1) {
-      await deleteAudioFile();
-      router.push({
-        pathname: '/(views)/interaction/new',
-        params: {
-          contactId: matchedContacts[0].id,
-          content: activities.join('、'),
-          location: locationTag || '',
-          transcription: transcription || '',
-        }
-      });
-      return;
-    }
-    
-    // 多个匹配，弹窗确认
-    const names = matchedContacts.map(c => c.name).join('、');
-    Alert.alert(
-      '确认添加',
-      `将为以下 ${matchedContacts.length} 个联系人添加活动：${names}\n\n活动内容：${activities.join('、')}`,
-      [
-        { text: '取消', style: 'cancel' },
-        {
-          text: '确认添加',
-          onPress: async () => {
-            try {
-              const content = activities.join('、');
-              for (const contact of matchedContacts) {
-                await addInteraction({
-                  id: `interaction-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`,
-                  contactId: contact.id,
-                  type: 'other',
-                  content,
-                  rawTranscript: transcription,
-                  extractedEntities: analyzedData?.entities || [],
-                  actionItems: [],
-                  location: locationTag,
-                  date: Date.now(),
-                  valueExchange: 'neutral',
-                  createdAt: Date.now(),
-                });
-              }
-              
-              Alert.alert('成功', `已为 ${matchedContacts.length} 个联系人添加活动记录`, [
-                { text: '确定', onPress: () => router.back() }
-              ]);
-            } catch (error) {
-              console.error('Failed to add activities:', error);
-              Alert.alert('错误', '添加活动失败，请重试');
-            }
-          }
-        }
-      ]
-    );
+
+    await deleteAudioFile();
+    router.push({
+      pathname: '/(views)/interaction/new',
+      params: {
+        contactIds: JSON.stringify(targetContacts.map(c => c.id)),
+        content: activities.join('、'),
+        location: locationTag || '',
+        transcription: transcription || '',
+      }
+    });
   };
 
   // 创建新联系人并带入数据
   const handleCreateContactWithData = async () => {
-    const suggestedName = llmAnalysis?.contactMatch?.suggestedName || 
+    const suggestedName = llmAnalysis?.contactMatch?.suggestedName ||
                          analyzedData?.contactName || '';
-    
+
     // 准备传递的数据
     const activities = llmAnalysis?.insights?.activities || [];
     const preferences = llmAnalysis?.insights?.preferences || [];
-    
+
     await deleteAudioFile();
     router.push({
       pathname: '/(views)/contact/new',
@@ -956,7 +914,7 @@ export default function AgentReviewScreen() {
 
             <View style={styles.contactsList}>
               {matchedContacts.map((match, index) => (
-                <View
+                <TouchableOpacity
                   key={match.contact.id}
                   style={[
                     styles.contactCard,
@@ -964,6 +922,8 @@ export default function AgentReviewScreen() {
                       backgroundColor: colors.elevated
                     },
                   ]}
+                  onPress={() => handleOpenContactSelector(index)}
+                  activeOpacity={0.7}
                 >
                   <View style={styles.contactAvatar}>
                     <Text style={styles.contactAvatarText}>
@@ -978,7 +938,10 @@ export default function AgentReviewScreen() {
                       {match.contact.company || '无公司'} · {match.contact.title || '无职位'}
                     </Text>
                   </View>
-                </View>
+                  <View style={styles.contactArrow}>
+                    <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+                  </View>
+                </TouchableOpacity>
               ))}
             </View>
 
@@ -991,7 +954,7 @@ export default function AgentReviewScreen() {
                 const suggestedName = llmAnalysis?.contactMatch?.suggestedName || analyzedData?.contactName || '';
                 const activities = llmAnalysis?.insights?.activities || [];
                 const preferences = llmAnalysis?.insights?.preferences || [];
-                
+
                 router.push({
                   pathname: '/(views)/contact/new',
                   params: {
@@ -1207,6 +1170,15 @@ export default function AgentReviewScreen() {
             </>
           )}
         </View>
+      )}
+
+      {/* 联系人选择器 - 条件渲染确保每次都是全新状态 */}
+      {showContactSelector && (
+        <ContactSelectorSheet
+          onClose={handleCloseContactSelector}
+          onSelect={handleSelectContact}
+          contacts={contacts}
+        />
       )}
     </SafeAreaView>
   );
@@ -1439,6 +1411,9 @@ const styles = StyleSheet.create({
   contactMeta: {
     fontSize: 13,
     marginTop: 2,
+  },
+  contactArrow: {
+    paddingLeft: 8,
   },
   confidenceBadge: {
     flexDirection: 'row',

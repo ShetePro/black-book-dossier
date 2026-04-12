@@ -22,10 +22,10 @@ const INTERACTION_TYPES: {
   label: string;
   color: string;
 }[] = [
-  { type: 'meeting', icon: 'people', label: '会议', color: '#22c55e' },
-  { type: 'call', icon: 'call', label: '电话', color: '#3b82f6' },
-  { type: 'message', icon: 'chatbubble', label: '消息', color: '#8b5cf6' },
-  { type: 'gift', icon: 'gift', label: '礼物', color: '#f59e0b' },
+  { type: 'meeting', icon: 'restaurant', label: '聚餐', color: '#f59e0b' },
+  { type: 'call', icon: 'bicycle', label: '户外运动', color: '#22c55e' },
+  { type: 'message', icon: 'school', label: '学习', color: '#3b82f6' },
+  { type: 'gift', icon: 'golf', label: '娱乐', color: '#8b5cf6' },
   { type: 'other', icon: 'ellipsis-horizontal', label: '其他', color: '#6b7280' },
 ];
 
@@ -264,7 +264,7 @@ export default function NewInteractionScreen() {
             ))}
           </View>
           {valueExchange !== 'neutral' && (
-            <View style={[styles.inputCard, { backgroundColor: colors.surface, marginTop: 12 }]}>
+            <View style={[styles.inputCard, { backgroundColor: colors.surface, marginTop: 12, paddingVertical: 14 }]}>
               <TextInput
                 style={[styles.input, { color: colors.text }]}
                 placeholder={valueExchange === 'given' ? '描述送出了什么...' : '描述收到了什么...'}

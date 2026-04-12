@@ -23,6 +23,8 @@ interface ActionItemListProps {
   onDelete: (id: string) => Promise<void>;
   onItemPress?: (actionItem: ActionItem) => void;
   emptyText?: string;
+  /** 是否在 ScrollView 内使用。为 true 时使用 View 而非 FlatList，避免嵌套报错 */
+  scrollable?: boolean;
 }
 
 const priorityConfig = {
@@ -52,6 +54,7 @@ export const ActionItemList: React.FC<ActionItemListProps> = ({
   onDelete,
   onItemPress,
   emptyText = '暂无待办事项',
+  scrollable = true,
 }) => {
   const colors = useThemeColor();
 
@@ -207,6 +210,18 @@ export const ActionItemList: React.FC<ActionItemListProps> = ({
       </View>
     );
   }, [isLoading, colors, emptyText]);
+
+  if (!scrollable) {
+    return (
+      <View style={styles.list}>
+        {actionItems.length === 0 ? renderEmpty() : actionItems.map((item) => (
+          <View key={item.id}>
+            {renderItem({ item })}
+          </View>
+        ))}
+      </View>
+    );
+  }
 
   return (
     <FlatList

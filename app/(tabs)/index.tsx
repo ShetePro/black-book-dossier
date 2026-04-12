@@ -243,6 +243,7 @@ export default function HomeScreen() {
                 onToggleComplete={toggleComplete}
                 onDelete={deleteActionItem}
                 emptyText="暂无待办事项"
+                scrollable={false}
               />
               {actionItems.filter(item => !item.completed).length > 5 && (
                 <TouchableOpacity

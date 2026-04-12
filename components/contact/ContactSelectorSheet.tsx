@@ -29,7 +29,6 @@ export const ContactSelectorSheet: React.FC<ContactSelectorSheetProps> = ({
   }, []);
 
   const handleSheetChanges = useCallback((index: number) => {
-    console.log(index, 'change')
     if (index === -1) {
       onClose();
     }
@@ -58,6 +57,7 @@ export const ContactSelectorSheet: React.FC<ContactSelectorSheetProps> = ({
       ref={bottomSheetRef}
       snapPoints={snapPoints}
       enablePanDownToClose
+      enableContentPanningGesture={false}
       backdropComponent={renderBackdrop}
       handleIndicatorStyle={{ backgroundColor: colors.textMuted }}
       backgroundStyle={{ backgroundColor: colors.surface }}
@@ -74,7 +74,8 @@ export const ContactSelectorSheet: React.FC<ContactSelectorSheetProps> = ({
         <BottomSheetScrollView
           style={styles.list}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: insets.bottom + 16 }}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={styles.listContent}
         >
           {contacts.map((contact) => (
             <TouchableOpacity
@@ -107,6 +108,8 @@ export const ContactSelectorSheet: React.FC<ContactSelectorSheetProps> = ({
 
 const styles = StyleSheet.create({
   contentContainer: {
+    display: "flex",
+    flexDirection: "column",
     flex: 1,
   },
   header: {
@@ -125,6 +128,10 @@ const styles = StyleSheet.create({
   },
   list: {
     flex: 1,
+  },
+  listContent: {
+    flex: 1,
+    paddingBottom: 100,
   },
   item: {
     flexDirection: 'row',

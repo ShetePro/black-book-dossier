@@ -11,16 +11,7 @@ export default function ViewsLayout() {
       <Stack.Screen
         name={"profile"}
         options={{
-          headerTitle: "编辑资料",
-          headerTitleStyle: { color: "#0f172a" },
-          headerStyle: { backgroundColor: "#fff" },
-          headerShadowVisible: false,
-          headerBackTitle: "取消",
-          headerRight: () => (
-            <TouchableOpacity className="px-2">
-              <Text className="text-indigo-600 font-bold text-base">保存</Text>
-            </TouchableOpacity>
-          ),
+          headerShown: false,
         }}
       ></Stack.Screen>
     </Stack>

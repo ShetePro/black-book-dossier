@@ -185,6 +185,13 @@ export const getInteractionsByContact = async (db: SQLite.SQLiteDatabase, contac
   return rows.map(parseInteractionRow);
 };
 
+export const getAllInteractions = async (db: SQLite.SQLiteDatabase): Promise<Interaction[]> => {
+  const rows = await db.getAllAsync<any>(
+    'SELECT * FROM interactions ORDER BY date DESC'
+  );
+  return rows.map(parseInteractionRow);
+};
+
 export const updateInteraction = async (db: SQLite.SQLiteDatabase, interaction: Interaction): Promise<void> => {
   await db.runAsync(
     `UPDATE interactions SET 

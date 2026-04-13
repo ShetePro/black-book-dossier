@@ -8,6 +8,7 @@ export interface InteractionState {
   error: string | null;
 
   loadInteractions: (contactId: string) => Promise<void>;
+  loadAllInteractions: () => Promise<void>;
   addInteraction: (interaction: Interaction) => Promise<void>;
   updateInteraction: (interaction: Interaction) => Promise<void>;
   deleteInteraction: (id: string) => Promise<void>;
@@ -29,6 +30,18 @@ export const useInteractionStore = create<InteractionState>((set, get) => ({
     } catch (error) {
       console.error('Failed to load interactions:', error);
       set({ error: '加载交往记录失败', isLoading: false });
+    }
+  },
+
+  loadAllInteractions: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const database = await db.getDatabase();
+      const interactions = await db.getAllInteractions(database);
+      set({ interactions, isLoading: false });
+    } catch (error) {
+      console.error('Failed to load all interactions:', error);
+      set({ error: '加载全部交往记录失败', isLoading: false });
     }
   },
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
+  Modal,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -15,7 +16,10 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { useContact } from "@/hooks/contact";
 import { useContactStore } from "@/store";
+import { getStorageItemAsync } from "@/hooks/useStorageState";
 import { Contact } from "@/types";
+
+const STANDALONE_TAGS_KEY = "standalone_tags";
 
 export default function EditContactScreen() {
   const router = useRouter();
@@ -37,6 +41,20 @@ export default function EditContactScreen() {
   const [tags, setTags] = useState<string[]>([]);
   const [newTag, setNewTag] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [showTagPicker, setShowTagPicker] = useState(false);
+  const [existingTags, setExistingTags] = useState<string[]>([]);
+
+  useEffect(() => {
+    getStorageItemAsync(STANDALONE_TAGS_KEY).then((val) => {
+      if (val) {
+        try {
+          setExistingTags(JSON.parse(val));
+        } catch {
+          setExistingTags([]);
+        }
+      }
+    });
+  }, []);
 
   useEffect(() => {
     if (contact) {
@@ -116,6 +134,14 @@ export default function EditContactScreen() {
       setNewTag("");
     }
   };
+
+  const toggleTag = useCallback((tagName: string) => {
+    setTags((prev) =>
+      prev.includes(tagName)
+        ? prev.filter((t) => t !== tagName)
+        : [...prev, tagName]
+    );
+  }, []);
 
   const removeTag = (tagToRemove: string) => {
     setTags(tags.filter((tag) => tag !== tagToRemove));
@@ -290,6 +316,16 @@ export default function EditContactScreen() {
               >
                 <Ionicons name="add" size={20} color="#0a0a0a" />
               </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setShowTagPicker(true)}
+                style={[
+                  styles.addTagButton,
+                  { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, marginLeft: 8 },
+                ]}
+                disabled={isSaving}
+              >
+                <Ionicons name="pricetags-outline" size={18} color={colors.primary} />
+              </TouchableOpacity>
             </View>
 
             {tags.length > 0 && (
@@ -320,6 +356,47 @@ export default function EditContactScreen() {
             )}
           </View>
         </View>
+
+        <Modal
+          visible={showTagPicker}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setShowTagPicker(false)}
+        >
+          <View style={styles.tagPickerOverlay}>
+            <View style={[styles.tagPickerContainer, { backgroundColor: colors.background }]}>
+              <View style={[styles.tagPickerHeader, { backgroundColor: colors.surface }]}>
+                <Text style={[styles.tagPickerTitle, { color: colors.text }]}>选择标签</Text>
+                <TouchableOpacity onPress={() => setShowTagPicker(false)}>
+                  <Ionicons name="close" size={24} color={colors.textMuted} />
+                </TouchableOpacity>
+              </View>
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.tagPickerList}>
+                {existingTags.length === 0 ? (
+                  <Text style={[styles.tagPickerEmpty, { color: colors.textMuted }]}>暂无可用标签</Text>
+                ) : (
+                  existingTags.map((tag) => (
+                    <TouchableOpacity
+                      key={tag}
+                      style={[
+                        styles.tagPickerItem,
+                        { borderBottomColor: colors.border },
+                        tags.includes(tag) && { backgroundColor: `${colors.primary}10` },
+                      ]}
+                      onPress={() => toggleTag(tag)}
+                    >
+                      <Text style={[styles.tagPickerItemText, { color: colors.text }]}>{tag}</Text>
+                      {tags.includes(tag) && (
+                        <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
+                      )}
+                    </TouchableOpacity>
+                  ))
+                )}
+                <View style={{ height: 20 }} />
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
 
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>备注</Text>
@@ -612,5 +689,46 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginTop: 16,
     textAlign: "center",
+  },
+  tagPickerOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
+  },
+  tagPickerContainer: {
+    maxHeight: "70%",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    overflow: "hidden",
+  },
+  tagPickerHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  tagPickerTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+  },
+  tagPickerList: {
+    paddingHorizontal: 16,
+  },
+  tagPickerEmpty: {
+    textAlign: "center",
+    paddingVertical: 40,
+    fontSize: 15,
+  },
+  tagPickerItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+  },
+  tagPickerItemText: {
+    fontSize: 15,
+    fontWeight: "500",
   },
 });

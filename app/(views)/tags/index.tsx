@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -25,9 +25,14 @@ import { useContacts } from "@/hooks/contact";
 import { useContactStore } from "@/store";
 import { Contact } from "@/types";
 
+import { getStorageItemAsync, setStorageItem, deleteStorageItem } from "@/hooks/useStorageState";
+
+const STANDALONE_TAGS_KEY = "standalone_tags";
+
 interface TagStat {
   name: string;
   count: number;
+  isStandalone: boolean;
 }
 
 interface TagItemProps {
@@ -81,7 +86,7 @@ function TagItem({ tag, index, onPress, onEdit, onDelete, colors }: TagItemProps
               {tag.name}
             </Text>
             <Text style={[styles.tagCount, { color: colors.textMuted }]}>
-              {tag.count} 个联系人
+              {tag.count > 0 ? `${tag.count} 个联系人` : "未使用"}
             </Text>
           </View>
         </View>
@@ -114,15 +119,80 @@ function TagItem({ tag, index, onPress, onEdit, onDelete, colors }: TagItemProps
   );
 }
 
+interface TagDetailModalProps {
+  visible: boolean;
+  tagName: string;
+  contacts: Contact[];
+  onClose: () => void;
+  onContactPress: (contact: Contact) => void;
+  onRemoveTag: (contactId: string) => void;
+  colors: ReturnType<typeof useThemeColor>;
+}
+
+function TagDetailModal({ visible, tagName, contacts, onClose, onContactPress, onRemoveTag, colors }: TagDetailModalProps) {
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <View style={styles.detailOverlay}>
+        <View style={[styles.detailContainer, { backgroundColor: colors.background }]}>
+          <View style={[styles.detailHeader, { backgroundColor: colors.surface }]}>
+            <View style={[styles.detailTagIcon, { backgroundColor: `${colors.primary}20` }]}>
+              <Ionicons name="pricetag" size={20} color={colors.primary} />
+            </View>
+            <Text style={[styles.detailTitle, { color: colors.text }]}>{tagName}</Text>
+            <Text style={[styles.detailCount, { color: colors.textMuted }]}>{contacts.length} 个联系人</Text>
+            <TouchableOpacity onPress={onClose} style={styles.detailCloseButton}>
+              <Ionicons name="close" size={24} color={colors.textMuted} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.detailList}>
+            {contacts.map((contact) => (
+              <TouchableOpacity
+                key={contact.id}
+                style={[styles.detailContactItem, { borderBottomColor: colors.border }]}
+                onPress={() => onContactPress(contact)}
+              >
+                <View style={styles.detailContactAvatar}>
+                  <Text style={styles.detailContactAvatarText}>{contact.name.charAt(0)}</Text>
+                </View>
+                <View style={styles.detailContactInfo}>
+                  <Text style={[styles.detailContactName, { color: colors.text }]}>{contact.name}</Text>
+                  <Text style={[styles.detailContactMeta, { color: colors.textMuted }]}>
+                    {contact.company || "无公司"} · {contact.title || "无职位"}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => onRemoveTag(contact.id)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons name="remove-circle-outline" size={22} color={colors.danger} />
+                </TouchableOpacity>
+              </TouchableOpacity>
+            ))}
+            <View style={{ height: 40 }} />
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 interface EditTagModalProps {
   visible: boolean;
   tagName: string;
   onClose: () => void;
   onSave: (newName: string) => void;
   colors: ReturnType<typeof useThemeColor>;
+  title?: string;
+  placeholder?: string;
 }
 
-function EditTagModal({ visible, tagName, onClose, onSave, colors }: EditTagModalProps) {
+function EditTagModal({ visible, tagName, onClose, onSave, colors, title = "重命名标签", placeholder = "输入新标签名称" }: EditTagModalProps) {
   const [inputValue, setInputValue] = useState(tagName);
 
   React.useEffect(() => {
@@ -149,7 +219,7 @@ function EditTagModal({ visible, tagName, onClose, onSave, colors }: EditTagModa
       <View style={styles.modalOverlay}>
         <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
           <Text style={[styles.modalTitle, { color: colors.text }]}>
-            重命名标签
+            {title}
           </Text>
 
           <TextInput
@@ -163,7 +233,7 @@ function EditTagModal({ visible, tagName, onClose, onSave, colors }: EditTagModa
             ]}
             value={inputValue}
             onChangeText={setInputValue}
-            placeholder="输入新标签名称"
+            placeholder={placeholder}
             placeholderTextColor={colors.textMuted}
             autoFocus
             maxLength={20}
@@ -202,6 +272,25 @@ export default function TagsManagementScreen() {
   const { updateContact } = useContactStore();
 
   const [editingTag, setEditingTag] = useState<string | null>(null);
+  const [creatingTag, setCreatingTag] = useState(false);
+  const [detailTag, setDetailTag] = useState<string | null>(null);
+  const [standaloneTags, setStandaloneTags] = useState<string[]>([]);
+
+  useEffect(() => {
+    getStorageItemAsync(STANDALONE_TAGS_KEY).then((val) => {
+      if (val) {
+        try {
+          const parsed = JSON.parse(val) as string[];
+          setStandaloneTags((prev) => {
+            const merged = new Set([...prev, ...parsed]);
+            return Array.from(merged);
+          });
+        } catch {
+          // ignore
+        }
+      }
+    });
+  }, []);
 
   const tagStats = useMemo<TagStat[]>(() => {
     const stats: Record<string, number> = {};
@@ -210,56 +299,127 @@ export default function TagsManagementScreen() {
         stats[tag] = (stats[tag] || 0) + 1;
       });
     });
-    return Object.entries(stats)
-      .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => b.count - a.count);
-  }, [contacts]);
+
+    const merged: TagStat[] = Object.entries(stats).map(([name, count]) => ({
+      name,
+      count,
+      isStandalone: false,
+    }));
+
+    standaloneTags.forEach((tag) => {
+      if (!stats[tag]) {
+        merged.push({ name: tag, count: 0, isStandalone: true });
+      }
+    });
+
+    return merged.sort((a, b) => b.count - a.count);
+  }, [contacts, standaloneTags]);
+
+  const createTag = useCallback(
+    async (tagName: string) => {
+      const exists = tagStats.some((tag) => tag.name === tagName);
+      if (exists) {
+        Alert.alert("错误", "该标签已存在");
+        return;
+      }
+      setStandaloneTags((prev) => {
+        const updated = [...prev, tagName];
+        console.log('[Tags] Created standalone tag:', tagName, 'total:', updated.length);
+        setStorageItem(STANDALONE_TAGS_KEY, JSON.stringify(updated));
+        return updated;
+      });
+    },
+    [tagStats]
+  );
 
   const renameTag = useCallback(
     async (oldName: string, newName: string) => {
       try {
+        let renamedInContacts = false;
         for (const contact of contacts) {
           if (contact.tags?.includes(oldName)) {
             const newTags = contact.tags.map((t: string) =>
               t === oldName ? newName : t
             );
             await updateContact({ ...contact, tags: newTags });
+            renamedInContacts = true;
           }
+        }
+        if (!renamedInContacts) {
+          const updated = standaloneTags.map((t) =>
+            t === oldName ? newName : t
+          );
+          setStandaloneTags(updated);
+          await setStorageItem(STANDALONE_TAGS_KEY, JSON.stringify(updated));
         }
       } catch (error) {
         console.error("Failed to rename tag:", error);
         Alert.alert("错误", "重命名标签失败，请重试");
       }
     },
-    [contacts, updateContact]
+    [contacts, updateContact, standaloneTags]
   );
 
   const deleteTag = useCallback(
     async (tagName: string) => {
       try {
+        const hadContacts = contacts.some((c) => c.tags?.includes(tagName));
         for (const contact of contacts) {
           if (contact.tags?.includes(tagName)) {
             const newTags = contact.tags.filter((t: string) => t !== tagName);
             await updateContact({ ...contact, tags: newTags });
           }
         }
+        if (!hadContacts) {
+          const updated = standaloneTags.filter((t) => t !== tagName);
+          setStandaloneTags(updated);
+          await setStorageItem(STANDALONE_TAGS_KEY, JSON.stringify(updated));
+        }
       } catch (error) {
         console.error("Failed to delete tag:", error);
         Alert.alert("错误", "删除标签失败，请重试");
       }
     },
-    [contacts, updateContact]
+    [contacts, updateContact, standaloneTags]
   );
 
   const handleTagPress = useCallback(
     (tagName: string) => {
+      setDetailTag(tagName);
+    },
+    []
+  );
+
+  const handleRemoveTagFromContact = useCallback(
+    async (contactId: string) => {
+      const contact = contacts.find((c) => c.id === contactId);
+      if (!contact || !detailTag) return;
+      const newTags = contact.tags.filter((t) => t !== detailTag);
+      try {
+        await updateContact({ ...contact, tags: newTags });
+      } catch (error) {
+        console.error("Failed to remove tag:", error);
+        Alert.alert("错误", "移除标签失败");
+      }
+    },
+    [contacts, detailTag, updateContact]
+  );
+
+  const handleContactPress = useCallback(
+    (contact: Contact) => {
+      setDetailTag(null);
       router.push({
-        pathname: "/(tabs)/contacts",
-        params: { filterTag: tagName },
+        pathname: "/(views)/contact/[id]",
+        params: { id: contact.id },
       });
     },
     [router]
   );
+
+  const detailContacts = useMemo(() => {
+    if (!detailTag) return [];
+    return contacts.filter((c) => c.tags?.includes(detailTag));
+  }, [contacts, detailTag]);
 
   const handleEditTag = useCallback((tagName: string) => {
     setEditingTag(tagName);
@@ -267,9 +427,12 @@ export default function TagsManagementScreen() {
 
   const handleDeleteTag = useCallback(
     (tagName: string, count: number) => {
+      const message = count > 0
+        ? `确定要删除标签 "${tagName}" 吗？\n\n这将从 ${count} 个联系人中移除此标签，但不会删除联系人本身。`
+        : `确定要删除标签 "${tagName}" 吗？`;
       Alert.alert(
         "删除标签",
-        `确定要删除标签 "${tagName}" 吗？\n\n这将从 ${count} 个联系人中移除此标签，但不会删除联系人本身。`,
+        message,
         [
           { text: "取消", style: "cancel" },
           {
@@ -331,7 +494,12 @@ export default function TagsManagementScreen() {
           标签管理
         </Text>
 
-        <View style={styles.placeholder} />
+        <TouchableOpacity
+          onPress={() => setCreatingTag(true)}
+          style={[styles.iconButton, { backgroundColor: colors.primary }]}
+        >
+          <Ionicons name="add" size={24} color="#0a0a0a" />
+        </TouchableOpacity>
       </View>
 
       {tagStats.length > 0 && (
@@ -395,6 +563,26 @@ export default function TagsManagementScreen() {
         tagName={editingTag || ""}
         onClose={() => setEditingTag(null)}
         onSave={handleSaveEdit}
+        colors={colors}
+      />
+
+      <EditTagModal
+        visible={creatingTag}
+        tagName=""
+        onClose={() => setCreatingTag(false)}
+        onSave={createTag}
+        colors={colors}
+        title="新建标签"
+        placeholder="输入标签名称"
+      />
+
+      <TagDetailModal
+        visible={detailTag !== null}
+        tagName={detailTag || ""}
+        contacts={detailContacts}
+        onClose={() => setDetailTag(null)}
+        onContactPress={handleContactPress}
+        onRemoveTag={handleRemoveTagFromContact}
         colors={colors}
       />
     </SafeAreaView>
@@ -579,5 +767,75 @@ const styles = StyleSheet.create({
   modalButtonText: {
     fontSize: 16,
     fontWeight: "600",
+  },
+  detailOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
+  },
+  detailContainer: {
+    maxHeight: "85%",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    overflow: "hidden",
+  },
+  detailHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 20,
+    paddingBottom: 16,
+    gap: 12,
+  },
+  detailTagIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  detailTitle: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  detailCount: {
+    fontSize: 13,
+  },
+  detailCloseButton: {
+    padding: 4,
+  },
+  detailList: {
+    paddingHorizontal: 16,
+  },
+  detailContactItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    gap: 12,
+  },
+  detailContactAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#c9a962",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  detailContactAvatarText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#0a0a0a",
+  },
+  detailContactInfo: {
+    flex: 1,
+  },
+  detailContactName: {
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  detailContactMeta: {
+    fontSize: 12,
+    marginTop: 2,
   },
 });

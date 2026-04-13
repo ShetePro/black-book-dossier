@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { useContactStore } from "@/store";
@@ -22,9 +22,10 @@ export default function NewContactScreen() {
   const { t } = useTranslation();
   const colors = useThemeColor();
   const { addContact } = useContactStore();
+  const params = useLocalSearchParams();
 
   const [formData, setFormData] = useState({
-    name: "",
+    name: (params.name as string) || "",
     title: "",
     company: "",
     phone: "",
@@ -74,12 +75,27 @@ export default function NewContactScreen() {
 
       await addContact(contact);
       
-      Alert.alert("保存成功", "联系人已创建", [
-        {
-          text: "确定",
-          onPress: () => router.back(),
-        },
-      ]);
+      const hasActivityData = params.activities || params.transcription || params.summary;
+      
+      if (hasActivityData) {
+        const activities = params.activities ? JSON.parse(params.activities as string) as string[] : [];
+        router.replace({
+          pathname: '/(views)/interaction/new',
+          params: {
+            contactId: contact.id,
+            content: activities.join('、'),
+            transcription: params.transcription as string || '',
+            location: '',
+          }
+        });
+      } else {
+        Alert.alert("保存成功", "联系人已创建", [
+          {
+            text: "确定",
+            onPress: () => router.back(),
+          },
+        ]);
+      }
     } catch (error) {
       console.error("Failed to save contact:", error);
       Alert.alert("保存失败", "创建联系人时出错，请重试");

@@ -103,8 +103,9 @@ export default function NewInteractionScreen() {
 
       await Promise.all(promises);
       
-      // 跳转到第一个联系人的详情页
-      router.replace({
+      // 清除中间页面栈，跳转到联系人详情，返回时直接回到主页
+      router.dismissAll();
+      router.push({
         pathname: '/(views)/contact/[id]',
         params: { id: targetContactIds[0] },
       });

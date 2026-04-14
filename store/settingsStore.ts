@@ -329,6 +329,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
 
   updateSetting: async (path, value) => {
     const { settings } = get();
+    console.log('[SettingsStore] updateSetting called:', path, value);
     
     // 更新设置
     const newSettings = setNestedValue(settings, path, value);
@@ -341,7 +342,9 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     
     // 特殊处理：语言变更时同步到 i18n
     if (path === "language") {
-      i18n.changeLanguage(value as Language);
+      console.log('[SettingsStore] Changing language to:', value);
+      await i18n.changeLanguage(value as Language);
+      console.log('[SettingsStore] Language changed to:', i18n.language);
     }
     
     // 特殊处理：主题变更时同步应用到 nativewind

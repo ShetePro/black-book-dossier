@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import { Contact } from '@/types';
+import { DefaultAvatar } from '@/components/DefaultAvatar';
 
 interface ContactCardProps {
   contact: Contact;
@@ -12,23 +13,6 @@ interface ContactCardProps {
 export const ContactCard: React.FC<ContactCardProps> = ({ contact, onPress }) => {
   const colors = useThemeColor();
 
-  const getInitials = (name: string): string => {
-    return name.charAt(0).toUpperCase();
-  };
-
-  const getPriorityColor = (priority: string): string => {
-    switch (priority) {
-      case 'high':
-        return '#ef4444';
-      case 'medium':
-        return '#f59e0b';
-      case 'low':
-        return '#10b981';
-      default:
-        return colors.textMuted;
-    }
-  };
-
   return (
     <TouchableOpacity
       style={[
@@ -36,31 +20,36 @@ export const ContactCard: React.FC<ContactCardProps> = ({ contact, onPress }) =>
         { backgroundColor: colors.surface, borderColor: colors.border },
       ]}
       onPress={() => onPress?.(contact)}
-      activeOpacity={0.8}
+      activeOpacity={0.7}
     >
-      <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
-        <Text style={styles.avatarText}>{getInitials(contact.name)}</Text>
-      </View>
+      <DefaultAvatar nickname={contact.name} size={44} />
 
       <View style={styles.info}>
-        <Text style={[styles.name, { color: colors.text }]}>
-          {contact.name}
-        </Text>
-        
+        <View style={styles.nameRow}>
+          <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
+            {contact.name}
+          </Text>
+          {contact.priority === 'high' && (
+            <View style={[styles.priorityBadge, { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}>
+              <Text style={[styles.priorityText, { color: '#ef4444' }]}>重要</Text>
+            </View>
+          )}
+        </View>
+
         {(contact.title || contact.company) && (
-          <Text style={[styles.meta, { color: colors.textMuted }]}>
+          <Text style={[styles.meta, { color: colors.textMuted }]} numberOfLines={1}>
             {[contact.title, contact.company].filter(Boolean).join(' · ')}
           </Text>
         )}
 
         {contact.tags && contact.tags.length > 0 && (
           <View style={styles.tagsContainer}>
-            {contact.tags.slice(0, 3).map((tag, index) => (
+            {contact.tags.slice(0, 2).map((tag, index) => (
               <View
                 key={index}
                 style={[
                   styles.tag,
-                  { backgroundColor: `${colors.primary}20` },
+                  { backgroundColor: `${colors.primary}15` },
                 ]}
               >
                 <Text style={[styles.tagText, { color: colors.primary }]}>
@@ -68,23 +57,16 @@ export const ContactCard: React.FC<ContactCardProps> = ({ contact, onPress }) =>
                 </Text>
               </View>
             ))}
-            {contact.tags.length > 3 && (
+            {contact.tags.length > 2 && (
               <Text style={[styles.moreTags, { color: colors.textMuted }]}>
-                +{contact.tags.length - 3}
+                +{contact.tags.length - 2}
               </Text>
             )}
           </View>
         )}
       </View>
 
-      <View
-        style={[
-          styles.priorityIndicator,
-          { backgroundColor: getPriorityColor(contact.priority) },
-        ]}
-      />
-
-      <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+      <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
     </TouchableOpacity>
   );
 };
@@ -93,58 +75,57 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
     borderRadius: 16,
     borderWidth: 1,
-    marginBottom: 12,
-  },
-  avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  avatarText: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#0a0a0a',
+    marginBottom: 10,
   },
   info: {
     flex: 1,
+    marginLeft: 12,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 3,
   },
   name: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
-    marginBottom: 2,
+    flex: 1,
+  },
+  priorityBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  priorityText: {
+    fontSize: 10,
+    fontWeight: '600',
   },
   meta: {
-    fontSize: 13,
-    marginBottom: 6,
+    fontSize: 12,
+    marginBottom: 5,
   },
   tagsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    marginTop: 4,
   },
   tag: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 7,
     paddingVertical: 2,
     borderRadius: 4,
   },
   tagText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '500',
   },
   moreTags: {
-    fontSize: 11,
-  },
-  priorityIndicator: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 8,
+    fontSize: 10,
   },
 });
 

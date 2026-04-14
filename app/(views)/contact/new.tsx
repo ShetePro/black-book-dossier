@@ -40,13 +40,13 @@ export default function NewContactScreen() {
   const handleSave = async () => {
     // 表单验证
     if (!formData.name.trim()) {
-      Alert.alert("提示", "请输入姓名");
+      Alert.alert(t('common.notice'), t('contact.validation.nameRequired'));
       return;
     }
 
     const { contacts } = useContactStore.getState();
     if (contacts.length >= 10) {
-      Alert.alert("提示", "联系人数量已达上限（最多10个）");
+      Alert.alert(t('common.notice'), t('contact.validation.limitReached'));
       return;
     }
 
@@ -89,16 +89,16 @@ export default function NewContactScreen() {
           }
         });
       } else {
-        Alert.alert("保存成功", "联系人已创建", [
+        Alert.alert(t('contact.saveSuccess'), t('contact.saveSuccessMessage'), [
           {
-            text: "确定",
+            text: t('contact.ok'),
             onPress: () => router.back(),
           },
         ]);
       }
     } catch (error) {
       console.error("Failed to save contact:", error);
-      Alert.alert("保存失败", "创建联系人时出错，请重试");
+      Alert.alert(t('contact.saveError'), t('contact.saveErrorMessage'));
     } finally {
       setIsSaving(false);
     }
@@ -120,18 +120,18 @@ export default function NewContactScreen() {
       {/* 头部导航 */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} disabled={isSaving}>
-          <Text style={[styles.cancelButton, { color: colors.textSecondary }]}>
-            取消
+        <Text style={[styles.cancelButton, { color: colors.textSecondary }]}>
+            {t('contact.cancel')}
           </Text>
         </TouchableOpacity>
 
-        <Text style={[styles.title, { color: colors.text }]}>新建联系人</Text>
+        <Text style={[styles.title, { color: colors.text }]}>{t('contact.newTitle')}</Text>
 
         <TouchableOpacity onPress={handleSave} disabled={isSaving}>
           {isSaving ? (
             <ActivityIndicator size="small" color={colors.primary} />
           ) : (
-            <Text style={[styles.saveButton, { color: colors.primary }]}>保存</Text>
+            <Text style={[styles.saveButton, { color: colors.primary }]}>{t('contact.save')}</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -148,20 +148,20 @@ export default function NewContactScreen() {
             <Ionicons name="camera" size={32} color={colors.textMuted} />
           </View>
           <Text style={[styles.avatarHint, { color: colors.textMuted }]}>
-            添加头像
+            {t('contact.addAvatar')}
           </Text>
         </View>
 
         {/* 基本信息 */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>基本信息</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('contact.basicInfo')}</Text>
 
           <View
             style={[styles.inputCard, { backgroundColor: colors.surface }]}
           >
             <InputRow
-              label="姓名"
-              placeholder="输入姓名 *"
+              label={t('contact.name')}
+              placeholder={t('contact.namePlaceholder')}
               value={formData.name}
               onChangeText={(text) =>
                 setFormData({ ...formData, name: text })
@@ -171,8 +171,8 @@ export default function NewContactScreen() {
             />
 
             <InputRow
-              label="职位"
-              placeholder="输入职位"
+              label={t('contact.title')}
+              placeholder={t('contact.titlePlaceholder')}
               value={formData.title}
               onChangeText={(text) =>
                 setFormData({ ...formData, title: text })
@@ -181,8 +181,8 @@ export default function NewContactScreen() {
             />
 
             <InputRow
-              label="公司"
-              placeholder="输入公司名称"
+              label={t('contact.company')}
+              placeholder={t('contact.companyPlaceholder')}
               value={formData.company}
               onChangeText={(text) =>
                 setFormData({ ...formData, company: text })
@@ -195,14 +195,14 @@ export default function NewContactScreen() {
 
         {/* 联系方式 */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>联系方式</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('contact.contactInfo')}</Text>
 
           <View
             style={[styles.inputCard, { backgroundColor: colors.surface }]}
           >
             <InputRow
-              label="电话"
-              placeholder="输入电话号码"
+              label={t('contact.phone')}
+              placeholder={t('contact.phonePlaceholder')}
               value={formData.phone}
               onChangeText={(text) =>
                 setFormData({ ...formData, phone: text })
@@ -212,8 +212,8 @@ export default function NewContactScreen() {
             />
 
             <InputRow
-              label="邮箱"
-              placeholder="输入邮箱地址"
+              label={t('contact.email')}
+              placeholder={t('contact.emailPlaceholder')}
               value={formData.email}
               onChangeText={(text) =>
                 setFormData({ ...formData, email: text })
@@ -227,13 +227,13 @@ export default function NewContactScreen() {
 
         {/* 标签 */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>标签</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('contact.tags')}</Text>
 
           <View style={[styles.tagCard, { backgroundColor: colors.surface }]}>
             <View style={styles.tagInputRow}>
               <TextInput
                 style={[styles.tagInput, { color: colors.text }]}
-                placeholder="添加标签"
+                placeholder={t('contact.addTag')}
                 placeholderTextColor={colors.textMuted}
                 value={newTag}
                 onChangeText={setNewTag}
@@ -283,12 +283,12 @@ export default function NewContactScreen() {
 
         {/* 备注 */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>备注</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('contact.notes')}</Text>
 
           <View style={[styles.notesCard, { backgroundColor: colors.surface }]}>
             <TextInput
               style={[styles.notesInput, { color: colors.text }]}
-              placeholder="添加备注信息..."
+              placeholder={t('contact.notesPlaceholder')}
               placeholderTextColor={colors.textMuted}
               value={formData.notes}
               onChangeText={(text) =>

@@ -8,6 +8,7 @@ import {
   Switch,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { FadeInUp } from 'react-native-reanimated';
@@ -20,6 +21,7 @@ const ReminderItem: React.FC<{
   onDismiss: () => void;
   colors: ReturnType<typeof useThemeColor>;
 }> = ({ reminder, onPress, onDismiss, colors }) => {
+  const { t } = useTranslation();
   const priorityColors = {
     high: colors.danger,
     medium: colors.warning,
@@ -62,7 +64,7 @@ const ReminderItem: React.FC<{
                 style={{ backgroundColor: colors.danger + '20' }}
               >
                 <Text className="text-xs" style={{ color: colors.danger }}>
-                  重要
+                  {t('reminders.important')}
                 </Text>
               </View>
             )}
@@ -72,7 +74,7 @@ const ReminderItem: React.FC<{
           </Text>
           {reminder.contactName && (
             <Text className="text-xs text-primary mt-1">
-              联系人: {reminder.contactName}
+              {t('reminders.contact')}: {reminder.contactName}
             </Text>
           )}
         </View>
@@ -87,6 +89,7 @@ const ReminderItem: React.FC<{
 
 export default function RemindersScreen(): React.ReactElement {
   const router = useRouter();
+  const { t } = useTranslation();
   const colors = useThemeColor();
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [settings, setSettings] = useState<ReminderSettings | null>(null);
@@ -141,10 +144,10 @@ export default function RemindersScreen(): React.ReactElement {
         <Ionicons name="notifications-off-outline" size={40} color={colors.textMuted} />
       </View>
       <Text className="text-lg font-medium text-elite mb-2">
-        暂无提醒
+        {t('reminders.noReminders')}
       </Text>
       <Text className="text-sm text-elite-muted text-center">
-        您的关系维护状况良好，继续保持！
+        {t('reminders.emptyStateMessage')}
       </Text>
     </View>
   );
@@ -152,23 +155,23 @@ export default function RemindersScreen(): React.ReactElement {
   const renderSettings = () => (
     <View className="px-4 mb-6">
       <Text className="text-sm font-medium text-elite-muted mb-3">
-        提醒设置
+        {t('reminders.settingsTitle')}
       </Text>
       <View className="bg-surface rounded-xl p-4">
         <View className="flex-row items-center justify-between py-3 border-b border-elite-muted/10">
           <View className="flex-row items-center">
             <Ionicons name="time-outline" size={20} color={colors.primary} />
-            <Text className="text-elite ml-3">休眠提醒阈值</Text>
+            <Text className="text-elite ml-3">{t('reminders.dormantThreshold')}</Text>
           </View>
           <Text className="text-elite-muted">
-            {settings?.dormantContactThreshold || 90} 天
+            {settings?.dormantContactThreshold || 90} {t('reminders.days')}
           </Text>
         </View>
 
         <View className="flex-row items-center justify-between py-3 border-b border-elite-muted/10">
           <View className="flex-row items-center">
             <Ionicons name="notifications-outline" size={20} color={colors.primary} />
-            <Text className="text-elite ml-3">推送通知</Text>
+            <Text className="text-elite ml-3">{t('reminders.pushNotifications')}</Text>
           </View>
           <Switch
             value={settings?.enablePushNotifications ?? true}
@@ -180,11 +183,11 @@ export default function RemindersScreen(): React.ReactElement {
         <View className="flex-row items-center justify-between py-3">
           <View className="flex-row items-center">
             <Ionicons name="refresh-outline" size={20} color={colors.primary} />
-            <Text className="text-elite ml-3">检查频率</Text>
+            <Text className="text-elite ml-3">{t('reminders.checkFrequency')}</Text>
           </View>
           <Text className="text-elite-muted">
-            {settings?.reminderFrequency === 'daily' ? '每天' :
-             settings?.reminderFrequency === 'weekly' ? '每周' : '每月'}
+            {settings?.reminderFrequency === 'daily' ? t('reminders.daily') :
+             settings?.reminderFrequency === 'weekly' ? t('reminders.weekly') : t('reminders.monthly')}
           </Text>
         </View>
       </View>
@@ -197,7 +200,7 @@ export default function RemindersScreen(): React.ReactElement {
         <TouchableOpacity onPress={() => router.back()} className="p-2">
           <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text className="text-lg font-semibold text-elite">智能提醒</Text>
+        <Text className="text-lg font-semibold text-elite">{t('reminders.smartReminders')}</Text>
         <TouchableOpacity onPress={loadData} className="p-2">
           <Ionicons name="refresh-outline" size={24} color={colors.text} />
         </TouchableOpacity>
@@ -207,7 +210,7 @@ export default function RemindersScreen(): React.ReactElement {
 
       <View className="px-4 mb-2">
         <Text className="text-lg font-semibold text-elite">
-          待处理提醒 ({reminders.length})
+          {t('reminders.pendingReminders')} ({reminders.length})
         </Text>
       </View>
 

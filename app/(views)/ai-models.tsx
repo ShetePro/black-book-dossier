@@ -11,6 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
+import { useTranslation } from 'react-i18next';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import { useSettingsStore } from '@/store/settingsStore';
 import {
@@ -27,6 +28,7 @@ import { ModelCard } from '@/components/ai/ModelCard';
 import { ModelDetailSheet } from '@/components/ai/ModelDetailSheet';
 
 export default function AIModelsScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const colors = useThemeColor();
   const { settings, updateSetting } = useSettingsStore();
@@ -60,13 +62,13 @@ export default function AIModelsScreen() {
 
       if (result.success) {
         await loadDownloadedModels();
-        Alert.alert('下载完成', `${AVAILABLE_MODELS[modelId].name} 下载成功！`);
+        Alert.alert(t('aiModels.downloadSuccess'), t('aiModels.downloadSuccessMessage', { name: AVAILABLE_MODELS[modelId].name }));
       } else {
-        Alert.alert('下载失败', result.error || '未知错误');
+        Alert.alert(t('aiModels.downloadError'), result.error || t('aiModels.unknownError'));
       }
     } catch (error) {
       console.error('Download error:', error);
-      Alert.alert('下载失败', error instanceof Error ? error.message : '未知错误');
+      Alert.alert(t('aiModels.downloadError'), error instanceof Error ? error.message : t('aiModels.unknownError'));
     } finally {
       setDownloadingModels((prev) => {
         const next = new Set(prev);
@@ -94,11 +96,11 @@ export default function AIModelsScreen() {
           }
         }
       } else {
-        Alert.alert('删除失败', result.error || '未知错误');
+        Alert.alert(t('aiModels.deleteError'), result.error || t('aiModels.unknownError'));
       }
     } catch (error) {
       console.error('Delete error:', error);
-      Alert.alert('删除失败', error instanceof Error ? error.message : '未知错误');
+      Alert.alert(t('aiModels.deleteError'), error instanceof Error ? error.message : t('aiModels.unknownError'));
     }
   };
 
@@ -154,7 +156,7 @@ export default function AIModelsScreen() {
           <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
 
-        <Text style={[styles.headerTitle, { color: colors.text }]}>AI 模型管理</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>{t('aiModels.title')}</Text>
 
         <View style={styles.placeholder} />
       </View>
@@ -167,18 +169,18 @@ export default function AIModelsScreen() {
         <View style={[styles.infoCard, { backgroundColor: colors.surface }]}>
           <View style={styles.infoHeader}>
             <Ionicons name="hardware-chip-outline" size={28} color={colors.primary} />
-            <Text style={[styles.infoTitle, { color: colors.text }]}>本地 AI 模型</Text>
+            <Text style={[styles.infoTitle, { color: colors.text }]}>{t('aiModels.localAI')}</Text>
           </View>
           <Text style={[styles.infoText, { color: colors.textSecondary }]}
           >
-            下载本地 AI 模型后，语音转文字和实体提取功能可以在设备本地运行，无需联网，更好地保护您的隐私。
+            {t('aiModels.localAIDescription')}
           </Text>
 
           {settings.ai.localModel.enabled && (
             <View style={[styles.statusBadge, { backgroundColor: `${colors.success}15` }]}>
               <Ionicons name="checkmark-circle" size={16} color={colors.success} />
               <Text style={[styles.statusText, { color: colors.success }]}>
-                本地 AI 已启用
+                {t('aiModels.localAIEnabled')}
               </Text>
             </View>
           )}
@@ -188,7 +190,7 @@ export default function AIModelsScreen() {
         {downloadedModels.length > 0 && (
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>
-              已下载的模型
+              {t('aiModels.downloadedModels')}
             </Text>
             {downloadedModels.map((modelId) => (
               <ModelCard
@@ -211,7 +213,7 @@ export default function AIModelsScreen() {
         {/* Available Models */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>
-            可用模型
+            {t('aiModels.availableModels')}
           </Text>
           {models
             .filter((model) => !downloadedModels.includes(model.id))
@@ -237,7 +239,7 @@ export default function AIModelsScreen() {
         <View style={[styles.storageCard, { backgroundColor: colors.surface }]}>
           <Ionicons name="server-outline" size={20} color={colors.textMuted} />
           <Text style={[styles.storageText, { color: colors.textSecondary }]}>
-            模型文件将存储在本地，不会上传到云端
+            {t('aiModels.storageNote')}
           </Text>
         </View>
 

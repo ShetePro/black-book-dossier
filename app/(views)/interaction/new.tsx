@@ -11,6 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import { useInteractionStore } from '@/store/interactions/interactionStore';
 import { useContactStore } from '@/store';
@@ -19,28 +20,29 @@ import { Interaction, Contact } from '@/types';
 const INTERACTION_TYPES: {
   type: Interaction['type'];
   icon: keyof typeof Ionicons.glyphMap;
-  label: string;
+  i18nKey: string;
   color: string;
 }[] = [
-  { type: 'meeting', icon: 'restaurant', label: '聚餐', color: '#f59e0b' },
-  { type: 'call', icon: 'bicycle', label: '户外运动', color: '#22c55e' },
-  { type: 'message', icon: 'school', label: '学习', color: '#3b82f6' },
-  { type: 'gift', icon: 'golf', label: '娱乐', color: '#8b5cf6' },
-  { type: 'other', icon: 'ellipsis-horizontal', label: '其他', color: '#6b7280' },
+  { type: 'meeting', icon: 'restaurant', i18nKey: 'interaction.types.meeting', color: '#f59e0b' },
+  { type: 'call', icon: 'bicycle', i18nKey: 'interaction.types.call', color: '#22c55e' },
+  { type: 'message', icon: 'school', i18nKey: 'interaction.types.message', color: '#3b82f6' },
+  { type: 'gift', icon: 'golf', i18nKey: 'interaction.types.gift', color: '#8b5cf6' },
+  { type: 'other', icon: 'ellipsis-horizontal', i18nKey: 'interaction.types.other', color: '#6b7280' },
 ];
 
 const VALUE_EXCHANGE_OPTIONS: {
   value: Interaction['valueExchange'];
-  label: string;
+  i18nKey: string;
   icon: keyof typeof Ionicons.glyphMap;
 }[] = [
-  { value: 'neutral', label: '普通', icon: 'remove-circle' },
-  { value: 'given', label: '送出', icon: 'arrow-up-circle' },
-  { value: 'received', label: '收到', icon: 'arrow-down-circle' },
+  { value: 'neutral', i18nKey: 'interaction.valueTypes.neutral', icon: 'remove-circle' },
+  { value: 'given', i18nKey: 'interaction.valueTypes.given', icon: 'arrow-up-circle' },
+  { value: 'received', i18nKey: 'interaction.valueTypes.received', icon: 'arrow-down-circle' },
 ];
 
 export default function NewInteractionScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const params = useLocalSearchParams();
   const colors = useThemeColor();
   const { addInteraction } = useInteractionStore();
@@ -71,12 +73,12 @@ export default function NewInteractionScreen() {
 
   const handleSave = async () => {
     if (!content.trim()) {
-      Alert.alert('提示', '请输入交往内容');
+      Alert.alert(t('common.notice'), t('interaction.validationError'));
       return;
     }
 
     if (targetContactIds.length === 0) {
-      Alert.alert('错误', '未指定联系人');
+      Alert.alert(t('common.error'), t('interaction.noContact'));
       return;
     }
 
@@ -111,7 +113,7 @@ export default function NewInteractionScreen() {
       });
     } catch (error) {
       console.error('Failed to save interaction:', error);
-      Alert.alert('错误', '保存失败，请重试');
+      Alert.alert(t('common.error'), t('interaction.saveError'));
     } finally {
       setIsSaving(false);
     }
@@ -122,18 +124,29 @@ export default function NewInteractionScreen() {
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
           <Text style={[styles.cancelButton, { color: colors.textSecondary }]}>
-            取消
+            {t('common.cancel')}
           </Text>
         </TouchableOpacity>
 
-        <Text style={[styles.title, { color: colors.text }]}>添加记录</Text>
+        <Text style={[styles.title, { color: colors.text }]}>{t('interaction.add')}</Text>
 
         <TouchableOpacity onPress={handleSave} disabled={isSaving}>
           <Text style={[
             styles.saveButton,
             { color: isSaving ? colors.textMuted : colors.primary }
           ]}>
-            {isSaving ? '保存中...' : '保存'}
+            {isSaving ? t('actionItem.saveLoading') : t('common.save')}
+          </Text>
+        </TouchableOpacity>
+
+        <Text style={[styles.title, { color: colors.text }]}>{t('interaction.add')}</Text>
+
+        <TouchableOpacity onPress={handleSave} disabled={isSaving}>
+          <Text style={[
+            styles.saveButton,
+            { color: isSaving ? colors.textMuted : colors.primary }
+          ]}>
+            {isSaving ? t('actionItem.saveLoading') : t('common.save')}
           </Text>
         </TouchableOpacity>
       </View>
@@ -162,7 +175,7 @@ export default function NewInteractionScreen() {
         contentContainerStyle={styles.scrollContent}
       >
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>类型</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('interaction.type')}</Text>
           <View style={styles.typeGrid}>
             {INTERACTION_TYPES.map((item) => (
               <TouchableOpacity
@@ -191,7 +204,7 @@ export default function NewInteractionScreen() {
                     },
                   ]}
                 >
-                  {item.label}
+                  {t(item.i18nKey)}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -199,11 +212,11 @@ export default function NewInteractionScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>内容</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('interaction.content')}</Text>
           <View style={[styles.contentCard, { backgroundColor: colors.surface }]}>
             <TextInput
               style={[styles.contentInput, { color: colors.text }]}
-              placeholder="记录这次交往的详细内容..."
+              placeholder={t('interaction.contentPlaceholder')}
               placeholderTextColor={colors.textMuted}
               value={content}
               onChangeText={setContent}
@@ -215,13 +228,13 @@ export default function NewInteractionScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>地点（可选）</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('interaction.location')}</Text>
           <View style={[styles.inputCard, { backgroundColor: colors.surface }]}>
             <View style={styles.inputRow}>
               <Ionicons name="location-outline" size={20} color={colors.textMuted} />
               <TextInput
                 style={[styles.input, { color: colors.text }]}
-                placeholder="输入地点"
+                placeholder={t('interaction.locationPlaceholder')}
                 placeholderTextColor={colors.textMuted}
                 value={location}
                 onChangeText={setLocation}
@@ -231,7 +244,7 @@ export default function NewInteractionScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>价值交换</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('interaction.valueExchange')}</Text>
           <View style={styles.valueExchangeRow}>
             {VALUE_EXCHANGE_OPTIONS.map((option) => (
               <TouchableOpacity
@@ -259,7 +272,7 @@ export default function NewInteractionScreen() {
                     },
                   ]}
                 >
-                  {option.label}
+                  {t(option.i18nKey)}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -268,7 +281,7 @@ export default function NewInteractionScreen() {
             <View style={[styles.inputCard, { backgroundColor: colors.surface, marginTop: 12, paddingVertical: 14 }]}>
               <TextInput
                 style={[styles.input, { color: colors.text }]}
-                placeholder={valueExchange === 'given' ? '描述送出了什么...' : '描述收到了什么...'}
+                placeholder={valueExchange === 'given' ? t('interaction.valueGivenPlaceholder') : t('interaction.valueReceivedPlaceholder')}
                 placeholderTextColor={colors.textMuted}
                 value={valueDescription}
                 onChangeText={setValueDescription}

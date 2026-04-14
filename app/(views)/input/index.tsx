@@ -12,22 +12,33 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { useTranslation } from "react-i18next";
 import Animated, { FadeIn, FadeInUp } from "react-native-reanimated";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { useRecorder } from "@/hooks/useRecorder";
 
 type InputMode = "keyboard" | "voice";
 
-const QUICK_TAGS = ["打篮球", "喝咖啡", "开会", "聚餐", "电话沟通", "商务洽谈", "面试", "约会"];
+const QUICK_TAG_KEYS = [
+  "input.quickTags.playBasketball",
+  "input.quickTags.drinkCoffee",
+  "input.quickTags.meeting",
+  "input.quickTags.dinner",
+  "input.quickTags.phoneCall",
+  "input.quickTags.businessNegotiation",
+  "input.quickTags.interview",
+  "input.quickTags.date",
+];
 
-const TIPS = [
-  "记录今天的会面内容",
-  "记下重要的联系人信息",
-  "记录待办事项和提醒",
+const TIP_KEYS = [
+  "input.tips.recordMeeting",
+  "input.tips.recordContact",
+  "input.tips.recordTodo",
 ];
 
 export default function InputScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const colors = useThemeColor();
   const [inputMode, setInputMode] = useState<InputMode>("keyboard");
   const [text, setText] = useState("");
@@ -74,7 +85,7 @@ export default function InputScreen() {
           <TouchableOpacity onPress={handleBack} style={styles.backButton}>
             <Ionicons name="chevron-back" size={28} color={colors.text} />
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>新建记录</Text>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>{t("input.title")}</Text>
           <View style={styles.headerRight} />
         </View>
 
@@ -85,12 +96,12 @@ export default function InputScreen() {
           showsVerticalScrollIndicator={false}
         >
           <Animated.View entering={FadeInUp} style={styles.tipsContainer}>
-            <Text style={[styles.tipsTitle, { color: colors.text }]}>今天想记录什么？</Text>
+            <Text style={[styles.tipsTitle, { color: colors.text }]}>{t("input.tipsTitle")}</Text>
             <View style={styles.tipsList}>
-              {TIPS.map((tip, index) => (
+              {TIP_KEYS.map((tipKey, index) => (
                 <View key={index} style={[styles.tipItem, { backgroundColor: `${colors.primary}10` }]}>
                   <Ionicons name="information-circle-outline" size={16} color={colors.primary} />
-                  <Text style={[styles.tipText, { color: colors.textMuted }]}>{tip}</Text>
+                  <Text style={[styles.tipText, { color: colors.textMuted }]}>{t(tipKey)}</Text>
                 </View>
               ))}
             </View>
@@ -98,15 +109,15 @@ export default function InputScreen() {
 
           {/* 快捷标签 */}
           <Animated.View entering={FadeInUp.delay(100)} style={styles.tagsContainer}>
-            <Text style={[styles.tagsLabel, { color: colors.textMuted }]}>快捷标签</Text>
+            <Text style={[styles.tagsLabel, { color: colors.textMuted }]}>{t("input.quickTagsLabel")}</Text>
             <View style={styles.tagsRow}>
-              {QUICK_TAGS.map((tag) => (
+              {QUICK_TAG_KEYS.map((tagKey) => (
                 <TouchableOpacity
-                  key={tag}
-                  onPress={() => handleTagPress(tag)}
+                  key={tagKey}
+                  onPress={() => handleTagPress(t(tagKey))}
                   style={[styles.tag, { backgroundColor: `${colors.primary}15`, borderColor: colors.border }]}
                 >
-                  <Text style={[styles.tagText, { color: colors.primary }]}>{tag}</Text>
+                  <Text style={[styles.tagText, { color: colors.primary }]}>{t(tagKey)}</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -122,7 +133,7 @@ export default function InputScreen() {
                 <TextInput
                   style={[styles.textInput, { color: colors.text }]}
                   multiline
-                  placeholder="描述你的活动..."
+                  placeholder={t("input.placeholder")}
                   placeholderTextColor={colors.textMuted}
                   value={text}
                   onChangeText={setText}
@@ -159,11 +170,11 @@ export default function InputScreen() {
                 />
               </TouchableOpacity>
               <Text style={[styles.voiceHint, { color: colors.textMuted }]}>
-                {recorderIsRecording ? "点击停止录音" : "点击开始录音"}
+                {recorderIsRecording ? t("input.stopRecording") : t("input.startRecording")}
               </Text>
               {recorderIsRecording && (
                 <Text style={[styles.recordingTime, { color: colors.danger }]}>
-                  录音中... {recorderDuration}s
+                  {t("input.recording")} {recorderDuration}s
                 </Text>
               )}
             </View>
@@ -190,7 +201,7 @@ export default function InputScreen() {
                     { color: inputMode === "keyboard" ? colors.primary : colors.textMuted },
                   ]}
                 >
-                  键盘
+                  {t("input.keyboardMode")}
                 </Text>
               </TouchableOpacity>
 
@@ -214,7 +225,7 @@ export default function InputScreen() {
                     { color: inputMode === "voice" ? colors.primary : colors.textMuted },
                   ]}
                 >
-                  语音
+                  {t("input.voiceMode")}
                 </Text>
               </TouchableOpacity>
             </View>

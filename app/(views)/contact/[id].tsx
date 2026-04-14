@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -11,6 +12,7 @@ import Animated, {
 import { useThemeColor } from '@/hooks/useThemeColor';
 import { useContact } from '@/hooks/contact';
 import { useInteractions } from '@/hooks/interaction';
+import { useContactStore } from '@/store';
 import { DefaultAvatar } from '@/components/DefaultAvatar';
 import { ContactSkeleton } from '@/components/contact/ContactSkeleton';
 import { InteractionList } from '@/components/interaction';
@@ -18,10 +20,12 @@ import type { FamilyMember } from '@/types';
 
 export default function ContactDetailScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { id } = useLocalSearchParams();
   const colors = useThemeColor();
   const { contact, isLoading: isContactLoading } = useContact(id as string);
   const { interactions, isLoading: isInteractionsLoading, deleteInteraction } = useInteractions(id as string);
+  const { deleteContact } = useContactStore();
 
   const scrollY = useSharedValue(0);
 
@@ -32,6 +36,29 @@ export default function ContactDetailScreen() {
 
   const handleAddInteraction = () => {
     router.push(`/(views)/interaction/new?contactId=${id}` as any);
+  };
+
+  const handleDeleteContact = () => {
+    Alert.alert(
+      t('contact.deleteTitle'),
+      t('contact.deleteDetailMessage', { name: contact?.name }),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('contact.deleteButton'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteContact(id as string);
+              router.replace('/(tabs)/contacts');
+            } catch (error) {
+              console.error('Failed to delete contact:', error);
+              Alert.alert(t('common.error'), t('contact.deleteError'));
+            }
+          },
+        },
+      ]
+    );
   };
 
   const isLoading = isContactLoading || isInteractionsLoading;
@@ -48,9 +75,9 @@ export default function ContactDetailScreen() {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={styles.errorContainer}>
-          <Text style={[styles.errorText, { color: colors.text }]}>联系人不存在</Text>
+          <Text style={[styles.errorText, { color: colors.text }]}>{t('contact.notFound')}</Text>
           <TouchableOpacity onPress={() => router.back()}>
-            <Text style={{ color: colors.primary }}>返回</Text>
+            <Text style={{ color: colors.primary }}>{t('common.back')}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -77,6 +104,13 @@ export default function ContactDetailScreen() {
             onPress={() => router.push(`/(views)/contact/edit?id=${id}`)}
           >
             <Ionicons name="create-outline" size={22} color={colors.text} />
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.iconButton, { backgroundColor: colors.surface, marginLeft: 8 }]}
+            onPress={handleDeleteContact}
+          >
+            <Ionicons name="trash-outline" size={22} color={colors.danger} />
           </TouchableOpacity>
         </View>
       </View>
@@ -109,19 +143,19 @@ export default function ContactDetailScreen() {
         </Animated.View>
 
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>联系方式</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('contact.contactInfo')}</Text>
           <View style={[styles.infoCard, { backgroundColor: colors.surface }]}>
-            {contact.phone && <InfoRow icon="call" label="电话" value={contact.phone} colors={colors} />}
-            {contact.email && <InfoRow icon="mail" label="邮箱" value={contact.email} colors={colors} />}
-            {contact.company && <InfoRow icon="business" label="公司" value={contact.company} colors={colors} />}
+            {contact.phone && <InfoRow icon="call" label={t('contact.phone')} value={contact.phone} colors={colors} />}
+            {contact.email && <InfoRow icon="mail" label={t('contact.email')} value={contact.email} colors={colors} />}
+            {contact.company && <InfoRow icon="business" label={t('contact.company')} value={contact.company} colors={colors} />}
           </View>
         </View>
 
-        <IntelligenceSection contact={contact} colors={colors} />
+        <IntelligenceSection contact={contact} colors={colors} t={t} />
 
         {contact.notes && (
           <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>备忘录</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('contact.notes')}</Text>
             <View style={[styles.notesCard, { backgroundColor: colors.surface }]}>
               <Text style={[styles.notesText, { color: colors.textSecondary }]}>{contact.notes}</Text>
             </View>
@@ -130,13 +164,13 @@ export default function ContactDetailScreen() {
 
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>交往记录</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('contact.interactions')}</Text>
             <TouchableOpacity
               onPress={handleAddInteraction}
               style={[styles.addButton, { backgroundColor: colors.primary }]}
             >
               <Ionicons name="add" size={18} color="#0a0a0a" />
-              <Text style={styles.addButtonText}>添加</Text>
+              <Text style={styles.addButtonText}>{t('common.add')}</Text>
             </TouchableOpacity>
           </View>
           <InteractionList
@@ -164,6 +198,7 @@ interface IntelligenceCategory {
 function IntelligenceSection({
   contact,
   colors,
+  t,
 }: {
   contact: {
     healthIssues: string[];
@@ -172,34 +207,35 @@ function IntelligenceSection({
     familyMembers: FamilyMember[];
   };
   colors: any;
+  t: (key: string) => string;
 }) {
   const [expandedKeys, setExpandedKeys] = useState<string[]>([]);
 
   const categories: IntelligenceCategory[] = [
     {
       key: 'health',
-      title: '健康状况',
+      title: t('contact.intelligence.health'),
       icon: 'fitness',
       color: colors.success || '#22c55e',
       items: contact.healthIssues,
     },
     {
       key: 'preferences',
-      title: '个人偏好',
+      title: t('contact.intelligence.preferences'),
       icon: 'star',
       color: colors.info || '#60a5fa',
       items: contact.preferences,
     },
     {
       key: 'taboos',
-      title: '注意事项',
+      title: t('contact.intelligence.taboos'),
       icon: 'warning',
       color: colors.danger || '#ef4444',
       items: contact.taboos,
     },
     {
       key: 'family',
-      title: '家庭成员',
+      title: t('contact.intelligence.family'),
       icon: 'people',
       color: colors.primary || '#c9a962',
       items: contact.familyMembers,
@@ -218,7 +254,7 @@ function IntelligenceSection({
   return (
     <View style={styles.section}>
       <Text style={[styles.sectionTitle, { color: colors.text }]}>
-        情报档案
+        {t('contact.intelligence.title')}
       </Text>
       <View style={[styles.intelligenceCard, { backgroundColor: colors.surface }]}>
         {categories.map((category, index) => (
@@ -229,6 +265,7 @@ function IntelligenceSection({
             onToggle={() => toggleExpand(category.key)}
             colors={colors}
             isLast={index === categories.length - 1}
+            t={t}
           />
         ))}
       </View>
@@ -242,12 +279,14 @@ function IntelligenceAccordion({
   onToggle,
   colors,
   isLast,
+  t,
 }: {
   category: IntelligenceCategory;
   isExpanded: boolean;
   onToggle: () => void;
   colors: any;
   isLast: boolean;
+  t: (key: string) => string;
 }) {
   return (
     <View
@@ -307,6 +346,7 @@ function IntelligenceAccordion({
                   member={member}
                   colors={colors}
                   isLast={idx === category.items.length - 1}
+                  t={t}
                 />
               ))
             : (category.items as string[]).map((item, idx) => (
@@ -356,10 +396,12 @@ function FamilyMemberItem({
   member,
   colors,
   isLast,
+  t,
 }: {
   member: FamilyMember;
   colors: any;
   isLast: boolean;
+  t: (key: string) => string;
 }) {
   return (
     <View
@@ -392,7 +434,7 @@ function FamilyMemberItem({
             { color: colors.textMuted },
           ]}
         >
-          {[member.age ? `${member.age}岁` : '', member.occupation]
+          {[member.age ? `${member.age}${t('contact.intelligence.ageSuffix')}` : '', member.occupation]
             .filter(Boolean)
             .join(' · ')}
         </Text>

@@ -14,6 +14,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { FadeIn, FadeInUp } from 'react-native-reanimated';
+import { useTranslation } from 'react-i18next';
 import { agentService, AgentQueryResponse } from '@/services/ai/agent';
 import { useThemeColor } from '@/hooks/useThemeColor';
 
@@ -26,20 +27,21 @@ interface QueryMessage {
   timestamp: number;
 }
 
-const QUICK_QUERIES = [
-  '有多少人和我打过篮球？',
-  '哪些联系人超过3个月没联系了？',
-  '活动统计',
-  '谁和我最常一起吃饭？',
-];
-
 export default function AgentQueryScreen(): React.ReactElement {
   const router = useRouter();
   const colors = useThemeColor();
+  const { t } = useTranslation();
   const [inputText, setInputText] = useState('');
   const [messages, setMessages] = useState<QueryMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const flatListRef = useRef<FlatList>(null);
+
+  const QUICK_QUERIES = [
+    t('agent.quickQueries.basketball'),
+    t('agent.quickQueries.dormantContacts'),
+    t('agent.quickQueries.activityStats'),
+    t('agent.quickQueries.frequentDining'),
+  ];
 
   const handleSend = useCallback(async () => {
     if (!inputText.trim() || isLoading) return;
@@ -77,7 +79,7 @@ export default function AgentQueryScreen(): React.ReactElement {
       const errorMessage: QueryMessage = {
         id: `agent_${Date.now()}`,
         type: 'agent',
-        content: '抱歉，查询时出现错误，请稍后重试。',
+        content: t('agent.errorMessage'),
         timestamp: Date.now(),
       };
       setMessages(prev => [...prev, errorMessage]);
@@ -141,7 +143,7 @@ export default function AgentQueryScreen(): React.ReactElement {
           <TouchableOpacity onPress={() => router.back()} className="p-2">
             <Ionicons name="arrow-back" size={24} color={colors.text} />
           </TouchableOpacity>
-          <Text className="text-lg font-semibold text-elite">AI 助手</Text>
+          <Text className="text-lg font-semibold text-elite">{t('agent.title')}</Text>
           <View className="w-10" />
         </View>
 
@@ -153,15 +155,15 @@ export default function AgentQueryScreen(): React.ReactElement {
                   <Ionicons name="sparkles" size={32} color={colors.primary} />
                 </View>
                 <Text className="text-2xl font-bold text-elite mb-2">
-                  有什么可以帮您？
+                  {t('agent.greeting')}
                 </Text>
                 <Text className="text-sm text-elite-muted text-center px-8">
-                  您可以询问关于联系人、活动记录的各种问题
+                  {t('agent.subtitle')}
                 </Text>
               </View>
 
               <Text className="text-sm font-medium text-elite-muted mb-3">
-                快捷查询
+                {t('agent.quickQueriesTitle')}
               </Text>
               <View className="flex-row flex-wrap">
                 {QUICK_QUERIES.map((query, index) => (
@@ -177,20 +179,20 @@ export default function AgentQueryScreen(): React.ReactElement {
 
               <View className="mt-8 p-4 bg-surface/50 rounded-xl">
                 <Text className="text-sm font-medium text-elite mb-2">
-                  您可以问：
+                  {t('agent.examplesTitle')}
                 </Text>
                 <View className="space-y-2">
                   <Text className="text-sm text-elite-muted">
-                    • 有多少人和我打过篮球？
+                    • {t('agent.quickQueries.basketball')}
                   </Text>
                   <Text className="text-sm text-elite-muted">
-                    • 哪些联系人超过3个月没联系了？
+                    • {t('agent.quickQueries.dormantContacts')}
                   </Text>
                   <Text className="text-sm text-elite-muted">
-                    • 我和张三最近的活动
+                    • {t('agent.examples.recentActivities')}
                   </Text>
                   <Text className="text-sm text-elite-muted">
-                    • 活动统计
+                    • {t('agent.quickQueries.activityStats')}
                   </Text>
                 </View>
               </View>
@@ -212,7 +214,7 @@ export default function AgentQueryScreen(): React.ReactElement {
             <TextInput
               value={inputText}
               onChangeText={setInputText}
-              placeholder="输入您的问题..."
+              placeholder={t('agent.placeholder')}
               placeholderTextColor={colors.textMuted}
               className="flex-1 text-elite text-base py-2"
               multiline

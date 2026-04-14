@@ -11,6 +11,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { FadeInUp } from 'react-native-reanimated';
+import { useTranslation } from 'react-i18next';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import { getDatabase } from '@/db/operations';
 import { getActivityStats } from '@/services/db/activities';
@@ -71,9 +72,9 @@ const SimpleBarChart: React.FC<{
 const ContactRankItem: React.FC<{
   rank: number;
   name: string;
-  activityCount: number;
+  activityText: string;
   colors: ReturnType<typeof useThemeColor>;
-}> = ({ rank, name, activityCount, colors }) => (
+}> = ({ rank, name, activityText, colors }) => (
   <View className="flex-row items-center py-3 border-b border-elite-muted/10">
     <View
       className="w-8 h-8 rounded-full items-center justify-center mr-3"
@@ -99,12 +100,13 @@ const ContactRankItem: React.FC<{
       </Text>
     </View>
     <Text className="flex-1 text-elite font-medium">{name}</Text>
-    <Text className="text-elite-muted">{activityCount} 次</Text>
+    <Text className="text-elite-muted">{activityText}</Text>
   </View>
 );
 
 export default function StatisticsScreen(): React.ReactElement {
   const router = useRouter();
+  const { t } = useTranslation();
   const colors = useThemeColor();
   const [stats, setStats] = useState<ActivityStats | null>(null);
   const [topContacts, setTopContacts] = useState<Array<{ contactId: string; contactName: string; activityCount: number }>>([]);
@@ -147,7 +149,7 @@ export default function StatisticsScreen(): React.ReactElement {
       .sort((a, b) => a[0].localeCompare(b[0]))
       .slice(-6)
       .map(([month, value]) => ({
-        label: dayjs(month).format('MM月'),
+        label: `${dayjs(month).month() + 1}`,
         value,
       }));
   };
@@ -168,7 +170,7 @@ export default function StatisticsScreen(): React.ReactElement {
         <TouchableOpacity onPress={() => router.back()} className="p-2">
           <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text className="text-lg font-semibold text-elite">数据统计</Text>
+        <Text className="text-lg font-semibold text-elite">{t('statistics.title')}</Text>
         <TouchableOpacity onPress={loadData} className="p-2">
           <Ionicons name="refresh-outline" size={24} color={colors.text} />
         </TouchableOpacity>
@@ -178,25 +180,25 @@ export default function StatisticsScreen(): React.ReactElement {
         <Animated.View entering={FadeInUp.duration(300)}>
           <View className="flex-row px-2 py-4">
             <StatCard
-              title="总活动"
+              title={t('statistics.totalActivities')}
               value={stats?.totalCount || 0}
-              subtitle="累计记录"
+              subtitle={t('statistics.cumulativeRecord')}
               icon="calendar"
               colors={colors}
             />
             <StatCard
-              title="活动类型"
+              title={t('statistics.activityTypes')}
               value={Object.keys(stats?.byType || {}).length}
-              subtitle="不同类型"
+              subtitle={t('statistics.differentTypes')}
               icon="grid"
               colors={colors}
             />
             <StatCard
-              title="本月活动"
+              title={t('statistics.monthlyActivities')}
               value={Object.entries(stats?.byMonth || {})
                 .filter(([month]) => dayjs(month).isSame(dayjs(), 'month'))
                 .reduce((sum, [, count]) => sum + count, 0)}
-              subtitle={dayjs().format('YYYY年MM月')}
+              subtitle={dayjs().format('YYYY/MM')}
               icon="trending-up"
               colors={colors}
             />
@@ -217,9 +219,9 @@ export default function StatisticsScreen(): React.ReactElement {
                       timeRange === range ? 'text-background font-medium' : 'text-elite-muted'
                     }`}
                   >
-                    {range === '7d' ? '7天' :
-                     range === '30d' ? '30天' :
-                     range === '90d' ? '90天' : '1年'}
+                    {range === '7d' ? t('statistics.days7') :
+                     range === '30d' ? t('statistics.days30') :
+                     range === '90d' ? t('statistics.days90') : t('statistics.year1')}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -229,7 +231,7 @@ export default function StatisticsScreen(): React.ReactElement {
           {getActivityTypeData().length > 0 && (
             <View className="px-4 mb-6">
               <Text className="text-lg font-semibold text-elite mb-4">
-                活动类型分布
+                {t('statistics.activityTypeDistribution')}
               </Text>
               <View className="bg-surface rounded-xl p-4">
                 <SimpleBarChart data={getActivityTypeData()} colors={colors} />
@@ -240,7 +242,7 @@ export default function StatisticsScreen(): React.ReactElement {
           {getMonthlyData().length > 0 && (
             <View className="px-4 mb-6">
               <Text className="text-lg font-semibold text-elite mb-4">
-                月度趋势
+                {t('statistics.monthlyTrend')}
               </Text>
               <View className="bg-surface rounded-xl p-4">
                 <SimpleBarChart data={getMonthlyData()} colors={colors} />
@@ -251,7 +253,7 @@ export default function StatisticsScreen(): React.ReactElement {
           {topContacts.length > 0 && (
             <View className="px-4 mb-6">
               <Text className="text-lg font-semibold text-elite mb-4">
-                互动排行榜
+                {t('statistics.interactionRanking')}
               </Text>
               <View className="bg-surface rounded-xl p-4">
                 {topContacts.map((contact, index) => (
@@ -259,7 +261,7 @@ export default function StatisticsScreen(): React.ReactElement {
                     key={contact.contactId}
                     rank={index + 1}
                     name={contact.contactName}
-                    activityCount={contact.activityCount}
+                    activityText={`${contact.activityCount} ${t('statistics.times')}`}
                     colors={colors}
                   />
                 ))}
@@ -270,7 +272,7 @@ export default function StatisticsScreen(): React.ReactElement {
           {stats?.byContact && stats.byContact.length > 0 && (
             <View className="px-4 mb-6">
               <Text className="text-lg font-semibold text-elite mb-4">
-                活动类型详情
+                {t('statistics.activityTypeDetails')}
               </Text>
               <View className="bg-surface rounded-xl p-4">
                 {Object.entries(stats.byType)
@@ -287,7 +289,7 @@ export default function StatisticsScreen(): React.ReactElement {
                         />
                         <Text className="text-elite capitalize">{type}</Text>
                       </View>
-                      <Text className="text-elite-muted">{count} 次</Text>
+                      <Text className="text-elite-muted">{count} {t('statistics.times')}</Text>
                     </View>
                   ))}
               </View>
@@ -296,7 +298,7 @@ export default function StatisticsScreen(): React.ReactElement {
 
           <View className="px-4 py-8">
             <Text className="text-xs text-elite-muted text-center">
-              数据最后更新于 {dayjs().format('YYYY-MM-DD HH:mm')}
+              {t('statistics.lastUpdated', { date: dayjs().format('YYYY-MM-DD HH:mm') })}
             </Text>
           </View>
         </Animated.View>

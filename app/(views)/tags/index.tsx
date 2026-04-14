@@ -42,11 +42,12 @@ interface TagItemProps {
   onEdit: () => void;
   onDelete: () => void;
   colors: ReturnType<typeof useThemeColor>;
+  t: (key: string, options?: Record<string, unknown>) => string;
 }
 
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
-function TagItem({ tag, index, onPress, onEdit, onDelete, colors }: TagItemProps) {
+function TagItem({ tag, index, onPress, onEdit, onDelete, colors, t }: TagItemProps) {
   const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -86,7 +87,7 @@ function TagItem({ tag, index, onPress, onEdit, onDelete, colors }: TagItemProps
               {tag.name}
             </Text>
             <Text style={[styles.tagCount, { color: colors.textMuted }]}>
-              {tag.count > 0 ? `${tag.count} 个联系人` : "未使用"}
+              {tag.count > 0 ? t('tags.contactCount', { count: tag.count }) : t('tags.unused')}
             </Text>
           </View>
         </View>
@@ -127,9 +128,10 @@ interface TagDetailModalProps {
   onContactPress: (contact: Contact) => void;
   onRemoveTag: (contactId: string) => void;
   colors: ReturnType<typeof useThemeColor>;
+  t: (key: string, options?: Record<string, unknown>) => string;
 }
 
-function TagDetailModal({ visible, tagName, contacts, onClose, onContactPress, onRemoveTag, colors }: TagDetailModalProps) {
+function TagDetailModal({ visible, tagName, contacts, onClose, onContactPress, onRemoveTag, colors, t }: TagDetailModalProps) {
   return (
     <Modal
       visible={visible}
@@ -144,7 +146,7 @@ function TagDetailModal({ visible, tagName, contacts, onClose, onContactPress, o
               <Ionicons name="pricetag" size={20} color={colors.primary} />
             </View>
             <Text style={[styles.detailTitle, { color: colors.text }]}>{tagName}</Text>
-            <Text style={[styles.detailCount, { color: colors.textMuted }]}>{contacts.length} 个联系人</Text>
+            <Text style={[styles.detailCount, { color: colors.textMuted }]}>{t('tags.detailCount', { count: contacts.length })}</Text>
             <TouchableOpacity onPress={onClose} style={styles.detailCloseButton}>
               <Ionicons name="close" size={24} color={colors.textMuted} />
             </TouchableOpacity>
@@ -163,7 +165,7 @@ function TagDetailModal({ visible, tagName, contacts, onClose, onContactPress, o
                 <View style={styles.detailContactInfo}>
                   <Text style={[styles.detailContactName, { color: colors.text }]}>{contact.name}</Text>
                   <Text style={[styles.detailContactMeta, { color: colors.textMuted }]}>
-                    {contact.company || "无公司"} · {contact.title || "无职位"}
+                    {contact.company || t('contacts.noCompany')} · {contact.title || t('contacts.noTitle')}
                   </Text>
                 </View>
                 <TouchableOpacity
@@ -192,7 +194,10 @@ interface EditTagModalProps {
   placeholder?: string;
 }
 
-function EditTagModal({ visible, tagName, onClose, onSave, colors, title = "重命名标签", placeholder = "输入新标签名称" }: EditTagModalProps) {
+function EditTagModal({ visible, tagName, onClose, onSave, colors, title, placeholder }: EditTagModalProps) {
+  const { t } = useTranslation();
+  const resolvedTitle = title || t('tags.renameTitle');
+  const resolvedPlaceholder = placeholder || t('tags.renamePlaceholder');
   const [inputValue, setInputValue] = useState(tagName);
 
   React.useEffect(() => {
@@ -219,7 +224,7 @@ function EditTagModal({ visible, tagName, onClose, onSave, colors, title = "重�
       <View style={styles.modalOverlay}>
         <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
           <Text style={[styles.modalTitle, { color: colors.text }]}>
-            {title}
+            {resolvedTitle}
           </Text>
 
           <TextInput
@@ -233,7 +238,7 @@ function EditTagModal({ visible, tagName, onClose, onSave, colors, title = "重�
             ]}
             value={inputValue}
             onChangeText={setInputValue}
-            placeholder={placeholder}
+            placeholder={resolvedPlaceholder}
             placeholderTextColor={colors.textMuted}
             autoFocus
             maxLength={20}
@@ -245,7 +250,7 @@ function EditTagModal({ visible, tagName, onClose, onSave, colors, title = "重�
               onPress={onClose}
             >
               <Text style={[styles.modalButtonText, { color: colors.textSecondary }]}>
-                取消
+                {t('tags.cancel')}
               </Text>
             </TouchableOpacity>
 
@@ -254,7 +259,7 @@ function EditTagModal({ visible, tagName, onClose, onSave, colors, title = "重�
               onPress={handleSave}
             >
               <Text style={[styles.modalButtonText, { color: "#0a0a0a" }]}>
-                保存
+                {t('tags.save')}
               </Text>
             </TouchableOpacity>
           </View>
@@ -319,7 +324,7 @@ export default function TagsManagementScreen() {
     async (tagName: string) => {
       const exists = tagStats.some((tag) => tag.name === tagName);
       if (exists) {
-        Alert.alert("错误", "该标签已存在");
+        Alert.alert(t('common.error'), t('tags.tagExists'));
         return;
       }
       setStandaloneTags((prev) => {
@@ -354,7 +359,7 @@ export default function TagsManagementScreen() {
         }
       } catch (error) {
         console.error("Failed to rename tag:", error);
-        Alert.alert("错误", "重命名标签失败，请重试");
+        Alert.alert(t('common.error'), t('tags.renameError'));
       }
     },
     [contacts, updateContact, standaloneTags]
@@ -377,7 +382,7 @@ export default function TagsManagementScreen() {
         }
       } catch (error) {
         console.error("Failed to delete tag:", error);
-        Alert.alert("错误", "删除标签失败，请重试");
+        Alert.alert(t('common.error'), t('tags.deleteError'));
       }
     },
     [contacts, updateContact, standaloneTags]
@@ -399,7 +404,7 @@ export default function TagsManagementScreen() {
         await updateContact({ ...contact, tags: newTags });
       } catch (error) {
         console.error("Failed to remove tag:", error);
-        Alert.alert("错误", "移除标签失败");
+        Alert.alert(t('common.error'), t('tags.removeError'));
       }
     },
     [contacts, detailTag, updateContact]
@@ -428,15 +433,15 @@ export default function TagsManagementScreen() {
   const handleDeleteTag = useCallback(
     (tagName: string, count: number) => {
       const message = count > 0
-        ? `确定要删除标签 "${tagName}" 吗？\n\n这将从 ${count} 个联系人中移除此标签，但不会删除联系人本身。`
-        : `确定要删除标签 "${tagName}" 吗？`;
+        ? t('tags.deleteConfirmWithContacts', { tagName, count })
+        : t('tags.deleteConfirm', { tagName });
       Alert.alert(
-        "删除标签",
+        t('tags.deleteTitle'),
         message,
         [
-          { text: "取消", style: "cancel" },
+          { text: t('tags.cancel'), style: "cancel" },
           {
-            text: "删除",
+            text: t('tags.deleteButton'),
             style: "destructive",
             onPress: () => deleteTag(tagName),
           },
@@ -453,7 +458,7 @@ export default function TagsManagementScreen() {
           (tag) => tag.name === newName && tag.name !== editingTag
         );
         if (exists) {
-          Alert.alert("错误", "该标签名称已存在");
+          Alert.alert(t('common.error'), t('tags.tagExistsError'));
           return;
         }
         renameTag(editingTag, newName);
@@ -472,10 +477,10 @@ export default function TagsManagementScreen() {
         <Ionicons name="pricetag-outline" size={48} color={colors.primary} />
       </View>
       <Text style={[styles.emptyTitle, { color: colors.text }]}>
-        暂无标签
+        {t('tags.noTags')}
       </Text>
       <Text style={[styles.emptySubtitle, { color: colors.textMuted }]}>
-        在联系人详情页添加标签，方便分类管理
+        {t('tags.noTagsHint')}
       </Text>
     </Animated.View>
   );
@@ -491,7 +496,7 @@ export default function TagsManagementScreen() {
         </TouchableOpacity>
 
         <Text style={[styles.headerTitle, { color: colors.text }]}>
-          标签管理
+          {t('tags.title')}
         </Text>
 
         <TouchableOpacity
@@ -512,7 +517,7 @@ export default function TagsManagementScreen() {
               {tagStats.length}
             </Text>
             <Text style={[styles.statLabel, { color: colors.textMuted }]}>
-              标签总数
+              {t('tags.totalTags')}
             </Text>
           </View>
           <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
@@ -521,7 +526,7 @@ export default function TagsManagementScreen() {
               {contacts.filter((c) => c.tags?.length > 0).length}
             </Text>
             <Text style={[styles.statLabel, { color: colors.textMuted }]}>
-              已标记联系人
+              {t('tags.taggedContacts')}
             </Text>
           </View>
         </Animated.View>
@@ -534,7 +539,7 @@ export default function TagsManagementScreen() {
         {isLoading ? (
           <View style={styles.loadingContainer}>
             <Text style={[styles.loadingText, { color: colors.textMuted }]}>
-              加载中...
+              {t('tags.loading')}
             </Text>
           </View>
         ) : tagStats.length === 0 ? (
@@ -550,6 +555,7 @@ export default function TagsManagementScreen() {
                 onEdit={() => handleEditTag(tag.name)}
                 onDelete={() => handleDeleteTag(tag.name, tag.count)}
                 colors={colors}
+                t={t}
               />
             ))}
           </View>
@@ -572,8 +578,8 @@ export default function TagsManagementScreen() {
         onClose={() => setCreatingTag(false)}
         onSave={createTag}
         colors={colors}
-        title="新建标签"
-        placeholder="输入标签名称"
+        title={t('tags.newTagTitle')}
+        placeholder={t('tags.newTagPlaceholder')}
       />
 
       <TagDetailModal
@@ -584,6 +590,7 @@ export default function TagsManagementScreen() {
         onContactPress={handleContactPress}
         onRemoveTag={handleRemoveTagFromContact}
         colors={colors}
+        t={t}
       />
     </SafeAreaView>
   );

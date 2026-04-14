@@ -20,14 +20,6 @@ import { getStorageItemAsync } from "@/hooks/useStorageState";
 
 type UserInfo = { nickname?: string; avatar?: string };
 
-const INTERACTION_TYPE_LABELS: Record<string, string> = {
-  meeting: "聚餐",
-  call: "户外运动",
-  message: "学习",
-  gift: "娱乐",
-  other: "其他",
-};
-
 const INTERACTION_TYPE_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   meeting: "restaurant",
   call: "bicycle",
@@ -35,6 +27,24 @@ const INTERACTION_TYPE_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   gift: "golf",
   other: "ellipsis-horizontal",
 };
+
+function getInteractionTypeLabel(type: string, t: (key: string) => string): string {
+  const key = `interaction.types.${type}`;
+  const translated = t(key);
+  return translated === key ? type : translated;
+}
+
+function formatDateRelative(timestamp: number, t: (key: string) => string): string {
+  const date = new Date(timestamp);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0) return t("profile.today");
+  if (diffDays === 1) return t("profile.yesterday");
+  if (diffDays < 7) return `${diffDays}${t("profile.daysAgoSuffix")}`;
+  return `${date.getMonth() + 1}/${date.getDate()}`;
+}
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -127,15 +137,7 @@ export default function ProfileScreen() {
   );
 
   const formatDate = (timestamp: number): string => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-    if (diffDays === 0) return "今天";
-    if (diffDays === 1) return "昨天";
-    if (diffDays < 7) return `${diffDays}天前`;
-    return `${date.getMonth() + 1}月${date.getDate()}日`;
+    return formatDateRelative(timestamp, t);
   };
 
   if (isLoading) {
@@ -160,7 +162,7 @@ export default function ProfileScreen() {
           <Ionicons name="chevron-back" size={24} color={colors.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.text }]}>
-          个人中心
+          {t("profile.title")}
         </Text>
         <TouchableOpacity onPress={() => router.push("/(views)/settings")}>
           <Ionicons name="settings-outline" size={24} color={colors.text} />
@@ -174,10 +176,10 @@ export default function ProfileScreen() {
         <View style={[styles.userCard, { backgroundColor: colors.surface }]}>
           <DefaultAvatar nickname={userInfo.nickname} size={72} />
           <Text style={[styles.userName, { color: colors.text }]}>
-            {userInfo.nickname || "未设置昵称"}
+            {userInfo.nickname || t("profile.noNickname")}
           </Text>
           <Text style={[styles.userSubtitle, { color: colors.textMuted }]}>
-            已加入 {stats.daysSinceJoined} 天
+            {t("profile.joinedDays", { days: stats.daysSinceJoined })}
           </Text>
         </View>
 
@@ -185,25 +187,25 @@ export default function ProfileScreen() {
           <StatCard
             icon="people"
             value={stats.totalContacts}
-            label="联系人"
+            label={t("profile.contacts")}
             colors={colors}
           />
           <StatCard
             icon="swap-horizontal"
             value={stats.totalInteractions}
-            label="交往记录"
+            label={t("profile.interactions")}
             colors={colors}
           />
           <StatCard
             icon="checkbox"
             value={`${stats.completionRate}%`}
-            label="待办完成"
+            label={t("profile.completionRate")}
             colors={colors}
           />
           <StatCard
             icon="star"
             value={stats.highPriorityContacts}
-            label="重要人脉"
+            label={t("profile.keyContacts")}
             colors={colors}
           />
         </View>
@@ -211,7 +213,7 @@ export default function ProfileScreen() {
         {typeDistribution.length > 0 && (
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              交往类型分布
+              {t("profile.typeDistribution")}
             </Text>
             <View style={[styles.distributionCard, { backgroundColor: colors.surface }]}>
               {typeDistribution.map(([type, count]) => {
@@ -228,7 +230,7 @@ export default function ProfileScreen() {
                         color={colors.textMuted}
                       />
                       <Text style={[styles.distributionType, { color: colors.text }]}>
-                        {INTERACTION_TYPE_LABELS[type] || type}
+                        {getInteractionTypeLabel(type, t)}
                       </Text>
                     </View>
                     <View style={styles.distributionBarContainer}>
@@ -255,7 +257,7 @@ export default function ProfileScreen() {
         {recentInteractions.length > 0 && (
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              最近交往
+              {t("profile.recentInteractions")}
             </Text>
             <View style={[styles.recentCard, { backgroundColor: colors.surface }]}>
               {recentInteractions.map((interaction) => {
@@ -304,7 +306,7 @@ export default function ProfileScreen() {
                           { color: colors.textMuted },
                         ]}
                       >
-                        {contact?.name || "未知"} · {formatDate(interaction.date)}
+                        {contact?.name || t("profile.unknown")} · {formatDate(interaction.date)}
                       </Text>
                     </View>
                   </TouchableOpacity>
@@ -317,7 +319,7 @@ export default function ProfileScreen() {
         {topContacts.length > 0 && (
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              重要人脉
+              {t("profile.keyContacts")}
             </Text>
             <View style={[styles.contactsCard, { backgroundColor: colors.surface }]}>
               {topContacts.map((contact) => (
@@ -343,7 +345,7 @@ export default function ProfileScreen() {
                     <Text
                       style={[styles.contactMeta, { color: colors.textMuted }]}
                     >
-                      {contact.company || "无公司"} · {contact.title || "无职位"}
+                      {contact.company || t("profile.noCompany")} · {contact.title || t("profile.noTitle")}
                     </Text>
                   </View>
                   <View
@@ -366,7 +368,7 @@ export default function ProfileScreen() {
                         },
                       ]}
                     >
-                      {contact.priority === "high" ? "高" : "中"}
+                      {contact.priority === "high" ? t("profile.priorityHigh") : t("profile.priorityMedium")}
                     </Text>
                   </View>
                 </TouchableOpacity>
@@ -377,7 +379,7 @@ export default function ProfileScreen() {
 
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            快捷操作
+            {t("profile.quickActions")}
           </Text>
           <View style={[styles.actionsCard, { backgroundColor: colors.surface }]}>
             <TouchableOpacity
@@ -386,7 +388,7 @@ export default function ProfileScreen() {
             >
               <Ionicons name="people-outline" size={20} color={colors.primary} />
               <Text style={[styles.actionText, { color: colors.text }]}>
-                全部联系人
+                {t("contacts.all")}
               </Text>
               <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
             </TouchableOpacity>
@@ -396,7 +398,7 @@ export default function ProfileScreen() {
             >
               <Ionicons name="pricetags-outline" size={20} color={colors.primary} />
               <Text style={[styles.actionText, { color: colors.text }]}>
-                标签管理
+                {t("tags.title")}
               </Text>
               <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
             </TouchableOpacity>
@@ -406,7 +408,7 @@ export default function ProfileScreen() {
             >
               <Ionicons name="settings-outline" size={20} color={colors.primary} />
               <Text style={[styles.actionText, { color: colors.text }]}>
-                设置
+                {t("settings.title")}
               </Text>
               <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
             </TouchableOpacity>

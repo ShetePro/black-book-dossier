@@ -11,6 +11,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { FadeInUp } from 'react-native-reanimated';
+import { useTranslation } from 'react-i18next';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import { getDatabase } from '@/db/operations';
 import { getActivities, getActivityStats } from '@/services/db/activities';
@@ -26,14 +27,15 @@ const ActivityItem: React.FC<{
   activity: ActivityWithType;
   onPress: () => void;
   colors: ReturnType<typeof useThemeColor>;
-}> = ({ activity, onPress, colors }) => {
+  t: (key: string) => string;
+}> = ({ activity, onPress, colors, t }) => {
   const date = dayjs(activity.startedAt);
   const isToday = date.isSame(dayjs(), 'day');
   const isYesterday = date.isSame(dayjs().subtract(1, 'day'), 'day');
 
-  let dateText = date.format('MM月DD日');
-  if (isToday) dateText = '今天';
-  else if (isYesterday) dateText = '昨天';
+  let dateText = `${date.month() + 1}/${date.date()}`;
+  if (isToday) dateText = t('common.today');
+  else if (isYesterday) dateText = t('common.yesterday');
 
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
@@ -92,6 +94,7 @@ const StatCard: React.FC<{
 
 export default function ActivitiesScreen(): React.ReactElement {
   const router = useRouter();
+  const { t } = useTranslation();
   const colors = useThemeColor();
   const [activities, setActivities] = useState<ActivityWithType[]>([]);
   const [activityTypes, setActivityTypes] = useState<ActivityType[]>([]);
@@ -143,13 +146,13 @@ export default function ActivitiesScreen(): React.ReactElement {
     <View>
       <View className="flex-row px-2 mb-4">
         <StatCard
-          title="总活动"
+          title={t('activities.totalActivities')}
           value={stats?.totalCount || 0}
           icon="calendar"
           colors={colors}
         />
         <StatCard
-          title="活动类型"
+          title={t('activities.activityTypes')}
           value={Object.keys(stats?.byType || {}).length}
           icon="grid"
           colors={colors}
@@ -158,12 +161,12 @@ export default function ActivitiesScreen(): React.ReactElement {
 
       <View className="px-4 mb-4">
         <Text className="text-sm font-medium text-elite-muted mb-2">
-          筛选活动类型
+          {t('activities.filterByType')}
         </Text>
         <FlatList
           horizontal
           showsHorizontalScrollIndicator={false}
-          data={[{ id: 'all', name: '全部', icon: 'apps', color: colors.primary }, ...activityTypes]}
+          data={[{ id: 'all', name: t('common.all'), icon: 'apps', color: colors.primary }, ...activityTypes]}
           keyExtractor={item => item.id}
           renderItem={({ item }) => (
             <TouchableOpacity
@@ -191,7 +194,7 @@ export default function ActivitiesScreen(): React.ReactElement {
                       : 'text-elite'
                   }`}
                 >
-                  {item.name === 'all' ? '全部' : item.name}
+                  {item.id === 'all' ? t('common.all') : item.name}
                 </Text>
               </View>
             </TouchableOpacity>
@@ -201,7 +204,7 @@ export default function ActivitiesScreen(): React.ReactElement {
 
       <View className="px-4 mb-2">
         <Text className="text-lg font-semibold text-elite">
-          活动记录
+          {t('activities.title')}
         </Text>
       </View>
     </View>
@@ -213,10 +216,10 @@ export default function ActivitiesScreen(): React.ReactElement {
         <Ionicons name="calendar-outline" size={40} color={colors.textMuted} />
       </View>
       <Text className="text-lg font-medium text-elite mb-2">
-        暂无活动记录
+        {t('activities.empty')}
       </Text>
       <Text className="text-sm text-elite-muted text-center">
-        点击右下角按钮创建您的第一个活动
+        {t('activities.emptyHint')}
       </Text>
     </View>
   );
@@ -237,7 +240,7 @@ export default function ActivitiesScreen(): React.ReactElement {
         <TouchableOpacity onPress={() => router.back()} className="p-2">
           <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text className="text-lg font-semibold text-elite">活动记录</Text>
+        <Text className="text-lg font-semibold text-elite">{t('activities.title')}</Text>
         <TouchableOpacity onPress={() => {}} className="p-2">
           <Ionicons name="filter-outline" size={24} color={colors.text} />
         </TouchableOpacity>
@@ -253,6 +256,7 @@ export default function ActivitiesScreen(): React.ReactElement {
               activity={item}
               onPress={() => router.push(`/(views)/activities/${item.id}`)}
               colors={colors}
+              t={t}
             />
           )}
           keyExtractor={item => item.id}

@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
+import { useTranslation } from "react-i18next";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { useContact } from "@/hooks/contact";
 import { useContactStore } from "@/store";
@@ -23,6 +24,7 @@ const STANDALONE_TAGS_KEY = "standalone_tags";
 
 export default function EditContactScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const colors = useThemeColor();
   
@@ -74,7 +76,7 @@ export default function EditContactScreen() {
     if (!contact) return;
     
     if (!formData.name.trim()) {
-      Alert.alert("提示", "请输入联系人姓名");
+      Alert.alert(t('common.notice'), t('contact.validation.nameRequired'));
       return;
     }
 
@@ -94,12 +96,12 @@ export default function EditContactScreen() {
       };
 
       await updateContact(updatedContact);
-      Alert.alert("保存成功", "联系人信息已更新", [
-        { text: "确定", onPress: () => router.back() }
+      Alert.alert(t('contact.saveSuccess'), t('contact.saveSuccessMessage'), [
+        { text: t('contact.ok'), onPress: () => router.back() }
       ]);
     } catch (error) {
       console.error("Failed to update contact:", error);
-      Alert.alert("错误", "更新联系人失败，请重试");
+      Alert.alert(t('contact.saveError'), t('contact.saveErrorMessage'));
     } finally {
       setIsSaving(false);
     }
@@ -107,12 +109,12 @@ export default function EditContactScreen() {
 
   const handleDelete = () => {
     Alert.alert(
-      "确认删除",
-      `确定要删除联系人"${contact?.name}"吗？此操作不可撤销。`,
+      t('contact.deleteConfirm'),
+      t('contact.deleteMessage', { name: contact?.name }),
       [
-        { text: "取消", style: "cancel" },
+        { text: t('common.cancel'), style: "cancel" },
         {
-          text: "删除",
+          text: t('contact.deleteButton'),
           style: "destructive",
           onPress: async () => {
             try {
@@ -120,7 +122,7 @@ export default function EditContactScreen() {
               router.replace("/(tabs)/contacts");
             } catch (error) {
               console.error("Failed to delete contact:", error);
-              Alert.alert("错误", "删除联系人失败");
+              Alert.alert(t('common.error'), t('contact.deleteError'));
             }
           },
         },
@@ -153,10 +155,10 @@ export default function EditContactScreen() {
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()}>
             <Text style={[styles.cancelButton, { color: colors.textSecondary }]}>
-              取消
+              {t('contact.cancel')}
             </Text>
           </TouchableOpacity>
-          <Text style={[styles.title, { color: colors.text }]}>编辑联系人</Text>
+          <Text style={[styles.title, { color: colors.text }]}>{t('contact.editTitle')}</Text>
           <View style={{ width: 60 }} />
         </View>
         <ContactSkeleton />
@@ -170,16 +172,16 @@ export default function EditContactScreen() {
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()}>
             <Text style={[styles.cancelButton, { color: colors.textSecondary }]}>
-              取消
+              {t('contact.cancel')}
             </Text>
           </TouchableOpacity>
-          <Text style={[styles.title, { color: colors.text }]}>编辑联系人</Text>
+          <Text style={[styles.title, { color: colors.text }]}>{t('contact.editTitle')}</Text>
           <View style={{ width: 60 }} />
         </View>
         <View style={styles.errorContainer}>
           <Ionicons name="alert-circle-outline" size={48} color={colors.textMuted} />
           <Text style={[styles.errorText, { color: colors.textMuted }]}>
-            {error || "联系人不存在"}
+            {error || t('contact.notFound')}
           </Text>
         </View>
       </SafeAreaView>
@@ -191,17 +193,17 @@ export default function EditContactScreen() {
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} disabled={isSaving}>
           <Text style={[styles.cancelButton, { color: colors.textSecondary }]}>
-            取消
+            {t('contact.cancel')}
           </Text>
         </TouchableOpacity>
 
-        <Text style={[styles.title, { color: colors.text }]}>编辑联系人</Text>
+        <Text style={[styles.title, { color: colors.text }]}>{t('contact.editTitle')}</Text>
 
         <TouchableOpacity onPress={handleSave} disabled={isSaving}>
           {isSaving ? (
             <ActivityIndicator size="small" color={colors.primary} />
           ) : (
-            <Text style={[styles.saveButton, { color: colors.primary }]}>保存</Text>
+            <Text style={[styles.saveButton, { color: colors.primary }]}>{t('contact.save')}</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -217,19 +219,19 @@ export default function EditContactScreen() {
             <Ionicons name="camera" size={32} color={colors.textMuted} />
           </View>
           <Text style={[styles.avatarHint, { color: colors.textMuted }]}>
-            修改头像
+            {t('contact.editAvatar')}
           </Text>
         </View>
 
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>基本信息</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('contact.basicInfo')}</Text>
 
           <View
             style={[styles.inputCard, { backgroundColor: colors.surface }]}
           >
             <InputRow
-              label="姓名"
-              placeholder="输入姓名 *"
+              label={t('contact.name')}
+              placeholder={t('contact.namePlaceholder')}
               value={formData.name}
               onChangeText={(text) =>
                 setFormData({ ...formData, name: text })
@@ -239,8 +241,8 @@ export default function EditContactScreen() {
             />
 
             <InputRow
-              label="职位"
-              placeholder="输入职位"
+              label={t('contact.title')}
+              placeholder={t('contact.titlePlaceholder')}
               value={formData.title}
               onChangeText={(text) =>
                 setFormData({ ...formData, title: text })
@@ -249,8 +251,8 @@ export default function EditContactScreen() {
             />
 
             <InputRow
-              label="公司"
-              placeholder="输入公司名称"
+              label={t('contact.company')}
+              placeholder={t('contact.companyPlaceholder')}
               value={formData.company}
               onChangeText={(text) =>
                 setFormData({ ...formData, company: text })
@@ -262,14 +264,14 @@ export default function EditContactScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>联系方式</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('contact.contactInfo')}</Text>
 
           <View
             style={[styles.inputCard, { backgroundColor: colors.surface }]}
           >
             <InputRow
-              label="电话"
-              placeholder="输入电话号码"
+              label={t('contact.phone')}
+              placeholder={t('contact.phonePlaceholder')}
               value={formData.phone}
               onChangeText={(text) =>
                 setFormData({ ...formData, phone: text })
@@ -279,8 +281,8 @@ export default function EditContactScreen() {
             />
 
             <InputRow
-              label="邮箱"
-              placeholder="输入邮箱地址"
+              label={t('contact.email')}
+              placeholder={t('contact.emailPlaceholder')}
               value={formData.email}
               onChangeText={(text) =>
                 setFormData({ ...formData, email: text })
@@ -293,13 +295,13 @@ export default function EditContactScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>标签</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('contact.tags')}</Text>
 
           <View style={[styles.tagCard, { backgroundColor: colors.surface }]}>
             <View style={styles.tagInputRow}>
               <TextInput
                 style={[styles.tagInput, { color: colors.text }]}
-                placeholder="添加标签"
+                placeholder={t('contact.addTag')}
                 placeholderTextColor={colors.textMuted}
                 value={newTag}
                 onChangeText={setNewTag}
@@ -366,14 +368,14 @@ export default function EditContactScreen() {
           <View style={styles.tagPickerOverlay}>
             <View style={[styles.tagPickerContainer, { backgroundColor: colors.background }]}>
               <View style={[styles.tagPickerHeader, { backgroundColor: colors.surface }]}>
-                <Text style={[styles.tagPickerTitle, { color: colors.text }]}>选择标签</Text>
+                <Text style={[styles.tagPickerTitle, { color: colors.text }]}>{t('contact.selectTagTitle')}</Text>
                 <TouchableOpacity onPress={() => setShowTagPicker(false)}>
                   <Ionicons name="close" size={24} color={colors.textMuted} />
                 </TouchableOpacity>
               </View>
               <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.tagPickerList}>
                 {existingTags.length === 0 ? (
-                  <Text style={[styles.tagPickerEmpty, { color: colors.textMuted }]}>暂无可用标签</Text>
+                  <Text style={[styles.tagPickerEmpty, { color: colors.textMuted }]}>{t('contact.noTagsAvailable')}</Text>
                 ) : (
                   existingTags.map((tag) => (
                     <TouchableOpacity
@@ -399,12 +401,12 @@ export default function EditContactScreen() {
         </Modal>
 
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>备注</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('contact.notes')}</Text>
 
           <View style={[styles.notesCard, { backgroundColor: colors.surface }]}>
             <TextInput
               style={[styles.notesInput, { color: colors.text }]}
-              placeholder="添加备注信息..."
+              placeholder={t('contact.notesPlaceholder')}
               placeholderTextColor={colors.textMuted}
               value={formData.notes}
               onChangeText={(text) =>
@@ -426,7 +428,7 @@ export default function EditContactScreen() {
           >
             <Ionicons name="trash-outline" size={20} color={colors.danger} />
             <Text style={[styles.deleteButtonText, { color: colors.danger }]}>
-              删除联系人
+              {t('contact.delete')}
             </Text>
           </TouchableOpacity>
         </View>

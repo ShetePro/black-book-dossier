@@ -153,7 +153,7 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </Animated.View>
           <Text style={[styles.addButtonLabel, { color: colors.textMuted }]}>
-            点击添加记录
+            {t("home.tapToAddRecord")}
           </Text>
         </View>
 
@@ -202,7 +202,7 @@ export default function HomeScreen() {
         <Animated.View style={[styles.actionItemsSection, cardAnimatedStyle]}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              待办事项
+              {t("actionItem.title")}
             </Text>
             <View style={styles.sectionActions}>
               <TouchableOpacity
@@ -220,10 +220,10 @@ export default function HomeScreen() {
                 <Ionicons name="checkmark-done-outline" size={40} color={colors.success} />
               </View>
               <Text style={[styles.emptyTitle, { color: colors.text }]}>
-                所有待办已完成
+                {t("actionItem.allCompleted")}
               </Text>
               <Text style={[styles.emptySubtitle, { color: colors.textMuted }]}>
-                点击下方按钮添加新的待办事项
+                {t("actionItem.emptyHint")}
               </Text>
               <TouchableOpacity
                 style={[styles.emptyButton, { backgroundColor: colors.surface, borderColor: colors.primary }]}
@@ -231,7 +231,7 @@ export default function HomeScreen() {
               >
                 <Ionicons name="add" size={18} color={colors.primary} />
                 <Text style={[styles.emptyButtonText, { color: colors.primary }]}>
-                  添加待办
+                  {t("actionItem.addButton")}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -242,7 +242,7 @@ export default function HomeScreen() {
                 isLoading={isLoading}
                 onToggleComplete={toggleComplete}
                 onDelete={deleteActionItem}
-                emptyText="暂无待办事项"
+                emptyText={t("actionItem.empty")}
                 scrollable={false}
               />
               {actionItems.filter(item => !item.completed).length > 5 && (
@@ -251,7 +251,7 @@ export default function HomeScreen() {
                   onPress={() => router.push("/(tabs)/action-items")}
                 >
                   <Text style={[styles.viewAllText, { color: colors.primary }]}>
-                    查看全部 ({actionItems.filter(item => !item.completed).length})
+                    {t("common.seeAll")} ({actionItems.filter(item => !item.completed).length})
                   </Text>
                 </TouchableOpacity>
               )}
@@ -289,9 +289,9 @@ export default function HomeScreen() {
               onPress={handleAddPress}
             >
               <Ionicons name="add" size={18} color={colors.primary} />
-              <Text style={[styles.emptyButtonText, { color: colors.primary }]}>
-                添加记录
-              </Text>
+                <Text style={[styles.emptyButtonText, { color: colors.primary }]}>
+                  {t("interaction.add")}
+                </Text>
             </TouchableOpacity>
           </View>
         </Animated.View>

@@ -11,21 +11,17 @@ import {
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInUp } from 'react-native-reanimated';
+import { useTranslation } from 'react-i18next';
 
 import { useActionItems } from '@/hooks/actionItem';
 import { useContacts } from '@/hooks/contact';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import { ActionItem } from '@/types';
 
-const priorityOptions: Array<{ value: ActionItem['priority']; label: string; color: string }> = [
-  { value: 'high', label: '高优先级', color: '#ef4444' },
-  { value: 'medium', label: '中优先级', color: '#f59e0b' },
-  { value: 'low', label: '低优先级', color: '#6b7280' },
-];
-
 export default function NewActionItemScreen() {
   const router = useRouter();
   const colors = useThemeColor();
+  const { t } = useTranslation();
   const { contactId } = useLocalSearchParams<{ contactId?: string }>();
   
   const { addActionItem } = useActionItems();
@@ -38,9 +34,15 @@ export default function NewActionItemScreen() {
   const [showContactSelector, setShowContactSelector] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const priorityOptions: Array<{ value: ActionItem['priority']; label: string; color: string }> = [
+    { value: 'high', label: t('actionItem.priorityHigh'), color: '#ef4444' },
+    { value: 'medium', label: t('actionItem.priorityMedium'), color: '#f59e0b' },
+    { value: 'low', label: t('actionItem.priorityLow'), color: '#6b7280' },
+  ];
+
   const handleSave = useCallback(async () => {
     if (!description.trim()) {
-      Alert.alert('提示', '请输入待办事项描述');
+      Alert.alert(t('common.notice'), t('actionItem.validation.descriptionRequired'));
       return;
     }
 
@@ -60,11 +62,11 @@ export default function NewActionItemScreen() {
       router.back();
     } catch (error) {
       console.error('Failed to save action item:', error);
-      Alert.alert('错误', '保存待办事项失败，请重试');
+      Alert.alert(t('common.error'), t('actionItem.saveError'));
     } finally {
       setIsSubmitting(false);
     }
-  }, [description, priority, dueDate, relatedContactId, addActionItem, router]);
+  }, [description, priority, dueDate, relatedContactId, addActionItem, router, t]);
 
   const clearDueDate = useCallback(() => {
     setDueDate(null);
@@ -106,7 +108,7 @@ export default function NewActionItemScreen() {
           <Ionicons name="close" size={24} color={colors.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.text }]}>
-          新建待办
+          {t('actionItem.newTitle')}
         </Text>
         <TouchableOpacity
           onPress={handleSave}
@@ -119,7 +121,7 @@ export default function NewActionItemScreen() {
           ]}
         >
           <Text style={styles.saveButtonText}>
-            {isSubmitting ? '保存中...' : '保存'}
+            {isSubmitting ? t('actionItem.saveLoading') : t('actionItem.save')}
           </Text>
         </TouchableOpacity>
       </View>
@@ -132,7 +134,7 @@ export default function NewActionItemScreen() {
         {/* 描述输入 */}
         <Animated.View entering={FadeInUp.delay(100)} style={styles.section}>
           <Text style={[styles.label, { color: colors.textMuted }]}>
-            待办描述 *
+            {t('actionItem.description')} *
           </Text>
           <View
             style={[
@@ -142,7 +144,7 @@ export default function NewActionItemScreen() {
           >
             <TextInput
               style={[styles.input, { color: colors.text }]}
-              placeholder="输入待办事项描述..."
+              placeholder={t('actionItem.descriptionPlaceholder')}
               placeholderTextColor={colors.textMuted}
               value={description}
               onChangeText={setDescription}
@@ -157,7 +159,7 @@ export default function NewActionItemScreen() {
         {/* 优先级选择 */}
         <Animated.View entering={FadeInUp.delay(200)} style={styles.section}>
           <Text style={[styles.label, { color: colors.textMuted }]}>
-            优先级
+            {t('actionItem.priority')}
           </Text>
           <View style={styles.priorityContainer}>
             {priorityOptions.map((option) => (
@@ -201,14 +203,14 @@ export default function NewActionItemScreen() {
         {/* 截止日期 */}
         <Animated.View entering={FadeInUp.delay(300)} style={styles.section}>
           <Text style={[styles.label, { color: colors.textMuted }]}>
-            截止日期
+            {t('actionItem.dueDate')}
           </Text>
           <View style={styles.dueDateContainer}>
             {[
-              { label: '今天', days: 0 },
-              { label: '明天', days: 1 },
-              { label: '后天', days: 2 },
-              { label: '一周后', days: 7 },
+              { label: t('actionItem.dueToday'), days: 0 },
+              { label: t('actionItem.dueTomorrow'), days: 1 },
+              { label: t('actionItem.dueDayAfter'), days: 2 },
+              { label: t('actionItem.dueWeek'), days: 7 },
             ].map(({ label, days }) => (
               <TouchableOpacity
                 key={label}
@@ -250,7 +252,7 @@ export default function NewActionItemScreen() {
           </View>
           {dueDate && (
             <Text style={[styles.selectedDateText, { color: colors.textMuted }]}>
-              已选择: {dueDate.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'short' })}
+              {t('actionItem.dueSelected', { date: dueDate.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'short' }) })}
             </Text>
           )}
         </Animated.View>
@@ -258,7 +260,7 @@ export default function NewActionItemScreen() {
         {/* 关联联系人 */}
         <Animated.View entering={FadeInUp.delay(400)} style={styles.section}>
           <Text style={[styles.label, { color: colors.textMuted }]}>
-            关联联系人
+            {t('actionItem.relatedContact')}
           </Text>
           <TouchableOpacity
             onPress={() => setShowContactSelector(!showContactSelector)}
@@ -280,7 +282,7 @@ export default function NewActionItemScreen() {
                 },
               ]}
             >
-              {selectedContact?.name || '选择联系人（可选）'}
+              {selectedContact?.name || t('actionItem.selectContact')}
             </Text>
             <Ionicons
               name={showContactSelector ? 'chevron-up' : 'chevron-down'}
@@ -324,7 +326,7 @@ export default function NewActionItemScreen() {
                     },
                   ]}
                 >
-                  不关联联系人
+                  {t('actionItem.noContact')}
                 </Text>
                 {relatedContactId === undefined && (
                   <Ionicons name="checkmark" size={18} color={colors.primary} />
@@ -377,7 +379,7 @@ export default function NewActionItemScreen() {
         {description.trim() && (
           <Animated.View entering={FadeInUp.delay(500)} style={styles.previewSection}>
             <Text style={[styles.label, { color: colors.textMuted }]}>
-              预览
+              {t('actionItem.preview')}
             </Text>
             <View
               style={[

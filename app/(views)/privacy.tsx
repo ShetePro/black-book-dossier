@@ -10,79 +10,46 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { useTranslation } from "react-i18next";
 import { useThemeColor } from "@/hooks/useThemeColor";
 
 export default function PrivacyPolicyScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const colors = useThemeColor();
 
   const sections = [
     {
-      title: "1. 数据收集",
-      content:
-        "Black Book 是一款本地优先的人脉管理应用。我们仅在您的设备本地存储以下数据：\n\n" +
-        "• 联系人信息（姓名、电话、邮箱、公司等）\n" +
-        "• 交往记录和待办事项\n" +
-        "• 语音录音（仅用于转录，可手动删除）\n" +
-        "• 应用设置和偏好\n\n" +
-        "重要：所有数据仅存储在您的设备上，我们不会上传任何数据到服务器。",
+      title: t("privacy.section1Title"),
+      content: t("privacy.section1Content"),
     },
     {
-      title: "2. 数据存储",
-      content:
-        "您的数据存储在以下位置：\n\n" +
-        "• SQLite 数据库（应用私有目录）\n" +
-        "• 本地文件系统（录音、备份文件）\n" +
-        "• iOS Keychain / Android Keystore（敏感设置）\n\n" +
-        "数据不会同步到云端，除非您手动启用 iCloud 备份功能。",
+      title: t("privacy.section2Title"),
+      content: t("privacy.section2Content"),
     },
     {
-      title: "3. 权限使用",
-      content:
-        "应用需要以下权限来提供服务：\n\n" +
-        "• 麦克风：用于语音录音功能\n" +
-        "• 通讯录：用于导入联系人（可选）\n" +
-        "• FaceID/TouchID：用于应用锁保护\n" +
-        "• 文件系统：用于导出备份文件\n\n" +
-        "所有权限仅用于本地功能，不会上传任何数据。",
+      title: t("privacy.section3Title"),
+      content: t("privacy.section3Content"),
     },
     {
-      title: "4. 数据安全",
-      content:
-        "我们采用多种措施保护您的数据：\n\n" +
-        "• 生物识别锁（FaceID/TouchID）\n" +
-        "• 安全存储敏感信息\n" +
-        "• 本地数据加密（iOS/Android 系统级）\n" +
-        "• 无网络传输，杜绝数据泄露风险",
+      title: t("privacy.section4Title"),
+      content: t("privacy.section4Content"),
     },
     {
-      title: "5. 您的权利",
-      content:
-        "您对数据拥有完全控制权：\n\n" +
-        "• 查看：随时查看所有存储的数据\n" +
-        "• 导出：导出为 CSV 或 JSON 格式\n" +
-        "• 删除：一键删除所有数据（Kill Switch）\n" +
-        "• 备份：手动备份到 iCloud 或本地",
+      title: t("privacy.section5Title"),
+      content: t("privacy.section5Content"),
     },
     {
-      title: "6. 第三方服务",
-      content:
-        "应用使用以下第三方服务：\n\n" +
-        "• Whisper（本地语音识别）\n" +
-        "• iCloud（可选备份，仅在您启用时）\n\n" +
-        "所有语音识别在本地完成，不会上传语音数据到任何服务器。",
+      title: t("privacy.section6Title"),
+      content: t("privacy.section6Content"),
     },
     {
-      title: "7. 隐私政策更新",
-      content:
-        "我们可能会更新本隐私政策。更新将在应用内通知您。继续使用应用即表示您同意更新后的政策。",
+      title: t("privacy.section7Title"),
+      content: t("privacy.section7Content"),
     },
     {
-      title: "8. 联系我们",
-      content:
-        "如果您对隐私政策有任何疑问，请联系我们：\n\n" +
-        "• 邮箱：privacy@blackbook.app\n" +
-        "• GitHub：https://github.com/ShetePro/black-book",
+      title: t("privacy.section8Title"),
+      content: t("privacy.section8Content"),
     },
   ];
 
@@ -99,7 +66,7 @@ export default function PrivacyPolicyScreen() {
           <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.text }]}>
-          隐私政策
+          {t("privacy.title")}
         </Text>
         <View style={styles.placeholder} />
       </View>
@@ -124,10 +91,10 @@ export default function PrivacyPolicyScreen() {
             <Ionicons name="shield-checkmark" size={32} color={colors.primary} />
           </View>
           <Text style={[styles.introTitle, { color: colors.text }]}>
-            您的数据，您掌控
+            {t("privacy.introTitle")}
           </Text>
           <Text style={[styles.introText, { color: colors.textSecondary }]}>
-            Black Book 采用本地优先架构，所有数据仅存储在您的设备上。我们不收集、不上传、不分享您的任何数据。
+            {t("privacy.introText")}
           </Text>
         </View>
 
@@ -156,7 +123,7 @@ export default function PrivacyPolicyScreen() {
 
         {/* 生效日期 */}
         <Text style={[styles.effectiveDate, { color: colors.textMuted }]}>
-          生效日期：2026年4月1日
+          {t("privacy.effectiveDate")}
         </Text>
 
         <View style={{ height: 40 }} />

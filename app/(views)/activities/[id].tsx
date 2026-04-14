@@ -11,6 +11,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { FadeInUp } from 'react-native-reanimated';
+import { useTranslation } from 'react-i18next';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import { getDatabase } from '@/db/operations';
 import { getActivityWithParticipants, deleteActivity } from '@/services/db/activities';
@@ -58,6 +59,7 @@ const InfoRow: React.FC<{
 
 export default function ActivityDetailScreen(): React.ReactElement {
   const router = useRouter();
+  const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const colors = useThemeColor();
   const [activity, setActivity] = useState<ActivityWithParticipants | null>(null);
@@ -89,12 +91,12 @@ export default function ActivityDetailScreen(): React.ReactElement {
 
   const handleDelete = useCallback(() => {
     Alert.alert(
-      '删除活动',
-      '确定要删除这个活动吗？此操作不可恢复。',
+      t('activities.deleteConfirmTitle'),
+      t('activities.deleteConfirmMessage'),
       [
-        { text: '取消', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: '删除',
+          text: t('common.delete'),
           style: 'destructive',
           onPress: async () => {
             try {
@@ -103,13 +105,13 @@ export default function ActivityDetailScreen(): React.ReactElement {
               router.back();
             } catch (error) {
               console.error('Failed to delete activity:', error);
-              Alert.alert('错误', '删除活动失败');
+              Alert.alert(t('common.error'), t('activities.deleteError'));
             }
           },
         },
       ]
     );
-  }, [id, router]);
+  }, [id, router, t]);
 
   const handleEdit = useCallback(() => {
     router.push(`/(views)/activities/edit?id=${id}`);
@@ -131,13 +133,13 @@ export default function ActivityDetailScreen(): React.ReactElement {
         <View className="flex-1 items-center justify-center px-8">
           <Ionicons name="alert-circle-outline" size={48} color={colors.textMuted} />
           <Text className="text-lg font-medium text-elite mt-4">
-            活动不存在
+            {t('activities.notFound')}
           </Text>
           <TouchableOpacity
             onPress={() => router.back()}
             className="mt-4 px-6 py-2 bg-primary rounded-full"
           >
-            <Text className="text-background font-medium">返回</Text>
+            <Text className="text-background font-medium">{t('common.back')}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -156,7 +158,7 @@ export default function ActivityDetailScreen(): React.ReactElement {
         <TouchableOpacity onPress={() => router.back()} className="p-2">
           <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text className="text-lg font-semibold text-elite">活动详情</Text>
+        <Text className="text-lg font-semibold text-elite">{t('activities.detailTitle')}</Text>
         <View className="flex-row">
           <TouchableOpacity onPress={handleEdit} className="p-2 mr-2">
             <Ionicons name="create-outline" size={24} color={colors.text} />
@@ -196,28 +198,28 @@ export default function ActivityDetailScreen(): React.ReactElement {
             <View className="bg-surface rounded-xl p-4">
               <InfoRow
                 icon="calendar-outline"
-                label="日期"
-                value={startDate.format('YYYY年MM月DD日')}
+                label={t('activities.date')}
+                value={startDate.format('YYYY/MM/DD')}
                 colors={colors}
               />
               <InfoRow
                 icon="time-outline"
-                label="时间"
+                label={t('activities.time')}
                 value={`${startDate.format('HH:mm')}${endDate ? ` - ${endDate.format('HH:mm')}` : ''}`}
                 colors={colors}
               />
               {duration && (
                 <InfoRow
                   icon="hourglass-outline"
-                  label="时长"
-                  value={`${Math.floor(duration / 60)}小时 ${duration % 60}分钟`}
+                  label={t('activities.duration')}
+                  value={`${Math.floor(duration / 60)}h ${duration % 60}m`}
                   colors={colors}
                 />
               )}
               {activity.locationName && (
                 <InfoRow
                   icon="location-outline"
-                  label="地点"
+                  label={t('activities.location')}
                   value={activity.locationName}
                   colors={colors}
                 />
@@ -228,7 +230,7 @@ export default function ActivityDetailScreen(): React.ReactElement {
           {activity.description && (
             <View className="px-4 mb-6">
               <Text className="text-sm font-medium text-elite-muted mb-2">
-                活动描述
+                {t('activities.description')}
               </Text>
               <View className="bg-surface rounded-xl p-4">
                 <Text className="text-base text-elite leading-relaxed">
@@ -241,7 +243,7 @@ export default function ActivityDetailScreen(): React.ReactElement {
           {activity.participants && activity.participants.length > 0 && (
             <View className="px-4 mb-6">
               <Text className="text-sm font-medium text-elite-muted mb-3">
-                参与者 ({activity.participants.length})
+                {t('activities.participants')} ({activity.participants.length})
               </Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 {activity.participants.map((participant) => (
@@ -263,7 +265,7 @@ export default function ActivityDetailScreen(): React.ReactElement {
           {activity.rawInput && (
             <View className="px-4 mb-6">
               <Text className="text-sm font-medium text-elite-muted mb-2">
-                原始记录
+                {t('activities.rawRecord')}
               </Text>
               <View className="bg-surface/50 rounded-xl p-4 border border-elite-muted/10">
                 <Text className="text-sm text-elite-muted italic">
@@ -276,7 +278,7 @@ export default function ActivityDetailScreen(): React.ReactElement {
           {activity.aiAnalysis && Object.keys(activity.aiAnalysis).length > 0 && (
             <View className="px-4 mb-6">
               <Text className="text-sm font-medium text-elite-muted mb-2">
-                AI 分析
+                {t('activities.aiAnalysis')}
               </Text>
               <View className="bg-surface rounded-xl p-4">
                 {activity.aiAnalysis.summary && (
@@ -300,7 +302,7 @@ export default function ActivityDetailScreen(): React.ReactElement {
 
           <View className="px-4 py-4">
             <Text className="text-xs text-elite-muted text-center">
-              创建于 {dayjs(activity.createdAt).format('YYYY-MM-DD HH:mm')}
+              {t('activities.createdAt', { date: dayjs(activity.createdAt).format('YYYY-MM-DD HH:mm') })}
             </Text>
           </View>
         </Animated.View>

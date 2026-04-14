@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   findMatchingContacts,
   MatchResult,
@@ -51,18 +52,19 @@ interface AnalyzedData {
 }
 
 // 实体类型配置
-const ENTITY_CONFIG: Record<string, { label: string; icon: any; color: string; bgColor: string }> = {
-  person: { label: '人物', icon: 'person', color: '#c9a962', bgColor: '#c9a96220' },
-  health_issue: { label: '健康状况', icon: 'medical', color: '#ef4444', bgColor: '#ef444420' },
-  location: { label: '地点', icon: 'location', color: '#3b82f6', bgColor: '#3b82f620' },
-  need: { label: '需求', icon: 'help-circle', color: '#f59e0b', bgColor: '#f59e0b20' },
-  event: { label: '事件', icon: 'calendar', color: '#8b5cf6', bgColor: '#8b5cf620' },
-  preference: { label: '偏好', icon: 'heart', color: '#ec4899', bgColor: '#ec489920' },
-  date: { label: '时间', icon: 'time', color: '#10b981', bgColor: '#10b98120' },
-  organization: { label: '组织', icon: 'business', color: '#6366f1', bgColor: '#6366f120' },
+const ENTITY_CONFIG: Record<string, { labelKey: string; icon: any; color: string; bgColor: string }> = {
+  person: { labelKey: 'agentReview.entityTypes.person', icon: 'person', color: '#c9a962', bgColor: '#c9a96220' },
+  health_issue: { labelKey: 'agentReview.entityTypes.health_issue', icon: 'medical', color: '#ef4444', bgColor: '#ef444420' },
+  location: { labelKey: 'agentReview.entityTypes.location', icon: 'location', color: '#3b82f6', bgColor: '#3b82f620' },
+  need: { labelKey: 'agentReview.entityTypes.need', icon: 'help-circle', color: '#f59e0b', bgColor: '#f59e0b20' },
+  event: { labelKey: 'agentReview.entityTypes.event', icon: 'calendar', color: '#8b5cf6', bgColor: '#8b5cf620' },
+  preference: { labelKey: 'agentReview.entityTypes.preference', icon: 'heart', color: '#ec4899', bgColor: '#ec489920' },
+  date: { labelKey: 'agentReview.entityTypes.date', icon: 'time', color: '#10b981', bgColor: '#10b98120' },
+  organization: { labelKey: 'agentReview.entityTypes.organization', icon: 'business', color: '#6366f1', bgColor: '#6366f120' },
 };
 
 export default function AgentReviewScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const colors = useThemeColor();
   const params = useLocalSearchParams();
@@ -105,8 +107,8 @@ export default function AgentReviewScreen() {
   // 获取当前语言显示
   const getLanguageDisplay = () => {
     const langMap: Record<string, string> = {
-      'cn': '中文',
-      'en': 'English',
+      'cn': t('language.chinese'),
+      'en': t('language.english'),
     };
     return langMap[settings.language] || settings.language;
   };
@@ -205,7 +207,7 @@ export default function AgentReviewScreen() {
       */
     } catch (error) {
       console.error('Analysis failed:', error);
-      Alert.alert('分析失败', '无法解析语音内容，请重试');
+      Alert.alert(t('agentReview.analysisFailed'), t('agentReview.analysisFailedMessage'));
     } finally {
       setIsAnalyzing(false);
     }
@@ -220,22 +222,28 @@ export default function AgentReviewScreen() {
     let summary = '';
 
     if (personEntities.length > 0) {
-      summary += `识别到 ${personEntities.length} 位相关人物`;
+      summary += t('agentReview.summary.persons', { count: personEntities.length });
     }
 
     if (healthIssues.length > 0) {
-      summary += summary ? `，提及 ${healthIssues.length} 项健康信息` : `提及 ${healthIssues.length} 项健康信息`;
+      summary += summary
+        ? t('agentReview.summary.healthWithPrefix', { count: healthIssues.length })
+        : t('agentReview.summary.health', { count: healthIssues.length });
     }
 
     if (needs.length > 0) {
-      summary += summary ? `，发现 ${needs.length} 个需求` : `发现 ${needs.length} 个需求`;
+      summary += summary
+        ? t('agentReview.summary.needsWithPrefix', { count: needs.length })
+        : t('agentReview.summary.needs', { count: needs.length });
     }
 
     if (actionItems.length > 0) {
-      summary += summary ? `，生成 ${actionItems.length} 个待办` : `生成 ${actionItems.length} 个待办`;
+      summary += summary
+        ? t('agentReview.summary.actionItemsWithPrefix', { count: actionItems.length })
+        : t('agentReview.summary.actionItems', { count: actionItems.length });
     }
 
-    return summary || '已分析语音内容';
+    return summary || t('agentReview.summary.default');
   };
 
   // 本地 LLM 分析
@@ -258,7 +266,7 @@ export default function AgentReviewScreen() {
       if (exactMatch) {
         entities.push({ type: 'person', value: exactMatch.name, confidence: 1.0 });
         if (!matchedContacts.find(m => m.contact.id === exactMatch.id)) {
-          matchedContacts.push({ contact: exactMatch, confidence: 1.0, reason: '姓名完全匹配', matchedFields: ['name'] });
+          matchedContacts.push({ contact: exactMatch, confidence: 1.0, reason: t('agentReview.matchReasons.exact'), matchedFields: ['name'] });
         }
       } else {
         // 模糊匹配
@@ -266,7 +274,7 @@ export default function AgentReviewScreen() {
         if (fuzzyMatch) {
           entities.push({ type: 'person', value: fuzzyMatch.name, confidence: 0.8 });
           if (!matchedContacts.find(m => m.contact.id === fuzzyMatch.id)) {
-            matchedContacts.push({ contact: fuzzyMatch, confidence: 0.8, reason: '姓名包含匹配', matchedFields: ['name'] });
+            matchedContacts.push({ contact: fuzzyMatch, confidence: 0.8, reason: t('agentReview.matchReasons.contains'), matchedFields: ['name'] });
           }
         }
       }
@@ -371,7 +379,7 @@ export default function AgentReviewScreen() {
 
   const handleAddToExisting = async () => {
     if (!selectedContactId) {
-      Alert.alert('请选择联系人', '请先选择一个要更新的联系人');
+      Alert.alert(t('agentReview.selectContact'), t('agentReview.selectContactMessage'));
       return;
     }
 
@@ -392,7 +400,7 @@ export default function AgentReviewScreen() {
   const loadAudio = async () => {
     if (!audioUri) {
       console.log('[AgentReview] No audio URI provided');
-      setAudioLoadError('未提供音频文件');
+      setAudioLoadError(t('errors.audioNoFile'));
       return;
     }
 
@@ -408,14 +416,14 @@ export default function AgentReviewScreen() {
 
       if (!fileInfo.exists) {
         console.warn('[AgentReview] Audio file does not exist:', audioUri);
-        setAudioLoadError('音频文件不存在');
+        setAudioLoadError(t('errors.audioNotFound'));
         return;
       }
 
       const fileSize = (fileInfo as any).size || 0;
       if (fileSize === 0) {
         console.warn('[AgentReview] Audio file is empty (0 bytes):', audioUri);
-        setAudioLoadError('音频文件为空');
+        setAudioLoadError(t('errors.audioEmpty'));
         return;
       }
 
@@ -451,11 +459,11 @@ export default function AgentReviewScreen() {
             const errorCode = loadError?.code || '';
 
             if (errorMessage.includes('-11800') || errorMessage.includes('-12842')) {
-              throw new Error('音频格式不受支持或文件已损坏（iOS 解码器错误）');
+              throw new Error(t('errors.audioFormat'));
             } else if (errorMessage.includes('does not exist')) {
-              throw new Error('音频文件路径无效');
+              throw new Error(t('errors.audioPathInvalid'));
             } else {
-              throw new Error(`加载音频失败: ${errorMessage || '未知错误'}`);
+              throw new Error(t('errors.audioLoadFailed', { message: errorMessage || t('errors.unknown') }));
             }
           }
 
@@ -464,7 +472,7 @@ export default function AgentReviewScreen() {
       }
 
       if (!sound) {
-        throw new Error('无法创建音频播放器');
+        throw new Error(t('errors.audioPlayerCreation'));
       }
 
       soundRef.current = sound;
@@ -488,10 +496,10 @@ export default function AgentReviewScreen() {
         setIsPlaying((status as any).isPlaying);
         setAudioLoadError(null);
       } else {
-        throw new Error('音频加载后状态异常');
+        throw new Error(t('errors.audioLoadAbnormal'));
       }
     } catch (error: any) {
-      const errorMessage = error?.message || '未知错误';
+      const errorMessage = error?.message || t('errors.unknown');
       console.error('[AgentReview] Failed to load audio:', {
         message: errorMessage,
         code: error?.code,
@@ -639,7 +647,7 @@ export default function AgentReviewScreen() {
     if (usingLocalLLM && settings.ai.localModel.modelName) {
       return settings.ai.localModel.modelName;
     }
-    return '规则引擎';
+    return t('agentReview.modelRule');
   };
 
   const handleEditInfo = () => {
@@ -691,7 +699,7 @@ export default function AgentReviewScreen() {
       newMatchedContacts[selectingContactIndex] = {
         contact,
         confidence: 1.0,
-        reason: '手动选择',
+        reason: t('agentReview.manualSelect'),
         matchedFields: ['manual'],
       };
       setMatchedContacts(newMatchedContacts);
@@ -706,7 +714,7 @@ export default function AgentReviewScreen() {
     const locationTag = llmAnalysis?.suggestedTags?.find(t => t.startsWith('location:'))?.replace('location:', '');
     
     if (activities.length === 0) {
-      Alert.alert('提示', '未提取到活动信息');
+      Alert.alert(t('common.notice'), t('agentReview.noActivities'));
       return;
     }
 
@@ -714,7 +722,7 @@ export default function AgentReviewScreen() {
     const targetContacts = matchedContacts.map(m => m.contact);
 
     if (targetContacts.length === 0) {
-      Alert.alert('提示', '未找到匹配的联系人，请先创建联系人');
+      Alert.alert(t('common.notice'), t('agentReview.noMatchedContacts'));
       return;
     }
 
@@ -761,10 +769,10 @@ export default function AgentReviewScreen() {
             <ActivityIndicator size="large" color={colors.primary} />
           </View>
           <Text style={[styles.analyzingText, { color: colors.text }]}>
-            AI 正在分析语音内容...
+            {t('recording.aiAnalyzing')}
           </Text>
           <Text style={[styles.analyzingSubtext, { color: colors.textMuted }]}>
-            模型: {getModelName()} · 语言: {getLanguageDisplay()} · 提取关键信息并匹配联系人
+            {t('recording.modelInfo', { model: getModelName(), language: getLanguageDisplay() })}
           </Text>
         </View>
       </SafeAreaView>
@@ -789,7 +797,7 @@ export default function AgentReviewScreen() {
           <Ionicons name="close" size={24} color={colors.text} />
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
-          <Text style={[styles.title, { color: colors.text }]}>AI 分析结果</Text>
+          <Text style={[styles.title, { color: colors.text }]}>{t('navigation.aiReview')}</Text>
           <View style={styles.modelBadge}>
             <Ionicons name="hardware-chip-outline" size={12} color={colors.primary} />
             <Text style={[styles.modelText, { color: colors.primary }]}>
@@ -822,7 +830,7 @@ export default function AgentReviewScreen() {
                 <Ionicons name={inputMode === 'voice' ? 'mic' : 'create'} size={16} color={colors.primary} />
               </View>
               <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                {inputMode === 'voice' ? '原始语音' : '输入文本'}
+                {inputMode === 'voice' ? t('agentReview.originalVoice') : t('agentReview.inputText')}
               </Text>
             </View>
             <Ionicons
@@ -885,14 +893,14 @@ export default function AgentReviewScreen() {
             <View style={[styles.audioErrorContainer, { backgroundColor: `${colors.danger}15` }]}>
               <Ionicons name="alert-circle-outline" size={16} color={colors.danger} />
               <Text style={[styles.audioErrorText, { color: colors.danger }]}>
-                无法播放音频: {audioLoadError}
+                {t('agentReview.audioPlayError')}: {audioLoadError}
               </Text>
             </View>
           )}
 
           {!isTranscriptionExpanded && (
             <Text style={[styles.transcriptionHint, { color: colors.textMuted }]}>
-              点击展开查看完整内容 · 识别语言: {getLanguageDisplay()}
+              {t('ai.expandHint', { language: getLanguageDisplay() })}
             </Text>
           )}
         </View>
@@ -905,9 +913,9 @@ export default function AgentReviewScreen() {
                 <Ionicons name="people" size={16} color={colors.primary} />
               </View>
               <View style={styles.sectionTitleContainer}>
-                <Text style={[styles.sectionTitle, { color: colors.text }]}>匹配到的联系人</Text>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('ai.matchedContacts')}</Text>
                 <Text style={[styles.sectionSubtitle, { color: colors.textMuted }]}>
-                  选择联系人以添加记录，或创建新联系人
+                  {t('ai.matchedContactsSubtitle')}
                 </Text>
               </View>
             </View>
@@ -935,7 +943,7 @@ export default function AgentReviewScreen() {
                       {match.contact.name}
                     </Text>
                     <Text style={[styles.contactMeta, { color: colors.textMuted }]}>
-                      {match.contact.company || '无公司'} · {match.contact.title || '无职位'}
+                      {match.contact.company || t('contacts.noCompany')} · {match.contact.title || t('contacts.noTitle')}
                     </Text>
                   </View>
                   <View style={styles.contactArrow}>
@@ -982,7 +990,7 @@ export default function AgentReviewScreen() {
                 styles.newContactText,
                 { color: colors.text }
               ]}>
-                创建新联系人
+                {t('ai.createNewContact')}
               </Text>
             </TouchableOpacity>
           </View>
@@ -995,13 +1003,13 @@ export default function AgentReviewScreen() {
               <View style={[styles.iconBadge, { backgroundColor: `${colors.primary}20` }]}>
                 <Ionicons name="search" size={16} color={colors.primary} />
               </View>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>提取的关键信息</Text>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('ai.extractedInfo')}</Text>
             </View>
 
             <View style={styles.entitiesContainer}>
               {Object.entries(groupedEntities).map(([type, entities]) => {
                 const config = ENTITY_CONFIG[type] || {
-                  label: type,
+                  labelKey: 'agentReview.entityTypes.unknown',
                   icon: 'information-circle',
                   color: colors.textMuted,
                   bgColor: `${colors.textMuted}20`,
@@ -1012,7 +1020,7 @@ export default function AgentReviewScreen() {
                     <View style={[styles.entityGroupHeader, { backgroundColor: config.bgColor }]}>
                       <Ionicons name={config.icon} size={16} color={config.color} />
                       <Text style={[styles.entityType, { color: config.color }]}>
-                        {config.label}
+                        {t(config.labelKey)}
                       </Text>
                       <View style={[styles.entityCount, { backgroundColor: config.color }]}>
                         <Text style={styles.entityCountText}>{entities.length}</Text>
@@ -1062,9 +1070,9 @@ export default function AgentReviewScreen() {
                 <Ionicons name="checkbox-outline" size={16} color={colors.primary} />
               </View>
               <View style={styles.sectionTitleContainer}>
-                <Text style={[styles.sectionTitle, { color: colors.text }]}>待办事项</Text>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('ai.actionItems')}</Text>
                 <Text style={[styles.sectionSubtitle, { color: colors.textMuted }]}>
-                  {analyzedData.actionItems.length} 个待办
+                  {t('ai.actionItemsCount', { count: analyzedData.actionItems.length })}
                 </Text>
               </View>
             </View>
@@ -1090,8 +1098,8 @@ export default function AgentReviewScreen() {
                           { color: item.priority === 'high' ? '#ef4444' :
                                    item.priority === 'medium' ? '#f59e0b' : '#10b981' }
                         ]}>
-                          {item.priority === 'high' ? '高优先级' :
-                           item.priority === 'medium' ? '中优先级' : '低优先级'}
+                          {item.priority === 'high' ? t('ai.priorityHigh') :
+                           item.priority === 'medium' ? t('ai.priorityMedium') : t('ai.priorityLow')}
                         </Text>
                       </View>
                     </View>
@@ -1139,7 +1147,7 @@ export default function AgentReviewScreen() {
                 onPress={handleCancelAnalysis}
                 activeOpacity={0.8}
               >
-                <Text style={[styles.footerButtonText, { color: colors.textMuted }]}>取消</Text>
+                <Text style={[styles.footerButtonText, { color: colors.textMuted }]}>{t('common.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.footerButton, styles.footerButtonPrimary, { backgroundColor: colors.primary }]}
@@ -1147,7 +1155,7 @@ export default function AgentReviewScreen() {
                 activeOpacity={0.8}
               >
                 <Ionicons name="add-circle" size={20} color="#0a0a0a" />
-                <Text style={[styles.footerButtonText, styles.footerButtonTextPrimary]}>添加活动</Text>
+                <Text style={[styles.footerButtonText, styles.footerButtonTextPrimary]}>{t('agentReview.addActivity')}</Text>
               </TouchableOpacity>
             </>
           ) : (
@@ -1157,7 +1165,7 @@ export default function AgentReviewScreen() {
                 onPress={handleCancelAnalysis}
                 activeOpacity={0.8}
               >
-                <Text style={[styles.footerButtonText, { color: colors.textMuted }]}>取消</Text>
+                <Text style={[styles.footerButtonText, { color: colors.textMuted }]}>{t('common.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.footerButton, styles.footerButtonPrimary, { backgroundColor: colors.primary }]}
@@ -1165,7 +1173,7 @@ export default function AgentReviewScreen() {
                 activeOpacity={0.8}
               >
                 <Ionicons name="person-add" size={20} color="#0a0a0a" />
-                <Text style={[styles.footerButtonText, styles.footerButtonTextPrimary]}>创建联系人</Text>
+                <Text style={[styles.footerButtonText, styles.footerButtonTextPrimary]}>{t('agentReview.createContact')}</Text>
               </TouchableOpacity>
             </>
           )}

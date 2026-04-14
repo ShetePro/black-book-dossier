@@ -130,34 +130,33 @@ export default function SettingsScreen() {
   // 获取当前语言显示
   const getLanguageLabel = () => {
     const lang = i18n.language;
-    if (lang.startsWith("zh")) return "中文";
-    return "English";
+    if (lang.startsWith("zh")) return t("language.chinese");
+    return t("language.english");
   };
 
   // Kill Switch - 销毁所有数据
   const handleKillSwitch = async () => {
     Alert.alert(
-      "⚠️ 危险操作",
-      '此操作将永久删除所有数据，无法恢复。\n\n请输入 "DELETE" 确认删除账户',
+      t("settings.killSwitchConfirmTitle"),
+      t("settings.killSwitchConfirmMessage"),
       [
-        { text: "取消", style: "cancel" },
+        { text: t("common.cancel"), style: "cancel" },
         {
-          text: "确认销毁",
+          text: t("settings.killSwitchConfirmButton"),
           style: "destructive",
           onPress: async () => {
             try {
               const result = await clearAllAppData();
               if (result.success) {
-                // 重置所有 store 状态
                 const { loadContacts } = useContactStore.getState();
                 await loadContacts();
                 
                 Alert.alert(
-                  "账户已删除",
-                  "所有数据已被永久删除。应用将返回首页。",
+                  t("settings.accountDeleted"),
+                  t("settings.accountDeletedMessage"),
                   [
                     { 
-                      text: "确定", 
+                      text: t("common.ok"), 
                       onPress: () => {
                         router.replace("/(tabs)");
                       }
@@ -165,11 +164,11 @@ export default function SettingsScreen() {
                   ]
                 );
               } else {
-                Alert.alert("删除失败", result.error || "删除数据时出错，请重试");
+                Alert.alert(t("settings.deleteError"), result.error || t("settings.deleteError"));
               }
             } catch (error) {
               console.error('[KillSwitch] Error:', error);
-              Alert.alert("删除失败", "删除过程中发生错误");
+              Alert.alert(t("settings.deleteError"), t("settings.deleteError"));
             }
           },
         },
@@ -184,30 +183,30 @@ export default function SettingsScreen() {
         const result = await exportContactsToCSV();
         if (result.success) {
           Alert.alert(
-            "导出成功",
-            `联系人已导出到:\n${result.filePath}`,
-            [{ text: "确定" }]
+            t("settings.exportSuccess"),
+            t("settings.exportSuccessMessage", { path: result.filePath }),
+            [{ text: t("common.ok") }]
           );
         } else {
-          Alert.alert("导出失败", result.error || "导出失败，请重试");
+          Alert.alert(t("settings.exportError"), result.error || t("settings.exportError"));
         }
       } catch (error) {
         console.error('[Settings] CSV export error:', error);
-        Alert.alert("导出失败", "导出过程中发生错误");
+        Alert.alert(t("settings.exportError"), t("settings.exportError"));
       }
     } else {
-      Alert.alert("JSON 导出", "JSON 格式导出功能开发中...");
+      Alert.alert("JSON", "JSON export coming soon...");
     }
   };
 
   // 导入数据
   const handleImport = () => {
     Alert.alert(
-      "导入数据",
-      "导入将合并现有数据，是否继续？",
+      t("settings.importTitle"),
+      t("settings.importMessage"),
       [
-        { text: "取消", style: "cancel" },
-        { text: "选择文件", onPress: () => console.log("Import file") },
+        { text: t("common.cancel"), style: "cancel" },
+        { text: t("settings.importSelectFile"), onPress: () => console.log("Import file") },
       ]
     );
   };
@@ -237,14 +236,14 @@ export default function SettingsScreen() {
         {/* 安全设置 */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>
-            安全与隐私
+            {t("settings.security")}
           </Text>
 
           <View style={styles.card}>
             <SettingItem
               icon="finger-print"
-              title="生物识别锁"
-              subtitle="使用 Face ID 保护应用"
+              title={t("settings.biometricLock")}
+              subtitle={t("settings.biometricSubtitle")}
               toggle
               toggleValue={biometricEnabled}
               onToggle={setBiometricEnabled}
@@ -253,8 +252,8 @@ export default function SettingsScreen() {
 
             <SettingItem
               icon="notifications"
-              title="智能提醒"
-              subtitle="重要联系人生日、纪念日提醒"
+              title={t("settings.smartReminders")}
+              subtitle={t("settings.smartRemindersSubtitle")}
               toggle
               toggleValue={notificationsEnabled}
               onToggle={setNotificationsEnabled}
@@ -263,8 +262,8 @@ export default function SettingsScreen() {
 
             <SettingItem
               icon="shield-checkmark"
-              title="自动备份"
-              subtitle="每天自动备份到 iCloud"
+              title={t("settings.autoBackup")}
+              subtitle={t("settings.autoBackupSubtitle")}
               toggle
               toggleValue={autoBackup}
               onToggle={setAutoBackup}
@@ -273,49 +272,47 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* 数据管理 */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>
-            数据管理
+            {t("settings.dataManagement")}
           </Text>
 
           <View style={styles.card}>
             <SettingItem
               icon="download"
-              title="导出 CSV"
-              subtitle="导出联系人为 CSV 格式"
+              title={t("settings.exportCSV")}
+              subtitle={t("settings.exportCSVSubtitle")}
               onPress={() => handleExport('csv')}
               colors={colors}
             />
 
             <SettingItem
               icon="push"
-              title="导入数据"
-              subtitle="从文件恢复"
+              title={t("settings.importData")}
+              subtitle={t("settings.importDataSubtitle")}
               onPress={handleImport}
               colors={colors}
             />
 
             <SettingItem
               icon="cloud-upload"
-              title="iCloud 同步"
-              value="已开启"
+              title={t("settings.iCloudSync")}
+              value={t("settings.iCloudSyncValue")}
               onPress={() => router.push("/(views)/sync")}
               colors={colors}
             />
           </View>
         </View>
 
-        {/* 外观设置 */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>
-            外观与体验
+            {t("settings.appearance")}
           </Text>
 
           <View style={styles.card}>
             <SettingItem
               icon="language"
-              title="语言"
+              title={t("settings.language")}
               value={getLanguageLabel()}
               onPress={() => router.push("/(views)/language")}
               colors={colors}
@@ -323,16 +320,16 @@ export default function SettingsScreen() {
 
             <SettingItem
               icon="color-palette"
-              title="主题"
-              value="暗夜金奢"
+              title={t("settings.theme")}
+              value={t("settings.themeValue")}
               onPress={() => console.log("Theme")}
               colors={colors}
             />
 
             <SettingItem
               icon="pulse"
-              title="触感反馈"
-              subtitle="按钮点击振动效果"
+              title={t("settings.hapticFeedback")}
+              subtitle={t("settings.hapticFeedbackSubtitle")}
               toggle
               toggleValue={hapticEnabled}
               onToggle={setHapticEnabled}
@@ -341,17 +338,16 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* AI 智能设置 */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>
-            AI 智能
+            {t("settings.ai")}
           </Text>
 
           <View style={styles.card}>
             <SettingItem
               icon="git-merge"
-              title="自动合并高置信度"
-              subtitle="匹配度超过80%时自动提示合并"
+              title={t("settings.autoMerge")}
+              subtitle={t("settings.autoMergeSubtitle")}
               toggle
               toggleValue={settings.ai.matching.autoMergeHighConfidence}
               onToggle={(value) =>
@@ -362,8 +358,8 @@ export default function SettingsScreen() {
 
             <SettingItem
               icon="list"
-              title="显示相似联系人"
-              subtitle="匹配时显示候选联系人列表"
+              title={t("settings.showSimilar")}
+              subtitle={t("settings.showSimilarSubtitle")}
               toggle
               toggleValue={settings.ai.matching.showSimilarContacts}
               onToggle={(value) =>
@@ -374,31 +370,29 @@ export default function SettingsScreen() {
 
           <SettingItem
             icon="options"
-            title="匹配阈值"
-            subtitle={`当前: ${(settings.ai.matching.threshold * 100).toFixed(
-              0
-            )}% · 低于此值将创建新联系人`}
+            title={t("settings.matchingThreshold")}
+            subtitle={t("settings.matchingThresholdSubtitle", { threshold: (settings.ai.matching.threshold * 100).toFixed(0) })}
             onPress={() => {
               Alert.alert(
-                "设置匹配阈值",
-                "调整联系人匹配的敏感度",
+                t("settings.thresholdTitle"),
+                t("settings.thresholdMessage"),
                 [
                   {
-                    text: "低 (50%)",
+                    text: t("settings.thresholdLow"),
                     onPress: () =>
                       updateSetting("ai.matching.threshold", 0.5),
                   },
                   {
-                    text: "中 (70%)",
+                    text: t("settings.thresholdMedium"),
                     onPress: () =>
                       updateSetting("ai.matching.threshold", 0.7),
                   },
                   {
-                    text: "高 (90%)",
+                    text: t("settings.thresholdHigh"),
                     onPress: () =>
                       updateSetting("ai.matching.threshold", 0.9),
                   },
-                  { text: "取消", style: "cancel" },
+                  { text: t("common.cancel"), style: "cancel" },
                 ]
               );
             }}
@@ -407,11 +401,11 @@ export default function SettingsScreen() {
 
           <SettingItem
             icon="hardware-chip-outline"
-            title="AI 模型管理"
+            title={t("settings.aiModelManagement")}
             subtitle={
               settings.ai.localModel.downloaded
                 ? `${settings.ai.localModel.modelName} · ${settings.ai.localModel.modelSize}MB`
-                : "下载本地 AI 模型以启用离线功能"
+                : t("settings.aiModelSubtitle")
             }
             onPress={() => router.push("/(views)/ai-models")}
             colors={colors}
@@ -419,33 +413,32 @@ export default function SettingsScreen() {
         </View>
       </View>
 
-      {/* 录音设置 */}
       <View style={styles.section}>
         <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>
-          录音设置
+          {t("settings.recording")}
         </Text>
 
         <View style={styles.card}>
           <SettingItem
             icon="mic"
-            title="录音方式"
-            subtitle={settings.recording.mode === 'hold' ? '长按录音（按住开始，松开结束）' : '点击录音（点击开始/结束）'}
+            title={t("settings.recordingMode")}
+            subtitle={settings.recording.mode === 'hold' ? t("settings.recordingModeHold") : t("settings.recordingModeTap")}
             onPress={() => {
               Alert.alert(
-                "选择录音方式",
-                "选择适合您的录音操作方式",
+                t("settings.recordingModeTitle"),
+                t("settings.recordingModeMessage"),
                 [
                   {
-                    text: "长按录音",
+                    text: t("settings.recordingModeHoldOption"),
                     onPress: () =>
                       updateSetting("recording.mode", "hold"),
                   },
                   {
-                    text: "点击录音",
+                    text: t("settings.recordingModeTapOption"),
                     onPress: () =>
                       updateSetting("recording.mode", "tap"),
                   },
-                  { text: "取消", style: "cancel" },
+                  { text: t("common.cancel"), style: "cancel" },
                 ]
               );
             }}
@@ -454,54 +447,52 @@ export default function SettingsScreen() {
         </View>
       </View>
 
-        {/* 关于 */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>
-            关于
+            {t("settings.about")}
           </Text>
 
           <View style={styles.card}>
             <SettingItem
               icon="information-circle"
-              title="关于 Black Book"
+              title={t("settings.aboutApp")}
               onPress={() => router.push("/(views)/about")}
               colors={colors}
             />
 
             <SettingItem
               icon="help-circle"
-              title="帮助与反馈"
+              title={t("settings.help")}
               onPress={() => router.push("/(views)/help")}
               colors={colors}
             />
 
             <SettingItem
               icon="document-text"
-              title="隐私政策"
+              title={t("settings.privacy")}
               onPress={() => router.push("/(views)/privacy")}
               colors={colors}
             />
 
             <SettingItem
               icon="logo-github"
-              title="开源代码"
+              title={t("settings.openSource")}
               onPress={() => console.log("GitHub")}
               colors={colors}
             />
           </View>
         </View>
 
-        {/* Kill Switch */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.danger }]}>
-            危险区域
+            {t("settings.dangerZone")}
           </Text>
 
           <View style={styles.card}>
             <SettingItem
               icon="warning"
-              title="🚨 紧急销毁数据"
-              subtitle="立即永久删除所有数据"
+              title={t("settings.killSwitch")}
+              subtitle={t("settings.killSwitchSubtitle")}
               destructive
               onPress={handleKillSwitch}
               colors={colors}
@@ -509,11 +500,10 @@ export default function SettingsScreen() {
           </View>
 
           <Text style={[styles.warningText, { color: colors.textMuted }]}>
-            此操作不可撤销。所有联系人、交往记录和设置将被永久删除。
+            {t("settings.killSwitchWarning")}
           </Text>
         </View>
 
-        {/* 版本信息 */}
         <View style={styles.versionContainer}>
           <Text style={[styles.versionText, { color: colors.textMuted }]}>
             Black Book v1.0.0

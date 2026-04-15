@@ -90,8 +90,6 @@ export interface AppSettings {
     };
     // 匹配设置
     matching: {
-      threshold: number;          // 匹配阈值 0.0-1.0
-      autoMergeHighConfidence: boolean;  // 自动合并高置信度
       showSimilarContacts: boolean;      // 显示相似联系人
     };
     // 转录设置
@@ -104,6 +102,26 @@ export interface AppSettings {
   recording: {
     mode: RecordingMode;         // 录音方式：hold(长按) / tap(点击)
     maxDuration: number;         // 最大录音时长（秒）
+  };
+  
+  // 安全设置
+  security: {
+    biometricEnabled: boolean;   // 生物识别锁
+  };
+  
+  // 通知设置
+  notifications: {
+    smartReminders: boolean;     // 智能提醒
+  };
+  
+  // 备份设置
+  backup: {
+    autoBackup: boolean;         // 自动备份
+  };
+  
+  // 体验设置
+  experience: {
+    hapticEnabled: boolean;      // 触感反馈
   };
 }
 
@@ -120,7 +138,11 @@ export type SettingPath = keyof AppSettings |
   `ai.localModel.${keyof AppSettings['ai']['localModel']}` |
   `ai.matching.${keyof AppSettings['ai']['matching']}` |
   `ai.transcription.${keyof AppSettings['ai']['transcription']}` |
-  `recording.${keyof AppSettings['recording']}`;
+  `recording.${keyof AppSettings['recording']}` |
+  `security.${keyof AppSettings['security']}` |
+  `notifications.${keyof AppSettings['notifications']}` |
+  `backup.${keyof AppSettings['backup']}` |
+  `experience.${keyof AppSettings['experience']}`;
 
 // ==================== 默认值 ====================
 
@@ -193,8 +215,6 @@ export const DEFAULT_SETTINGS: AppSettings = {
       version: "1.0",
     },
     matching: {
-      threshold: 0.7,
-      autoMergeHighConfidence: false,
       showSimilarContacts: true,
     },
     transcription: {
@@ -205,6 +225,22 @@ export const DEFAULT_SETTINGS: AppSettings = {
   recording: {
     mode: "hold",              // 默认长按模式
     maxDuration: 300,          // 默认最大5分钟
+  },
+  // 安全设置默认值
+  security: {
+    biometricEnabled: true,
+  },
+  // 通知设置默认值
+  notifications: {
+    smartReminders: true,
+  },
+  // 备份设置默认值
+  backup: {
+    autoBackup: false,
+  },
+  // 体验设置默认值
+  experience: {
+    hapticEnabled: true,
   },
 };
 

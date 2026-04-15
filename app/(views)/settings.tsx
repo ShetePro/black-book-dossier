@@ -23,6 +23,7 @@ import { useSettingsStore } from "@/store/settingsStore";
 import { exportContactsToCSV } from "@/services/export/csvExport";
 import { clearAllAppData } from "@/services/dataClear";
 import { useContactStore } from "@/store";
+import { triggerHaptic } from "@/utils/haptics";
 
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
@@ -68,10 +69,15 @@ function SettingItem({
   const iconColor = destructive ? colors.danger : colors.primary;
   const textColor = destructive ? colors.danger : colors.text;
 
+  const handlePress = () => {
+    triggerHaptic('light');
+    onPress?.();
+  };
+
   return (
     <AnimatedTouchable
       style={[styles.settingItem, { backgroundColor: colors.surface }, animatedStyle]}
-      onPress={onPress}
+      onPress={handlePress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       activeOpacity={toggle ? 1 : 0.8}
@@ -100,7 +106,10 @@ function SettingItem({
         {toggle && onToggle && (
           <Switch
             value={toggleValue}
-            onValueChange={onToggle}
+            onValueChange={(value) => {
+              triggerHaptic('selection');
+              onToggle(value);
+            }}
             trackColor={{ false: "#767577", true: colors.primary }}
             thumbColor={toggleValue ? "#fff" : "#f4f3f4"}
             ios_backgroundColor="#767577"
@@ -121,11 +130,12 @@ export default function SettingsScreen() {
   const colors = useThemeColor();
   const { settings, updateSetting } = useSettingsStore();
 
-  // 设置状态
-  const [biometricEnabled, setBiometricEnabled] = useState(true);
-  const [autoBackup, setAutoBackup] = useState(false);
-  const [hapticEnabled, setHapticEnabled] = useState(true);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  // 从 store 读取设置状态
+  const biometricEnabled = settings.security.biometricEnabled;
+  const notificationsEnabled = settings.notifications.smartReminders;
+  const autoBackup = settings.backup.autoBackup;
+  const hapticEnabled = settings.experience.hapticEnabled;
+  const themeMode = settings.themeMode;
 
   // 获取当前语言显示
   const getLanguageLabel = () => {
@@ -216,7 +226,10 @@ export default function SettingsScreen() {
       {/* 头部 */}
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => {
+            triggerHaptic('light');
+            router.back();
+          }}
           style={[styles.iconButton, { backgroundColor: colors.surface }]}
         >
           <Ionicons name="arrow-back" size={24} color={colors.text} />
@@ -246,7 +259,7 @@ export default function SettingsScreen() {
               subtitle={t("settings.biometricSubtitle")}
               toggle
               toggleValue={biometricEnabled}
-              onToggle={setBiometricEnabled}
+              onToggle={(value) => updateSetting("security.biometricEnabled", value)}
               colors={colors}
             />
 
@@ -256,7 +269,7 @@ export default function SettingsScreen() {
               subtitle={t("settings.smartRemindersSubtitle")}
               toggle
               toggleValue={notificationsEnabled}
-              onToggle={setNotificationsEnabled}
+              onToggle={(value) => updateSetting("notifications.smartReminders", value)}
               colors={colors}
             />
 
@@ -266,7 +279,7 @@ export default function SettingsScreen() {
               subtitle={t("settings.autoBackupSubtitle")}
               toggle
               toggleValue={autoBackup}
-              onToggle={setAutoBackup}
+              onToggle={(value) => updateSetting("backup.autoBackup", value)}
               colors={colors}
             />
           </View>
@@ -298,7 +311,7 @@ export default function SettingsScreen() {
               icon="cloud-upload"
               title={t("settings.iCloudSync")}
               value={t("settings.iCloudSyncValue")}
-              onPress={() => router.push("/(views)/sync")}
+              onPress={() => Alert.alert(t("settings.iCloudSync"), t("settings.comingSoon"))}
               colors={colors}
             />
           </View>
@@ -321,8 +334,19 @@ export default function SettingsScreen() {
             <SettingItem
               icon="color-palette"
               title={t("settings.theme")}
-              value={t("settings.themeValue")}
-              onPress={() => console.log("Theme")}
+              value={themeMode === 'system' ? t("settings.themeSystem") : themeMode === 'dark' ? t("settings.themeDark") : t("settings.themeLight")}
+              onPress={() => {
+                const options: ('light' | 'dark' | 'system')[] = ['system', 'light', 'dark'];
+                const labels = [t("settings.themeSystem"), t("settings.themeLight"), t("settings.themeDark")];
+                Alert.alert(
+                  t("settings.theme"),
+                  t("settings.themeSelectMessage"),
+                  options.map((opt, i) => ({
+                    text: labels[i],
+                    onPress: () => updateSetting("themeMode", opt),
+                  })).concat({ text: t("common.cancel"), style: "cancel" } as any)
+                );
+              }}
               colors={colors}
             />
 
@@ -332,7 +356,7 @@ export default function SettingsScreen() {
               subtitle={t("settings.hapticFeedbackSubtitle")}
               toggle
               toggleValue={hapticEnabled}
-              onToggle={setHapticEnabled}
+              onToggle={(value) => updateSetting("experience.hapticEnabled", value)}
               colors={colors}
             />
           </View>
@@ -345,18 +369,6 @@ export default function SettingsScreen() {
 
           <View style={styles.card}>
             <SettingItem
-              icon="git-merge"
-              title={t("settings.autoMerge")}
-              subtitle={t("settings.autoMergeSubtitle")}
-              toggle
-              toggleValue={settings.ai.matching.autoMergeHighConfidence}
-              onToggle={(value) =>
-                updateSetting("ai.matching.autoMergeHighConfidence", value)
-              }
-              colors={colors}
-            />
-
-            <SettingItem
               icon="list"
               title={t("settings.showSimilar")}
               subtitle={t("settings.showSimilarSubtitle")}
@@ -368,40 +380,9 @@ export default function SettingsScreen() {
               colors={colors}
             />
 
-          <SettingItem
-            icon="options"
-            title={t("settings.matchingThreshold")}
-            subtitle={t("settings.matchingThresholdSubtitle", { threshold: (settings.ai.matching.threshold * 100).toFixed(0) })}
-            onPress={() => {
-              Alert.alert(
-                t("settings.thresholdTitle"),
-                t("settings.thresholdMessage"),
-                [
-                  {
-                    text: t("settings.thresholdLow"),
-                    onPress: () =>
-                      updateSetting("ai.matching.threshold", 0.5),
-                  },
-                  {
-                    text: t("settings.thresholdMedium"),
-                    onPress: () =>
-                      updateSetting("ai.matching.threshold", 0.7),
-                  },
-                  {
-                    text: t("settings.thresholdHigh"),
-                    onPress: () =>
-                      updateSetting("ai.matching.threshold", 0.9),
-                  },
-                  { text: t("common.cancel"), style: "cancel" },
-                ]
-              );
-            }}
-            colors={colors}
-          />
-
-          <SettingItem
-            icon="hardware-chip-outline"
-            title={t("settings.aiModelManagement")}
+            <SettingItem
+              icon="hardware-chip-outline"
+              title={t("settings.aiModelManagement")}
             subtitle={
               settings.ai.localModel.downloaded
                 ? `${settings.ai.localModel.modelName} · ${settings.ai.localModel.modelSize}MB`

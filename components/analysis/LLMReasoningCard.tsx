@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { ThemedText } from '@/components/ThemedText';
 import { LLMAnalysisResult } from '@/services/ai/llmAnalyzer';
 
@@ -13,6 +14,7 @@ export const LLMReasoningCard: React.FC<LLMReasoningCardProps> = ({
   result,
   onApplyCorrection,
 }) => {
+  const { t } = useTranslation();
   const renderContactMatch = () => {
     const { contactMatch } = result;
     
@@ -21,12 +23,12 @@ export const LLMReasoningCard: React.FC<LLMReasoningCardProps> = ({
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Ionicons name="checkmark-circle" size={18} color="#10b981" />
-            <ThemedText style={styles.sectionTitle}>✓ 找到匹配联系人</ThemedText>
+            <ThemedText style={styles.sectionTitle}>{t('llmAnalysis.matchFound')}</ThemedText>
           </View>
           <View style={styles.matchCard}>
             <ThemedText style={styles.matchedName}>{contactMatch.matchedName}</ThemedText>
             <ThemedText style={styles.confidenceText}>
-              匹配度: {Math.round(contactMatch.confidence * 100)}%
+              {t('llmAnalysis.matchDegree')}: {Math.round(contactMatch.confidence * 100)}%
             </ThemedText>
           </View>
         </View>
@@ -38,12 +40,12 @@ export const LLMReasoningCard: React.FC<LLMReasoningCardProps> = ({
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Ionicons name="help-circle" size={18} color="#f59e0b" />
-            <ThemedText style={styles.sectionTitle}>? 相似建议</ThemedText>
+            <ThemedText style={styles.sectionTitle}>{t('llmAnalysis.similarSuggestion')}</ThemedText>
           </View>
           <View style={[styles.matchCard, styles.suggestionCard]}>
             <ThemedText style={styles.suggestionName}>{contactMatch.suggestedName}</ThemedText>
             <ThemedText style={styles.confidenceText}>
-              相似度: {Math.round(contactMatch.confidence * 100)}%
+              {t('llmAnalysis.similarity')}: {Math.round(contactMatch.confidence * 100)}%
             </ThemedText>
             <ThemedText style={styles.reasonText}>{contactMatch.reason}</ThemedText>
           </View>
@@ -55,18 +57,18 @@ export const LLMReasoningCard: React.FC<LLMReasoningCardProps> = ({
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Ionicons name="bulb" size={18} color="#60a5fa" />
-          <ThemedText style={styles.sectionTitle}>智能分析结果</ThemedText>
+          <ThemedText style={styles.sectionTitle}>{t('llmAnalysis.analysisResult')}</ThemedText>
         </View>
         
         {/* 显示从文本中提取的实体信息 */}
         {result.suggestedTags && result.suggestedTags.length > 0 && (
           <View style={styles.extractedEntitiesCard}>
-            <ThemedText style={styles.extractedTitle}>提取的信息：</ThemedText>
+            <ThemedText style={styles.extractedTitle}>{t('llmAnalysis.extractedInfo')}</ThemedText>
             
             {/* 人名 */}
             {result.suggestedTags.filter(tag => !tag.includes(':'))?.length > 0 && (
               <View style={styles.entityRow}>
-                <ThemedText style={styles.entityLabel}>人物:</ThemedText>
+                <ThemedText style={styles.entityLabel}>{t('llmAnalysis.person')}</ThemedText>
                 <View style={styles.tagsRow}>
                   {result.suggestedTags.filter(tag => !tag.includes(':')).map((tag, i) => (
                     <View key={i} style={[styles.tagBadge, styles.personTag]}>
@@ -80,7 +82,7 @@ export const LLMReasoningCard: React.FC<LLMReasoningCardProps> = ({
             {/* 时间 */}
             {result.suggestedTags.filter(tag => tag.startsWith('时间:'))?.length > 0 && (
               <View style={styles.entityRow}>
-                <ThemedText style={styles.entityLabel}>时间:</ThemedText>
+                <ThemedText style={styles.entityLabel}>{t('llmAnalysis.time')}</ThemedText>
                 <View style={styles.tagsRow}>
                   {result.suggestedTags.filter(tag => tag.startsWith('时间:')).map((tag, i) => (
                     <View key={i} style={[styles.tagBadge, styles.timeTag]}>
@@ -94,7 +96,7 @@ export const LLMReasoningCard: React.FC<LLMReasoningCardProps> = ({
             {/* 地点 */}
             {result.suggestedTags.filter(tag => tag.startsWith('地点:'))?.length > 0 && (
               <View style={styles.entityRow}>
-                <ThemedText style={styles.entityLabel}>地点:</ThemedText>
+                <ThemedText style={styles.entityLabel}>{t('llmAnalysis.location')}</ThemedText>
                 <View style={styles.tagsRow}>
                   {result.suggestedTags.filter(tag => tag.startsWith('地点:')).map((tag, i) => (
                     <View key={i} style={[styles.tagBadge, styles.locationTag]}>
@@ -112,7 +114,7 @@ export const LLMReasoningCard: React.FC<LLMReasoningCardProps> = ({
           <View style={styles.insightsCard}>
             {result.insights.activities?.length > 0 && (
               <View style={styles.entityRow}>
-                <ThemedText style={styles.entityLabel}>活动:</ThemedText>
+                <ThemedText style={styles.entityLabel}>{t('llmAnalysis.activity')}</ThemedText>
                 <View style={styles.tagsRow}>
                   {result.insights.activities.map((activity, i) => (
                     <View key={i} style={[styles.tagBadge, styles.activityTag]}>
@@ -125,7 +127,7 @@ export const LLMReasoningCard: React.FC<LLMReasoningCardProps> = ({
             
             {result.insights.preferences?.length > 0 && (
               <View style={styles.entityRow}>
-                <ThemedText style={styles.entityLabel}>偏好:</ThemedText>
+                <ThemedText style={styles.entityLabel}>{t('llmAnalysis.preference')}</ThemedText>
                 <View style={styles.tagsRow}>
                   {result.insights.preferences.map((pref, i) => (
                     <View key={i} style={styles.tagBadge}>
@@ -148,7 +150,7 @@ export const LLMReasoningCard: React.FC<LLMReasoningCardProps> = ({
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Ionicons name="create" size={18} color="#3b82f6" />
-          <ThemedText style={styles.sectionTitle}>文本修正</ThemedText>
+          <ThemedText style={styles.sectionTitle}>{t('llmAnalysis.textCorrection')}</ThemedText>
         </View>
         <View style={styles.correctionsList}>
           {result.corrections.map((correction, index) => (
@@ -164,8 +166,8 @@ export const LLMReasoningCard: React.FC<LLMReasoningCardProps> = ({
               </View>
               <View style={styles.typeBadge}>
                 <ThemedText style={styles.typeText}>
-                  {correction.type === 'name' ? '姓名' : 
-                   correction.type === 'typo' ? '错字' : '语法'}
+                  {correction.type === 'name' ? t('llmAnalysis.name') : 
+                   correction.type === 'typo' ? t('llmAnalysis.typo') : t('llmAnalysis.grammar')}
                 </ThemedText>
               </View>
             </TouchableOpacity>
@@ -191,12 +193,12 @@ export const LLMReasoningCard: React.FC<LLMReasoningCardProps> = ({
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Ionicons name="bulb" size={18} color="#c9a962" />
-          <ThemedText style={styles.sectionTitle}>情境分析</ThemedText>
+          <ThemedText style={styles.sectionTitle}>{t('llmAnalysis.contextAnalysis')}</ThemedText>
         </View>
         <View style={styles.insightsCard}>
           {insights.profession && (
             <View style={styles.insightRow}>
-              <ThemedText style={styles.insightLabel}>职业:</ThemedText>
+              <ThemedText style={styles.insightLabel}>{t('llmAnalysis.profession')}</ThemedText>
               <View style={styles.tagBadge}>
                 <ThemedText style={styles.tagText}>{insights.profession}</ThemedText>
               </View>
@@ -205,7 +207,7 @@ export const LLMReasoningCard: React.FC<LLMReasoningCardProps> = ({
           
           {insights.activities?.length > 0 && (
             <View style={styles.insightRow}>
-              <ThemedText style={styles.insightLabel}>活动:</ThemedText>
+              <ThemedText style={styles.insightLabel}>{t('llmAnalysis.activity')}</ThemedText>
               <View style={styles.tagsRow}>
                 {insights.activities.map((activity, i) => (
                   <View key={i} style={styles.tagBadge}>
@@ -218,7 +220,7 @@ export const LLMReasoningCard: React.FC<LLMReasoningCardProps> = ({
 
           {insights.preferences?.length > 0 && (
             <View style={styles.insightRow}>
-              <ThemedText style={styles.insightLabel}>偏好:</ThemedText>
+              <ThemedText style={styles.insightLabel}>{t('llmAnalysis.preference')}</ThemedText>
               <View style={styles.tagsRow}>
                 {insights.preferences.map((pref, i) => (
                   <View key={i} style={styles.tagBadge}>
@@ -231,7 +233,7 @@ export const LLMReasoningCard: React.FC<LLMReasoningCardProps> = ({
 
           {insights.personality?.length > 0 && (
             <View style={styles.insightRow}>
-              <ThemedText style={styles.insightLabel}>性格:</ThemedText>
+              <ThemedText style={styles.insightLabel}>{t('llmAnalysis.personality')}</ThemedText>
               <View style={styles.tagsRow}>
                 {insights.personality.map((trait, i) => (
                   <View key={i} style={[styles.tagBadge, styles.personalityTag]}>
@@ -247,13 +249,13 @@ export const LLMReasoningCard: React.FC<LLMReasoningCardProps> = ({
   };
 
   const renderReasoning = () => {
-    if (!result.reasoning || result.reasoning === '未提供推理过程') return null;
+    if (!result.reasoning || result.reasoning === t('llmAnalysis.noReasoning')) return null;
 
     return (
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Ionicons name="analytics" size={18} color="#8b5cf6" />
-          <ThemedText style={styles.sectionTitle}>推理过程</ThemedText>
+          <ThemedText style={styles.sectionTitle}>{t('llmAnalysis.reasoning')}</ThemedText>
         </View>
         <View style={styles.reasoningCard}>
           <ThemedText style={styles.reasoningText}>{result.reasoning}</ThemedText>
@@ -266,7 +268,7 @@ export const LLMReasoningCard: React.FC<LLMReasoningCardProps> = ({
     <View style={styles.container}>
       <View style={styles.header}>
         <Ionicons name="sparkles" size={20} color="#c9a962" />
-        <ThemedText style={styles.title}>🤖 LLM 智能分析</ThemedText>
+        <ThemedText style={styles.title}>{t('llmAnalysis.title')}</ThemedText>
       </View>
 
       {renderContactMatch()}

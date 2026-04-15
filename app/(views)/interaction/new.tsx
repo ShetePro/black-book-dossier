@@ -138,17 +138,6 @@ export default function NewInteractionScreen() {
             {isSaving ? t('actionItem.saveLoading') : t('common.save')}
           </Text>
         </TouchableOpacity>
-
-        <Text style={[styles.title, { color: colors.text }]}>{t('interaction.add')}</Text>
-
-        <TouchableOpacity onPress={handleSave} disabled={isSaving}>
-          <Text style={[
-            styles.saveButton,
-            { color: isSaving ? colors.textMuted : colors.primary }
-          ]}>
-            {isSaving ? t('actionItem.saveLoading') : t('common.save')}
-          </Text>
-        </TouchableOpacity>
       </View>
 
       {/* 目标联系人展示区域 */}

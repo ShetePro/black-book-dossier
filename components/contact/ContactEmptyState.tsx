@@ -5,10 +5,26 @@ import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useThemeColor } from '@/hooks/useThemeColor';
 
-export const ContactEmptyState: React.FC = () => {
+interface ContactEmptyStateProps {
+  onAddContact?: () => void;
+  onImportContact?: () => void;
+}
+
+export const ContactEmptyState: React.FC<ContactEmptyStateProps> = ({
+  onAddContact,
+  onImportContact,
+}) => {
   const router = useRouter();
   const { t } = useTranslation();
   const colors = useThemeColor();
+
+  const handleAddContact = () => {
+    if (onAddContact) {
+      onAddContact();
+    } else {
+      router.push('/(views)/contact/new');
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -32,17 +48,32 @@ export const ContactEmptyState: React.FC = () => {
         </Text>
 
         <Text style={[styles.subtitle, { color: colors.textMuted }]}>
-          {t('contacts.addByRecording')}
+          {t('contacts.emptyStateSubtitle')}
         </Text>
 
-        <TouchableOpacity
-          style={[styles.button, { backgroundColor: colors.primary }]}
-          onPress={() => router.push('/(views)/recording')}
-          activeOpacity={0.9}
-        >
-          <Ionicons name="mic" size={20} color="#0a0a0a" />
-          <Text style={styles.buttonText}>{t('recording.holdToRecord')}</Text>
-        </TouchableOpacity>
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity
+            style={[styles.button, { backgroundColor: colors.primary }]}
+            onPress={handleAddContact}
+            activeOpacity={0.9}
+          >
+            <Ionicons name="person-add" size={20} color="#0a0a0a" />
+            <Text style={styles.buttonText}>{t('contacts.addContact')}</Text>
+          </TouchableOpacity>
+
+          {onImportContact && (
+            <TouchableOpacity
+              style={[styles.secondaryButton, { borderColor: colors.border, backgroundColor: colors.surface }]}
+              onPress={onImportContact}
+              activeOpacity={0.9}
+            >
+              <Ionicons name="download-outline" size={20} color={colors.primary} />
+              <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>
+                {t('contacts.importContacts')}
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
     </View>
   );
@@ -83,12 +114,17 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginBottom: 24,
   },
+  buttonContainer: {
+    width: '100%',
+    gap: 12,
+  },
   button: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     paddingVertical: 14,
     paddingHorizontal: 28,
-    borderRadius: 24,
+    borderRadius: 16,
     gap: 10,
     shadowColor: '#c9a962',
     shadowOffset: { width: 0, height: 4 },
@@ -100,6 +136,20 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: '#0a0a0a',
+  },
+  secondaryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 10,
+  },
+  secondaryButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
   },
 });
 

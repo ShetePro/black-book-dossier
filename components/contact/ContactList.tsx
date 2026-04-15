@@ -21,6 +21,8 @@ interface ContactListProps {
   isRefreshing?: boolean;
   onRefresh?: () => void;
   onContactPress?: (contact: Contact) => void;
+  onAddContact?: () => void;
+  onImportContact?: () => void;
 }
 
 export const ContactList: React.FC<ContactListProps> = ({
@@ -29,6 +31,8 @@ export const ContactList: React.FC<ContactListProps> = ({
   isRefreshing = false,
   onRefresh,
   onContactPress,
+  onAddContact,
+  onImportContact,
 }) => {
   const colors = useThemeColor();
 
@@ -55,7 +59,7 @@ export const ContactList: React.FC<ContactListProps> = ({
   }
 
   if (contacts.length === 0) {
-    return <ContactEmptyState />;
+    return <ContactEmptyState onAddContact={onAddContact} onImportContact={onImportContact} />;
   }
 
   return (

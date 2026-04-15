@@ -22,7 +22,6 @@ import { useContactStore } from '@/store';
 
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
-// 搜索结果空状态组件
 const SearchEmptyState: React.FC<{ query: string; colors: ReturnType<typeof useThemeColor>; t: any }> = ({ query, colors, t }) => (
   <View style={styles.searchEmptyContainer}>
     <Ionicons name="search-outline" size={48} color={colors.textMuted} />
@@ -44,7 +43,6 @@ export default function ContactsScreen() {
   const [isImporting, setIsImporting] = useState(false);
   const [isSearchActive, setIsSearchActive] = useState(false);
 
-  // 搜索 hook
   const { results: searchResults, isSearching, query, setQuery } = useContactSearch();
 
   const headerY = useSharedValue(-20);
@@ -63,13 +61,11 @@ export default function ContactsScreen() {
     opacity: headerOpacity.value,
   }));
 
-  // 搜索界面展开动画
   const searchOverlayStyle = useAnimatedStyle(() => ({
     opacity: searchExpandProgress.value,
     pointerEvents: searchExpandProgress.value > 0.5 ? 'auto' : 'none' as const,
   }));
 
-  // 搜索栏展开动画
   const searchBarExpandStyle = useAnimatedStyle(() => ({
     transform: [
       {
@@ -83,7 +79,6 @@ export default function ContactsScreen() {
     ],
   }));
 
-  // 搜索输入框动画
   const searchInputContainerStyle = useAnimatedStyle(() => ({
     opacity: interpolate(
       searchExpandProgress.value,
@@ -110,17 +105,14 @@ export default function ContactsScreen() {
     router.push(`/(views)/contact/${contact.id}`);
   }, [isSearchActive, router]);
 
-  // 打开搜索
   const openSearch = useCallback(() => {
     setIsSearchActive(true);
     searchExpandProgress.value = withTiming(1, { duration: 300 });
-    // 延迟聚焦，等待动画开始
     setTimeout(() => {
       searchInputRef.current?.focus();
     }, 100);
   }, []);
 
-  // 关闭搜索
   const closeSearch = useCallback(() => {
     Keyboard.dismiss();
     searchExpandProgress.value = withTiming(0, { duration: 250 }, (finished) => {
@@ -131,12 +123,10 @@ export default function ContactsScreen() {
     });
   }, [setQuery]);
 
-  // 存储 closeSearch 到 ref 供 handleContactPress 使用
   useEffect(() => {
     closeSearchRef.current = closeSearch;
   }, [closeSearch]);
 
-  // 清空搜索
   const clearSearch = useCallback(() => {
     setQuery('');
   }, [setQuery]);
@@ -193,30 +183,30 @@ export default function ContactsScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <Animated.View style={[styles.header, headerStyle]}>
-        <View>
+        <View style={styles.headerLeft}>
           <Text style={[styles.title, { color: colors.text }]}>
             {t('contacts.title')}
           </Text>
           <Text style={[styles.subtitle, { color: colors.textMuted }]}>
             {contacts.length > 0
-              ? `${contacts.length} ${t('contacts.all')}`
+              ? t('contacts.totalCount', { count: contacts.length })
               : t('contacts.noContacts')}
           </Text>
         </View>
 
         <View style={styles.headerButtons}>
           <TouchableOpacity
-            style={[styles.importButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            style={[styles.iconButton, { backgroundColor: colors.surface }]}
             onPress={handleImportContacts}
             disabled={isImporting}
             activeOpacity={0.8}
           >
-            <Ionicons name="download-outline" size={22} color={colors.primary} />
+            <Ionicons name="download-outline" size={20} color={colors.primary} />
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.addButton, { backgroundColor: colors.primary }]}
-            onPress={() => router.push('/(views)/recording')}
+            onPress={() => router.push('/(views)/contact/new')}
             activeOpacity={0.8}
           >
             <Ionicons name="add" size={24} color="#0a0a0a" />
@@ -236,7 +226,7 @@ export default function ContactsScreen() {
         activeOpacity={0.8}
         onPress={openSearch}
       >
-        <Ionicons name="search" size={20} color={colors.textMuted} />
+        <Ionicons name="search" size={18} color={colors.textMuted} />
         <Text style={[styles.searchText, { color: colors.textMuted }]}>
           {t('contacts.search')}
         </Text>
@@ -247,9 +237,10 @@ export default function ContactsScreen() {
         isLoading={isLoading}
         onRefresh={refresh}
         onContactPress={handleContactPress}
+        onAddContact={() => router.push('/(views)/contact/new')}
+        onImportContact={handleImportContacts}
       />
 
-      {/* 搜索覆盖层 */}
       <Animated.View
         style={[
           styles.searchOverlay,
@@ -257,7 +248,6 @@ export default function ContactsScreen() {
           { backgroundColor: colors.background },
         ]}
       >
-        {/* 搜索头部 */}
         <View style={styles.searchHeader}>
           <Animated.View
             style={[
@@ -266,7 +256,7 @@ export default function ContactsScreen() {
               { backgroundColor: colors.surface, borderColor: colors.border },
             ]}
           >
-            <Ionicons name="search" size={20} color={colors.textMuted} />
+            <Ionicons name="search" size={18} color={colors.textMuted} />
             <TextInput
               ref={searchInputRef}
               style={[styles.searchInput, { color: colors.text }]}
@@ -284,7 +274,7 @@ export default function ContactsScreen() {
                 onPress={clearSearch}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <Ionicons name="close-circle" size={20} color={colors.textMuted} />
+                <Ionicons name="close-circle" size={18} color={colors.textMuted} />
               </TouchableOpacity>
             )}
           </Animated.View>
@@ -295,11 +285,10 @@ export default function ContactsScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* 搜索结果 */}
         <View style={styles.searchContent}>
           {isSearching ? (
             <ContactList contacts={[]} isLoading={true} />
-          )           : query.trim() && searchResults.length === 0 ? (
+          ) : query.trim() && searchResults.length === 0 ? (
             <SearchEmptyState query={query} colors={colors} t={t} />
           ) : (
             <ContactList
@@ -321,58 +310,60 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    paddingHorizontal: 24,
-    paddingTop: 20,
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 12,
     paddingBottom: 16,
   },
+  headerLeft: {
+    flex: 1,
+  },
   title: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: '700',
     letterSpacing: -0.5,
-    fontFamily: 'Georgia',
   },
   subtitle: {
-    fontSize: 14,
-    marginTop: 4,
+    fontSize: 13,
+    marginTop: 2,
   },
   headerButtons: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 8,
   },
-  importButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
+  iconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
   },
   addButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#c9a962',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+    shadowRadius: 6,
+    elevation: 4,
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 12,
     borderWidth: 1,
-    marginHorizontal: 24,
-    marginBottom: 24,
-    gap: 12,
+    marginHorizontal: 20,
+    marginBottom: 16,
+    gap: 10,
   },
   searchText: {
-    fontSize: 15,
+    fontSize: 14,
     flex: 1,
   },
   searchOverlay: {
@@ -383,36 +374,35 @@ const styles = StyleSheet.create({
   searchHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingTop: 60,
-    paddingBottom: 16,
-    gap: 12,
+    paddingHorizontal: 16,
+    paddingTop: 56,
+    paddingBottom: 12,
+    gap: 10,
   },
   searchInputContainer: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
     borderWidth: 1,
-    gap: 12,
+    gap: 10,
   },
   searchInput: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 15,
     paddingVertical: 4,
   },
   clearButton: {
     padding: 4,
-    borderRadius: 12,
   },
   cancelButton: {
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
   cancelText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '500',
   },
   searchContent: {
@@ -426,12 +416,12 @@ const styles = StyleSheet.create({
     marginTop: 100,
   },
   searchEmptyTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '600',
     marginTop: 16,
   },
   searchEmptySubtitle: {
-    fontSize: 14,
+    fontSize: 13,
     marginTop: 8,
     textAlign: 'center',
   },

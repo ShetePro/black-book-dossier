@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -22,10 +22,13 @@ export default function NewActionItemScreen() {
   const router = useRouter();
   const colors = useThemeColor();
   const { t } = useTranslation();
-  const { contactId } = useLocalSearchParams<{ contactId?: string }>();
+  const { contactId, itemId } = useLocalSearchParams<{ contactId?: string; itemId?: string }>();
   
-  const { addActionItem } = useActionItems();
+  const { actionItems, addActionItem, updateActionItem } = useActionItems();
   const { contacts } = useContacts();
+  
+  const isEditMode = !!itemId;
+  const existingItem = actionItems.find((item) => item.id === itemId);
   
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<ActionItem['priority']>('medium');
@@ -33,6 +36,15 @@ export default function NewActionItemScreen() {
   const [relatedContactId, setRelatedContactId] = useState<string | undefined>(contactId);
   const [showContactSelector, setShowContactSelector] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (isEditMode && existingItem) {
+      setDescription(existingItem.description);
+      setPriority(existingItem.priority);
+      setDueDate(existingItem.dueDate ? new Date(existingItem.dueDate) : null);
+      setRelatedContactId(existingItem.relatedContactId);
+    }
+  }, [isEditMode, existingItem]);
 
   const priorityOptions: Array<{ value: ActionItem['priority']; label: string; color: string }> = [
     { value: 'high', label: t('actionItem.priorityHigh'), color: '#ef4444' },
@@ -48,17 +60,27 @@ export default function NewActionItemScreen() {
 
     setIsSubmitting(true);
     try {
-      const newActionItem: ActionItem = {
-        id: `action_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        description: description.trim(),
-        completed: false,
-        priority,
-        dueDate: dueDate?.getTime(),
-        relatedContactId,
-        createdAt: Date.now(),
-      };
-
-      await addActionItem(newActionItem);
+      if (isEditMode && existingItem) {
+        const updatedItem: ActionItem = {
+          ...existingItem,
+          description: description.trim(),
+          priority,
+          dueDate: dueDate?.getTime(),
+          relatedContactId,
+        };
+        await updateActionItem(updatedItem);
+      } else {
+        const newActionItem: ActionItem = {
+          id: `action_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          description: description.trim(),
+          completed: false,
+          priority,
+          dueDate: dueDate?.getTime(),
+          relatedContactId,
+          createdAt: Date.now(),
+        };
+        await addActionItem(newActionItem);
+      }
       router.back();
     } catch (error) {
       console.error('Failed to save action item:', error);
@@ -66,7 +88,7 @@ export default function NewActionItemScreen() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [description, priority, dueDate, relatedContactId, addActionItem, router, t]);
+  }, [isEditMode, existingItem, description, priority, dueDate, relatedContactId, addActionItem, updateActionItem, router, t]);
 
   const clearDueDate = useCallback(() => {
     setDueDate(null);
@@ -108,7 +130,7 @@ export default function NewActionItemScreen() {
           <Ionicons name="close" size={24} color={colors.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.text }]}>
-          {t('actionItem.newTitle')}
+          {isEditMode ? t('actionItem.editTitle') : t('actionItem.newTitle')}
         </Text>
         <TouchableOpacity
           onPress={handleSave}

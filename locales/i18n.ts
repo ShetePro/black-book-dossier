@@ -130,7 +130,6 @@ const resources = {
       },
       // 联系人
       contacts: {
-        title: '联系人',
         all: '所有联系人',
         recent: '最近联系',
         noContacts: '暂无联系人',
@@ -279,6 +278,7 @@ const resources = {
       actionItem: {
         title: '待办事项',
         newTitle: '新建待办',
+        editTitle: '编辑待办',
         new: '新建待办',
         description: '待办描述',
         descriptionPlaceholder: '输入待办事项描述...',
@@ -324,6 +324,16 @@ const resources = {
         overdue: '已逾期',
         today: '今天',
         tomorrow: '明天',
+        filterAll: '全部',
+        filterPending: '待处理',
+        filterCompleted: '已完成',
+        emptyPending: '没有待处理事项',
+        emptyCompleted: '还没有完成的事项',
+        emptyPendingHint: '所有事项都已处理完毕',
+        emptyCompletedHint: '完成待办后会在这里显示',
+        total: '总计',
+        pending: '待处理',
+        loading: '加载中...',
       },
       // 标签
       tags: {
@@ -1164,6 +1174,7 @@ const resources = {
       actionItem: {
         title: 'Tasks',
         newTitle: 'New Task',
+        editTitle: 'Edit Task',
         new: 'New Task',
         description: 'Description',
         descriptionPlaceholder: 'Enter task description...',
@@ -1209,6 +1220,16 @@ const resources = {
         overdue: 'Overdue',
         today: 'Today',
         tomorrow: 'Tomorrow',
+        filterAll: 'All',
+        filterPending: 'Pending',
+        filterCompleted: 'Completed',
+        emptyPending: 'No pending tasks',
+        emptyCompleted: 'No completed tasks yet',
+        emptyPendingHint: 'All tasks are handled',
+        emptyCompletedHint: 'Completed tasks will appear here',
+        total: 'Total',
+        pending: 'Pending',
+        loading: 'Loading...',
       },
       // Tags
       tags: {

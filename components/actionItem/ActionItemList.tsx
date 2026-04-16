@@ -13,17 +13,18 @@ import Animated, {
   FadeOut,
   Layout,
 } from 'react-native-reanimated';
-import { ActionItem } from '@/types';
+import { ActionItem, Contact } from '@/types';
 import { useThemeColor } from '@/hooks/useThemeColor';
 
 interface ActionItemListProps {
   actionItems: ActionItem[];
+  contacts?: Contact[];
   isLoading?: boolean;
   onToggleComplete: (id: string, completed: boolean) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
   onItemPress?: (actionItem: ActionItem) => void;
   emptyText?: string;
-  /** 是否在 ScrollView 内使用。为 true 时使用 View 而非 FlatList，避免嵌套报错 */
+  /** 是否在 ScrollView 内使用。为 true 时使用 View 而非 FlatList，以避免嵌套报错 */
   scrollable?: boolean;
 }
 
@@ -49,6 +50,7 @@ const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
 export const ActionItemList: React.FC<ActionItemListProps> = ({
   actionItems,
+  contacts,
   isLoading,
   onToggleComplete,
   onDelete,
@@ -99,6 +101,7 @@ export const ActionItemList: React.FC<ActionItemListProps> = ({
     ({ item }: { item: ActionItem }) => {
       const priority = priorityConfig[item.priority];
       const overdue = !item.completed && isOverdue(item.dueDate);
+      const contact = contacts?.find((c) => c.id === item.relatedContactId);
 
       return (
         <AnimatedTouchable
@@ -181,12 +184,21 @@ export const ActionItemList: React.FC<ActionItemListProps> = ({
                   </Text>
                 </View>
               )}
+
+              {contact && (
+                <View style={styles.contactInfo}>
+                  <Ionicons name="person" size={12} color={colors.textMuted} />
+                  <Text style={[styles.contactText, { color: colors.textMuted }]}>
+                    @{contact.name}
+                  </Text>
+                </View>
+              )}
             </View>
           </View>
         </AnimatedTouchable>
       );
     },
-    [colors, onToggleComplete, handleLongPress, onItemPress, formatDate, isOverdue]
+    [colors, contacts, onToggleComplete, handleLongPress, onItemPress, formatDate, isOverdue]
   );
 
   const renderEmpty = useCallback(() => {
@@ -287,6 +299,14 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   dueDateText: {
+    fontSize: 12,
+  },
+  contactInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  contactText: {
     fontSize: 12,
   },
   emptyContainer: {

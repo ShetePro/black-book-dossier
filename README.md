@@ -1,114 +1,140 @@
 # Black Book
 
-> 一个 Local-First、基于 AI 的极简人脉情报系统，专为那些**"关系比钱更重要"**的人设计。
+> **Local-First, AI-Powered Networking Intelligence System**
+> 
+> 专为那些**"关系比钱更重要"**的人设计。
+> 一个将日常交往转化为结构化商业情报的私人智库。
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Platform-iOS%20%7C%20Android-000000?style=for-the-badge&logo=react" alt="Platform" />
+  <img src="https://img.shields.io/badge/Framework-Expo%20SDK%2054-6B7280?style=for-the-badge&logo=expo" alt="Framework" />
+  <img src="https://img.shields.io/badge/Language-TypeScript-3178C6?style=for-the-badge&logo=typescript" alt="Language" />
+  <img src="https://img.shields.io/badge/Architecture-Local--First-22C55E?style=for-the-badge" alt="Architecture" />
+</p>
+
+---
 
 ## 🎯 核心价值
 
-- **Zero-Knowledge Privacy (零知隐私)**：数据只存在于 iPhone 的加密芯片中
-- **Ambient Intelligence (环境智能)**：把酒后的胡言乱语转化为结构化的商业情报
-- **Curated Network (精选网络)**：不是为了存 5000 个泛泛之交，而是为了管理 150 个核心利益相关者
+| 理念 | 描述 |
+|:---:|---|
+| 🛡️ **Zero-Knowledge Privacy** | 数据仅存在于您设备的加密芯片中。无云端，无服务器，无追踪。 |
+| 🧠 **Ambient Intelligence** | 将酒后的闲聊转化为结构化的商业情报。自动提取人名、需求、偏好。 |
+| 🤝 **Curated Network** | 不管理 5000 个泛泛之交，只深耕 150 个核心利益相关者。 |
+
+---
+
+## ✨ 核心功能
+
+### 🎙️ 语音优先 (Voice-First)
+- **一键录音**：打开即录，松开即止。无需复杂操作。
+- **智能转录**：自动将语音转换为文本，提取关键实体。
+- **离线可用**：核心录音功能完全离线运行。
+
+### 🕵️ 智能分析 (AI Analyst)
+- **LLM 智能提取**：自动识别对话中的人名、公司、职位、需求、偏好。
+- **自动归档**：将提取的信息自动关联到对应联系人档案。
+- **待办生成**：从语音中自动生成待办事项，不错过任何承诺。
+
+### 📂 档案与关系 (The Dossier)
+- **CIA 风格档案**：专业、极简的联系人详情页。
+- **情报追踪**：健康状况、个人偏好、商业禁忌、家庭成员。
+- **交往时间轴**：完整记录每一次互动，支持按时间、类型筛选。
+- **标签管理**：灵活的多维标签系统，快速圈选特定人群。
+
+### 🔐 安全与信任 (The Vault)
+- **生物识别锁**：Face ID / Touch ID 守护应用入口。
+- **Kill Switch**：一键永久销毁所有数据，彻底无痕。
+- **本地加密存储**：基于 SQLite 的本地加密数据库，数据不出设备。
+
+### 📊 待办与提醒 (Tasks & Reminders)
+- **智能待办**：关联特定联系人的任务管理。
+- **优先级管理**：高/中/低三级优先级，逾期自动标红。
+- **数据统计**：可视化展示待办完成率与趋势。
+
+---
 
 ## 🏗️ 技术架构
 
-基于 **Expo + React Native** 构建，参考 sim-run-app 架构：
+基于 **Expo + React Native** 构建，采用现代前端工程化实践：
 
-| 层级 | 技术 |
-|------|------|
-| **路由** | Expo Router (文件系统路由) |
-| **状态管理** | Zustand |
-| **数据库** | Expo SQLite (本地加密) |
-| **样式** | NativeWind (Tailwind CSS) |
-| **安全** | Expo LocalAuthentication + SecureStore |
-| **音频** | Expo AV |
-| **动画** | React Native Reanimated |
+| 层级 | 技术选型 | 说明 |
+|:---:|---|---|
+| **框架** | Expo SDK 54 + RN 0.81 | 最新架构，支持 New Architecture |
+| **语言** | TypeScript (Strict) | 类型安全，拒绝 `any` |
+| **路由** | Expo Router | 文件系统路由，支持嵌套布局 |
+| **状态** | Zustand | 轻量、高效的状态管理 |
+| **数据库** | Expo SQLite | 本地关系型数据库 |
+| **样式** | NativeWind 4.x | Tailwind CSS 的 RN 实现 |
+| **动画** | Reanimated 4.x | 高性能原生动画 |
+| **国际化** | i18next | 支持中/英多语言切换 |
+
+---
 
 ## 🚀 快速开始
 
+### 环境要求
+- Node.js 18+
+- npm / pnpm
+- Xcode (iOS) 或 Android Studio (Android)
+
+### 安装与运行
 ```bash
-# 安装依赖
+# 1. 克隆项目
+git clone https://github.com/ShetePro/black-book-dossier.git
+cd black-book-dossier
+
+# 2. 安装依赖
 npm install
 
-# 启动开发服务器
+# 3. 启动开发服务器
 npx expo start
 
-# iOS
-npx expo run:ios
-
-# Android
-npx expo run:android
+# 4. 运行到设备
+npx expo run:ios   # iOS (需配置签名)
+npx expo run:android # Android
 ```
 
-## 📁 项目结构
-
+### 项目结构
 ```
 app/
-├── (auth)/              # 认证流程
-│   ├── onboarding.tsx   # 隐私承诺引导页
-│   └── auth-lock.tsx    # FaceID/TouchID 锁
-├── (tabs)/              # 主标签栏
-│   ├── index.tsx        # 首页 - 巨大录音按钮
-│   ├── contacts/        # 人脉档案
-│   └── settings.tsx     # 设置（Kill Switch）
-├── (views)/             # 详情视图
-└── _layout.tsx          # 根布局
+├── (tabs)/              # 主标签栏 (首页 / 联系人)
+├── (views)/             # 功能视图
+│   ├── contact/         # 联系人详情 / 编辑 / 新建
+│   ├── action-item/     # 待办管理 / 新建
+│   ├── interaction/     # 交往记录
+│   └── settings.tsx     # 设置中心
+├── _layout.tsx          # 根布局
+└── ...
 
 components/
-├── auth/                # 认证组件
-├── recording/           # 录音组件
-├── contacts/            # 联系人组件
-└── ui/                  # 基础 UI
+├── contact/             # 联系人列表 / 卡片 / 空状态
+├── actionItem/          # 待办列表
+├── analysis/            # LLM 智能分析卡片
+└── ...
 
 store/                   # Zustand 状态管理
 db/                      # SQLite 数据库操作
 services/
-├── ai/                  # AI 实体提取
-├── security/            # 生物识别认证
-└── voice/               # 语音录制
-types/                   # TypeScript 类型定义
+├── ai/                  # AI 实体提取与分析
+├── export/              # CSV 数据导出
+└── ...
 ```
 
-## ✨ 核心功能
-
-### P0 (MVP) - 已完成
-
-1. **The Vault (安全与信任)**
-   - ✅ FaceID/TouchID 生物识别锁
-   - ✅ 隐私承诺引导页
-   - ✅ Kill Switch 一键数据自毁
-
-2. **The Input (情报录入)**
-   - ✅ 语音优先界面（巨大录音按钮）
-   - ✅ 离线音频录制
-   - ✅ 模拟转文字（MVP 阶段）
-
-3. **The Brain (AI 情报分析师)**
-   - ✅ 规则引擎实体提取（人名、健康、需求、偏好）
-   - ✅ 自动生成待办事项
-   - ✅ 自动归档到联系人档案
-
-4. **The Dossier (档案与关系)**
-   - ✅ CIA 风格人物卡片
-   - ✅ 健康、偏好、禁忌追踪
-   - ✅ 交往时间轴
-
-### P1 (后续版本)
-
-- [ ] 本地 Vosk 语音识别
-- [ ] 本地 ONNX AI 模型
-- [ ] 自然语言搜索
-- [ ] 伪装密码模式
-- [ ] 数据导出/备份
+---
 
 ## 🎨 设计规范
 
 - **主题**：Dark Mode Only (全黑模式)
-- **字体**：衬线体 (Serif) 用于标题，营造报纸/杂志的高级感
-- **颜色**：
-  - Void: `#0a0a0a` - 背景
-  - Elite: `#f5f5f5` - 主文字
-  - Accent: `#c9a962` - 强调色（金色）
-  - Danger: `#dc2626` - 危险/警告
-- **触感**：大量使用 Haptic Feedback
+- **字体**：系统默认无衬线体，标题加粗
+- **配色**：
+  - 🌑 Void: `#0a0a0a` - 背景
+  - ⚪ Elite: `#f5f5f5` - 主文字
+  - 🥇 Accent: `#c9a962` - 强调色（金色）
+  - 🔴 Danger: `#ef4444` - 危险/警告
+- **交互**：全局触感反馈 (Haptic Feedback)
+
+---
 
 ## 🔐 隐私声明
 
@@ -116,15 +142,17 @@ types/                   # TypeScript 类型定义
 No Cloud. No Servers. Only on your Device.
 ```
 
-- 所有数据仅存储于本地 SQLite 数据库
-- 生物识别用于应用锁定
-- Kill Switch 可立即销毁所有数据
-- 无网络请求（除可选的云端语音识别）
-
-## 📄 许可证
-
-Private - 仅供学习和内部使用
+- 所有数据仅存储于本地 SQLite 数据库。
+- 生物识别用于应用锁定，指纹/面容数据不离开设备安全区。
+- Kill Switch 可立即销毁所有数据，不可恢复。
+- 无后台网络请求，杜绝数据泄露风险。
 
 ---
 
-**Black Book** - 为精英阶层设计的情报系统
+## 📄 许可证
+
+Private - 仅供学习和内部使用。
+
+---
+
+**Black Book** - 为精英阶层设计的私人情报系统。

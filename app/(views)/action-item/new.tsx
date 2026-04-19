@@ -7,6 +7,7 @@ import {
   ScrollView,
   Alert,
   StyleSheet,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -24,7 +25,7 @@ export default function NewActionItemScreen() {
   const { t } = useTranslation();
   const { contactId, itemId } = useLocalSearchParams<{ contactId?: string; itemId?: string }>();
   
-  const { actionItems, addActionItem, updateActionItem } = useActionItems();
+  const { actionItems, isLoading, addActionItem, updateActionItem } = useActionItems();
   const { contacts } = useContacts();
   
   const isEditMode = !!itemId;
@@ -36,6 +37,37 @@ export default function NewActionItemScreen() {
   const [relatedContactId, setRelatedContactId] = useState<string | undefined>(contactId);
   const [showContactSelector, setShowContactSelector] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  if (isEditMode && isLoading && !existingItem) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={[styles.loadingText, { color: colors.textMuted, marginTop: 12 }]}>
+          {t('actionItem.loading')}
+        </Text>
+      </View>
+    );
+  }
+
+  if (isEditMode && !isLoading && !existingItem) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center', padding: 24 }]}>
+        <Ionicons name="alert-circle-outline" size={48} color={colors.danger} />
+        <Text style={[styles.errorTitle, { color: colors.text, marginTop: 16 }]}>
+          {t('common.error')}
+        </Text>
+        <Text style={[styles.errorText, { color: colors.textMuted, marginTop: 8, textAlign: 'center' }]}>
+          {t('actionItem.notFound')}
+        </Text>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={[styles.backButtonLarge, { backgroundColor: colors.primary, marginTop: 24 }]}
+        >
+          <Text style={styles.backButtonText}>{t('common.back')}</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   useEffect(() => {
     if (isEditMode && existingItem) {
@@ -647,5 +679,27 @@ const styles = StyleSheet.create({
   },
   previewDueDate: {
     fontSize: 12,
+  },
+  loadingText: {
+    fontSize: 14,
+    marginTop: 12,
+  },
+  errorTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  errorText: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  backButtonLarge: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+  },
+  backButtonText: {
+    color: '#0a0a0a',
+    fontSize: 15,
+    fontWeight: '600',
   },
 });

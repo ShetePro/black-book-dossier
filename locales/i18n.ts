@@ -334,6 +334,7 @@ const resources = {
         total: '总计',
         pending: '待处理',
         loading: '加载中...',
+        notFound: '待办不存在',
       },
       // 标签
       tags: {
@@ -1230,6 +1231,7 @@ const resources = {
         total: 'Total',
         pending: 'Pending',
         loading: 'Loading...',
+        notFound: 'Task not found',
       },
       // Tags
       tags: {

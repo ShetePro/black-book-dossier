@@ -20,6 +20,8 @@ import { Contact } from '@/types';
 import { importDeviceContacts, showImportPreview } from '@/services/contactImport';
 import { useContactStore } from '@/store';
 
+const CONTACT_LIMIT = 10;
+
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
 const SearchEmptyState: React.FC<{ query: string; colors: ReturnType<typeof useThemeColor>; t: any }> = ({ query, colors, t }) => (
@@ -34,6 +36,36 @@ const SearchEmptyState: React.FC<{ query: string; colors: ReturnType<typeof useT
   </View>
 );
 
+const ContactLimitIndicator: React.FC<{
+  current: number;
+  max: number;
+  colors: ReturnType<typeof useThemeColor>;
+  t: any;
+}> = ({ current, max, colors, t }) => {
+  const remaining = max - current;
+  const isAtLimit = current >= max;
+
+  return (
+    <View style={styles.limitContainer}>
+      <View style={styles.limitRow}>
+        <Ionicons
+          name={isAtLimit ? 'alert-circle' : 'people-outline'}
+          size={14}
+          color={isAtLimit ? colors.danger : colors.textMuted}
+        />
+        <Text style={[styles.limitText, { color: isAtLimit ? colors.danger : colors.textMuted }]}>
+          {t('contacts.limitInfo', { current, max })}
+        </Text>
+      </View>
+      {!isAtLimit && remaining <= 3 && (
+        <Text style={[styles.remainingWarning, { color: colors.warning }]}>
+          {t('contacts.remainingSlots', { count: remaining })}
+        </Text>
+      )}
+    </View>
+  );
+};
+
 export default function ContactsScreen() {
   const router = useRouter();
   const { t } = useTranslation();
@@ -44,6 +76,8 @@ export default function ContactsScreen() {
   const [isSearchActive, setIsSearchActive] = useState(false);
 
   const { results: searchResults, isSearching, query, setQuery } = useContactSearch();
+
+  const isAtLimit = contacts.length >= CONTACT_LIMIT;
 
   const headerY = useSharedValue(-20);
   const headerOpacity = useSharedValue(0);
@@ -185,31 +219,54 @@ export default function ContactsScreen() {
       <Animated.View style={[styles.header, headerStyle]}>
         <View style={styles.headerLeft}>
           <Text style={[styles.title, { color: colors.text }]}>
-            {t('contacts.title')}
+            {t('navigation.contacts')}
           </Text>
-          <Text style={[styles.subtitle, { color: colors.textMuted }]}>
-            {contacts.length > 0
-              ? t('contacts.totalCount', { count: contacts.length })
-              : t('contacts.noContacts')}
-          </Text>
+          <ContactLimitIndicator
+            current={contacts.length}
+            max={CONTACT_LIMIT}
+            colors={colors}
+            t={t}
+          />
         </View>
 
         <View style={styles.headerButtons}>
           <TouchableOpacity
-            style={[styles.iconButton, { backgroundColor: colors.surface }]}
+            style={[
+              styles.iconButton,
+              { backgroundColor: colors.surface },
+              isAtLimit && styles.disabledButton,
+            ]}
             onPress={handleImportContacts}
-            disabled={isImporting}
+            disabled={isImporting || isAtLimit}
             activeOpacity={0.8}
           >
-            <Ionicons name="download-outline" size={20} color={colors.primary} />
+            <Ionicons
+              name="download-outline"
+              size={20}
+              color={isAtLimit ? colors.textMuted : colors.primary}
+            />
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.addButton, { backgroundColor: colors.primary }]}
-            onPress={() => router.push('/(views)/contact/new')}
+            style={[
+              styles.addButton,
+              { backgroundColor: isAtLimit ? colors.surface : colors.primary },
+              isAtLimit && styles.disabledButton,
+            ]}
+            onPress={() => {
+              if (isAtLimit) {
+                Alert.alert(t('common.notice'), t('contacts.limitWarning'));
+                return;
+              }
+              router.push('/(views)/contact/new');
+            }}
             activeOpacity={0.8}
           >
-            <Ionicons name="add" size={24} color="#0a0a0a" />
+            <Ionicons
+              name={isAtLimit ? 'close' : 'add'}
+              size={24}
+              color={isAtLimit ? colors.textMuted : '#0a0a0a'}
+            />
           </TouchableOpacity>
         </View>
       </Animated.View>
@@ -326,6 +383,26 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 13,
     marginTop: 2,
+  },
+  limitContainer: {
+    marginTop: 4,
+  },
+  limitRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  limitText: {
+    fontSize: 13,
+  },
+  remainingWarning: {
+    fontSize: 11,
+    marginTop: 2,
+    marginLeft: 22,
+  },
+  disabledButton: {
+    opacity: 0.6,
+    shadowOpacity: 0,
   },
   headerButtons: {
     flexDirection: 'row',

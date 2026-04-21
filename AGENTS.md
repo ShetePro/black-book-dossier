@@ -8,13 +8,37 @@ Black Book is a React Native Expo app - a Local-First, AI-powered networking int
 
 - **Framework**: Expo SDK 54 + React Native 0.81 (New Architecture enabled)
 - **Language**: TypeScript (strict mode)
-- **Routing**: Expo Router (file-based)
+- **Routing**: Expo Router v6 (file-based)
 - **Styling**: NativeWind 4.x (Tailwind CSS)
-- **Database**: Expo SQLite
-- **State**: Zustand
+- **Database**: Expo SQLite 16.x
+- **State**: Zustand 5.x
 - **Animation**: React Native Reanimated 4.x
-- **Icons**: @expo/vector-icons
-- **Localization**: i18next
+- **Security**: Expo LocalAuthentication + SecureStore
+- **Icons**: @expo/vector-icons (Ionicons)
+- **Localization**: i18next + react-i18next
+
+## Project Structure
+
+```
+app/                    # Expo Router 文件路由
+├── (tabs)/             # 主标签栏 (首页 / 联系人)
+├── (views)/            # 功能视图 (contact/, action-item/, interaction/)
+├── _layout.tsx         # 根布局
+
+components/             # UI 组件库
+├── contact/            # 联系人组件 (Card, List, EmptyState)
+├── ui/                 # 基础组件 (Button, Input, Tag, Dialog)
+├── analysis/           # AI 分析组件
+├── __tests__/          # 组件测试
+
+hooks/                  # 自定义 Hooks (useContacts, useInteractions)
+store/                  # Zustand 状态管理 (contactStore, interactionStore)
+db/                     # SQLite 操作封装 (operations.ts, migrations/)
+services/               # 业务服务层 (ai/, export/)
+types/                  # TypeScript 类型定义 (Contact, Interaction, ActionItem)
+constants/              # 主题配色 (Colors.ts)
+memory-bank/            # Memory Bank 知识库
+```
 
 ## Build Commands
 
@@ -24,16 +48,16 @@ npx expo start                    # Start Metro bundler
 npx expo start --clear            # Clear Metro cache
 npx expo run:ios                  # Build iOS (requires Xcode)
 npx expo run:android              # Build Android
-npx expo run:ios --clear          # Clean iOS build
 
-# Testing
+# Testing (jest-expo preset)
 npm test                          # Run tests (watch mode)
 npx jest --testPathPattern="Button" --no-coverage   # Single test file
 npx jest --testNamePattern="should render"          # Tests by pattern
 npx jest --coverage               # Run with coverage
+npx jest --silent --no-coverage   # CI mode (no watch)
 
 # Linting & Types
-npm run lint                      # Run ESLint
+npm run lint                      # Run ESLint (expo-config)
 npx eslint . --fix                # Auto-fix ESLint
 npx tsc --noEmit                  # Type check only
 
@@ -117,10 +141,63 @@ Use Tailwind utility classes with custom colors from `constants/Colors.ts`:
 - Actions: `text-accent`, `text-danger`
 - Components use `className` prop (e.g., `<View className="flex-1 bg-void">`)
 
+### Navigation (Expo Router)
+
+```typescript
+import { useRouter, useLocalSearchParams } from 'expo-router';
+
+const router = useRouter();
+router.push('/contact/new');           // 新建联系人
+router.push(`/contact/${contactId}`);  // 跳转详情页
+router.back();                         // 返回上一页
+
+const { id } = useLocalSearchParams(); // 获取路由参数
+```
+
+### Zustand Store Pattern
+
+```typescript
+import { create } from 'zustand';
+
+export interface ContactState {
+  contacts: Contact[];
+  isLoading: boolean;
+  error: string | null;
+  loadContacts: () => Promise<void>;
+}
+
+export const useContactStore = create<ContactState>((set, get) => ({
+  contacts: [],
+  isLoading: false,
+  error: null,
+  loadContacts: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const database = await db.getDatabase();
+      const contacts = await db.getAllContacts(database);
+      set({ contacts, isLoading: false });
+    } catch (error) {
+      set({ error: '加载联系人失败', isLoading: false });
+    }
+  },
+}));
+```
+
+### Database Operations
+
+```typescript
+import * as db from '@/db/operations';
+
+const database = await db.getDatabase();
+const contacts = await db.getAllContacts(database);
+await db.createContact(database, contact);
+await db.updateContact(database, contact);
+await db.deleteContact(database, id);
+```
+
 ### Error Handling
 
 ```typescript
-// Always try-catch async operations
 try {
   await createContact(db, contact);
 } catch (error) {
@@ -142,11 +219,10 @@ t('contacts.count', { count: 5 });
 ## Git Workflow
 
 1. **Atomic commits**: One logical change per commit
-2. **Commit format**: `<type>(<scope>): <description>`
+2. **Commit format**: `<type>(<scope>): <中文描述>`
    - Types: `feat`, `fix`, `refactor`, `chore`, `docs`
-   - Example: `feat(contacts): add swipe to delete`
-3. **Chinese descriptions**: 使用中文描述 commit
-4. **No secrets**: Never commit API keys or .env files
+   - Example: `feat(contacts): 新增联系人卡片组件`
+3. **No secrets**: Never commit API keys or .env files
 
 ## Architecture Patterns
 
@@ -154,6 +230,16 @@ t('contacts.count', { count: 5 });
 - **Zero-Knowledge**: Encrypted storage + biometric auth
 - **Voice-First**: Voice recording as main interface
 - **Privacy**: All data stays on device
+- **Repository Pattern**: 数据库操作封装在 `db/operations.ts`
+- **Service Layer**: 业务逻辑封装在 `services/` 目录
+
+## Memory Bank Protocol
+
+项目的"长期记忆"存储在 `memory-bank/` 文件夹：
+
+- **Session Start**: 必须优先读取 `activeContext.md` 和 `progress.md`
+- **Context Overflow**: 当 Token 紧张时，调用 `/update-memory` 存档
+- **关键文件**: `systemPatterns.md` (系统模式), `techContext.md` (技术上下文)
 
 ## Important Notes
 
@@ -162,85 +248,4 @@ t('contacts.count', { count: 5 });
 - iOS builds require Xcode and valid team ID
 - Use `expo-dev-client` for development builds
 - Clear Metro cache: `npx expo start --clear`
-- FileSystem API: Use `expo-file-system` (new) or `expo-file-system/legacy` (deprecated methods)
-
-## Current Development Tasks
-
-### Phase 1: 联系人列表（通讯录风格）- 进行中
-
-#### 功能需求
-- [ ] 联系人列表 UI（FlatList + SectionList 分组按首字母）
-- [ ] 字母索引栏（右侧 A-Z 快速跳转）
-- [ ] 搜索栏（实时过滤姓名、公司）
-- [ ] 标签/分组筛选
-- [ ] 设置中的排序选项（姓名、优先级、最近联系）
-
-#### 技术要点
-- 使用 `useContactStore` 获取联系人数据
-- 支持拼音排序（使用 `pinyin` 库）
-- 空状态和加载状态处理
-
-### Phase 2: 联系人档案管理 - 待开始
-
-#### 功能需求
-- [ ] 联系人详情页（CIA 风格档案卡片）
-- [ ] 时间轴组件展示所有交往记录
-- [ ] 情报分类展示（健康、偏好、禁忌、家庭、商业）
-- [ ] 编辑功能（支持添加家庭成员）
-- [ ] 标签管理页面
-
-#### 技术要点
-- 使用 `Interaction` 类型展示历史记录
-- 时间轴按日期分组显示
-- 可展开/折叠的情报卡片
-
-### Phase 3: AI Agent 智能处理 - 待开始
-
-#### 功能需求
-- [ ] 相似度匹配算法（精确、拼音、模糊匹配）
-- [ ] AI Agent 决策流程
-- [ ] 确认弹窗（高置信度自动提示）
-- [ ] 候选联系人列表（中置信度）
-- [ ] 设置项：匹配阈值、自动合并选项
-
-#### 技术要点
-- 新服务：`services/ai/contactMatcher.ts`
-- 匹配策略：精确匹配 > 拼音匹配 > 模糊匹配 > 上下文匹配
-- 阈值设置：high(0.9) | medium(0.7) | low(0.5)
-- 集成到录音流程：停止录音 → 实体提取 → 匹配联系人 → 确认/创建
-
-### Phase 4: 语音录制集成 - 待开始
-
-#### 功能需求
-- [ ] 录音后自动触发 AI Agent
-- [ ] 根据匹配结果显示确认弹窗或创建页面
-- [ ] 支持快速创建新联系人
-
-#### 数据模型
-
-**已有模型（无需改动）：**
-- `Contact` - 联系人基础信息
-- `Interaction` - 交往记录
-- `ActionItem` - 待办事项
-
-**新增设置项：**
-```typescript
-interface AISettings {
-  aiMatchingThreshold: number;        // 0.5 - 1.0
-  aiAutoMergeHighConfidence: boolean; // 是否自动合并高置信度
-  aiShowSimilarContacts: boolean;     // 是否显示相似建议
-}
-```
-
-### 开发优先级
-1. **P0**: 联系人列表（基础功能）
-2. **P1**: 联系人档案详情页
-3. **P2**: AI Agent 匹配算法
-4. **P3**: 语音流程集成
-
-### 交付时间估算
-- 阶段 1：2-3 天
-- 阶段 2：3-4 天
-- 阶段 3：4-5 天
-- 阶段 4：1-2 天
-- **总计：约 10-14 天**
+- FileSystem API: Use `expo-file-system` (new) or `expo-file-system/legacy` (deprecated)

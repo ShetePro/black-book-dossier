@@ -19,8 +19,9 @@ export function getDatabasePath(): string {
 }
 
 /**
- * 获取备份文件路径
- */
+ 获取备份文件路径
+ 获取备份文件路径
+ * 获取备份文件路径 */
 export function getBackupPath(): string {
   return `${documentDirectory}${BACKUP_FILE_NAME}`;
 }
@@ -41,7 +42,7 @@ export async function checkDatabaseExists(): Promise<boolean> {
 /**
  * 备份 SQLite 数据库到 FileSystem.documentDirectory
  * 这样可以利用 iCloud 自动备份功能
- * 
+ *
  * iOS 说明：
  * - DocumentDirectory 中的文件默认会被 iCloud 备份
  * - 这是苹果推荐的存储用户数据的位置
@@ -79,11 +80,11 @@ export async function backupDatabase(): Promise<void> {
 
 /**
  * 从备份恢复数据库（如果需要）
- * 
+ *
  * 使用场景：
  * - 应用重新安装后恢复数据
  * - 从 iCloud 恢复设备后恢复数据
- * 
+ *
  * 注意：只有在数据库不存在时才会恢复，避免覆盖现有数据
  */
 export async function restoreDatabase(): Promise<void> {

@@ -14,8 +14,6 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
-  withRepeat,
-  withSequence,
   withTiming,
   withDelay,
 } from "react-native-reanimated";
@@ -27,10 +25,11 @@ import { ActionItem } from "@/types";
 
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
+// ── Apple HIG Priority Config ──
 const PRIORITY_CONFIG = {
-  high: { color: "#ef4444", label: "高", bg: "rgba(239,68,68,0.12)" },
-  medium: { color: "#f59e0b", label: "中", bg: "rgba(245,158,11,0.12)" },
-  low: { color: "#6b7280", label: "低", bg: "rgba(107,114,128,0.12)" },
+  high: { color: "#FF3B30", label: "高", bg: "rgba(255,59,48,0.12)" },
+  medium: { color: "#FF9500", label: "中", bg: "rgba(255,149,0,0.12)" },
+  low: { color: "#8E8E93", label: "低", bg: "rgba(142,142,147,0.12)" },
 } as const;
 
 interface QuickEntry {
@@ -41,17 +40,18 @@ interface QuickEntry {
   badge?: number;
 }
 
+// ── Press Animation Hook (Apple spring curve) ──
 function usePressAnimation() {
   const scale = useSharedValue(1);
   const opacity = useSharedValue(1);
 
   const pressIn = useCallback(() => {
-    scale.value = withSpring(0.97, { damping: 20, stiffness: 300 });
-    opacity.value = withTiming(0.8, { duration: 100 });
+    scale.value = withSpring(0.95, { damping: 15, stiffness: 150 });
+    opacity.value = withTiming(0.7, { duration: 100 });
   }, []);
 
   const pressOut = useCallback(() => {
-    scale.value = withSpring(1, { damping: 20, stiffness: 300 });
+    scale.value = withSpring(1, { damping: 15, stiffness: 150 });
     opacity.value = withTiming(1, { duration: 150 });
   }, []);
 
@@ -63,25 +63,7 @@ function usePressAnimation() {
   return { pressIn, pressOut, style };
 }
 
-function usePulseAnimation() {
-  const pulse = useSharedValue(1);
-
-  useEffect(() => {
-    pulse.value = withRepeat(
-      withSequence(
-        withTiming(1.08, { duration: 1200 }),
-        withTiming(1, { duration: 1200 })
-      ),
-      -1,
-      true
-    );
-  }, []);
-
-  return useAnimatedStyle(() => ({
-    transform: [{ scale: pulse.value }],
-  }));
-}
-
+// ── Header ──
 interface HeaderProps {
   nickname?: string;
   avatar?: string;
@@ -95,7 +77,7 @@ const HomeHeader: React.FC<HeaderProps> = React.memo(
 
     return (
       <View style={styles.header}>
-        <View>
+        <View style={styles.headerLeft}>
           <Text style={[styles.brand, { color: colors.text }]}>
             Black Book
           </Text>
@@ -108,22 +90,20 @@ const HomeHeader: React.FC<HeaderProps> = React.memo(
           onPress={onAvatarPress}
           style={styles.avatarButton}
           accessibilityLabel={t("profile.title")}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
           {avatar ? (
-            <View style={styles.avatarRing}>
-              <View style={[styles.avatarRingBorder, { borderColor: colors.primary }]} />
-              <View style={styles.avatarInner}>
-                <DefaultAvatar nickname={nickname} size={36} />
-              </View>
+            <View style={styles.avatarContainer}>
+              <DefaultAvatar nickname={nickname} size={40} />
             </View>
           ) : (
             <View
               style={[
                 styles.avatarPlaceholder,
-                { backgroundColor: colors.surface, borderColor: colors.primary + "40" },
+                { backgroundColor: colors.elevated },
               ]}
             >
-              <Ionicons name="person" size={18} color={colors.primary} />
+              <Ionicons name="person" size={20} color={colors.textMuted} />
             </View>
           )}
         </TouchableOpacity>
@@ -132,69 +112,40 @@ const HomeHeader: React.FC<HeaderProps> = React.memo(
   }
 );
 
-interface ActionGridProps {
-  onRecord: () => void;
-  onNewContact: () => void;
+// ── Record Button (Apple HIG: large circular, centered) ──
+interface RecordButtonProps {
+  onPress: () => void;
 }
 
-const ActionGrid: React.FC<ActionGridProps> = React.memo(
-  ({ onRecord, onNewContact }) => {
-    const colors = useThemeColor();
-    const { t } = useTranslation();
-    const recordPress = usePressAnimation();
-    const contactPress = usePressAnimation();
+const RecordButton: React.FC<RecordButtonProps> = React.memo(({ onPress }) => {
+  const colors = useThemeColor();
+  const { t } = useTranslation();
+  const press = usePressAnimation();
 
-    return (
-      <View style={styles.actionGrid}>
-        <AnimatedTouchable
-          style={[styles.actionCard, styles.actionCardPrimary, { backgroundColor: colors.primary }, recordPress.style]}
-          onPress={onRecord}
-          onPressIn={recordPress.pressIn}
-          onPressOut={recordPress.pressOut}
-          activeOpacity={1}
-          accessibilityLabel={t("recording.tapToRecord")}
-        >
-          <View style={styles.actionCardContent}>
-            <View style={styles.actionIconWrapper}>
-              <Ionicons name="mic" size={28} color="#0a0a0a" />
-            </View>
-            <Text style={styles.actionCardTitle}>
-              {t("recording.tapToRecord")}
-            </Text>
-            <Text style={styles.actionCardSubtitle}>
-              {t("home.tapToAddRecord")}
-            </Text>
-          </View>
-          <View style={styles.actionCardGlow} />
-        </AnimatedTouchable>
+  return (
+    <View style={styles.recordSection}>
+      <AnimatedTouchable
+        style={[
+          styles.recordButton,
+          { backgroundColor: colors.primary },
+          press.style,
+        ]}
+        onPress={onPress}
+        onPressIn={press.pressIn}
+        onPressOut={press.pressOut}
+        activeOpacity={1}
+        accessibilityLabel={t("recording.tapToRecord")}
+      >
+        <Ionicons name="mic" size={32} color="#0a0a0a" />
+      </AnimatedTouchable>
+      <Text style={[styles.recordLabel, { color: colors.textSecondary }]}>
+        {t("recording.tapToRecord")}
+      </Text>
+    </View>
+  );
+});
 
-        <AnimatedTouchable
-          style={[
-            styles.actionCard,
-            styles.actionCardSecondary,
-            { backgroundColor: colors.surface, borderColor: colors.border },
-            contactPress.style,
-          ]}
-          onPress={onNewContact}
-          onPressIn={contactPress.pressIn}
-          onPressOut={contactPress.pressOut}
-          activeOpacity={1}
-          accessibilityLabel={t("contacts.addContact")}
-        >
-          <View style={styles.actionCardContent}>
-            <View style={[styles.actionIconWrapper, { backgroundColor: colors.primary + "15" }]}>
-              <Ionicons name="person-add" size={24} color={colors.primary} />
-            </View>
-            <Text style={[styles.actionCardTitle, { color: colors.text, fontSize: 15 }]}>
-              {t("contacts.addContact")}
-            </Text>
-          </View>
-        </AnimatedTouchable>
-      </View>
-    );
-  }
-);
-
+// ── Todo List (Apple HIG: list rows, not cards) ──
 interface TodoPreviewProps {
   actionItems: ActionItem[];
   isLoading: boolean;
@@ -232,10 +183,12 @@ const TodoPreview: React.FC<TodoPreviewProps> = React.memo(
     if (isLoading) {
       return (
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            {t("actionItem.title")}
-          </Text>
-          <View style={[styles.todoCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              {t("actionItem.title")}
+            </Text>
+          </View>
+          <View style={[styles.todoContainer, { backgroundColor: colors.surface }]}>
             <Text style={[styles.emptyText, { color: colors.textMuted }]}>
               {t("actionItem.loading")}
             </Text>
@@ -259,59 +212,62 @@ const TodoPreview: React.FC<TodoPreviewProps> = React.memo(
           </View>
           <TouchableOpacity
             onPress={onAdd}
-            style={[styles.sectionAddBtn, { backgroundColor: colors.primary + "15" }]}
+            style={styles.addBtn}
             accessibilityLabel={t("actionItem.addButton")}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Ionicons name="add" size={16} color={colors.primary} />
+            <Ionicons name="add-circle" size={24} color={colors.primary} />
           </TouchableOpacity>
         </View>
 
         {pendingItems.length === 0 ? (
           <View
             style={[
-              styles.todoCard,
+              styles.todoContainer,
               styles.todoEmpty,
-              { backgroundColor: colors.surface, borderColor: colors.border },
+              { backgroundColor: colors.surface },
             ]}
           >
-            <View style={[styles.todoEmptyIcon, { backgroundColor: colors.success + "12" }]}>
-              <Ionicons name="checkmark-done" size={24} color={colors.success} />
+            <View style={[styles.todoEmptyIcon, { backgroundColor: colors.success + "15" }]}>
+              <Ionicons name="checkmark-done-circle" size={40} color={colors.success} />
             </View>
             <Text style={[styles.todoEmptyTitle, { color: colors.text }]}>
               {t("actionItem.allCompleted")}
             </Text>
             <TouchableOpacity
-              style={[styles.todoEmptyBtn, { borderColor: colors.primary }]}
+              style={[styles.todoEmptyBtn, { backgroundColor: colors.primary + "15" }]}
               onPress={onAdd}
             >
-              <Ionicons name="add" size={14} color={colors.primary} />
+              <Ionicons name="add" size={16} color={colors.primary} />
               <Text style={[styles.todoEmptyBtnText, { color: colors.primary }]}>
                 {t("actionItem.addButton")}
               </Text>
             </TouchableOpacity>
           </View>
         ) : (
-          <View style={[styles.todoCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={[styles.todoContainer, { backgroundColor: colors.surface }]}>
             {pendingItems.map((item, index) => {
               const priority = PRIORITY_CONFIG[item.priority];
               return (
                 <React.Fragment key={item.id}>
-                  {index > 0 && <View style={[styles.todoDivider, { backgroundColor: colors.border }]} />}
+                  {index > 0 && (
+                    <View style={[styles.todoDivider, { backgroundColor: colors.border }]} />
+                  )}
                   <TouchableOpacity
-                    style={styles.todoItem}
+                    style={styles.todoRow}
                     onPress={() => onItemPress(item)}
-                    activeOpacity={0.7}
+                    activeOpacity={0.5}
                   >
                     <TouchableOpacity
                       style={[
                         styles.todoCheckbox,
-                        { borderColor: colors.border },
+                        { borderColor: priority.color },
                       ]}
                       onPress={() => onToggleComplete(item.id, true)}
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                       accessibilityLabel={t("actionItem.completed")}
                     >
-                      <View style={[styles.todoCheckboxDot, { backgroundColor: priority.color }]} />
+                      <View style={[styles.todoCheckboxInner, { backgroundColor: priority.color }]} />
                     </TouchableOpacity>
 
                     <View style={styles.todoContent}>
@@ -334,6 +290,8 @@ const TodoPreview: React.FC<TodoPreviewProps> = React.memo(
                         )}
                       </View>
                     </View>
+
+                    <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
                   </TouchableOpacity>
                 </React.Fragment>
               );
@@ -345,7 +303,7 @@ const TodoPreview: React.FC<TodoPreviewProps> = React.memo(
                 <TouchableOpacity
                   style={styles.todoViewAll}
                   onPress={onViewAll}
-                  activeOpacity={0.7}
+                  activeOpacity={0.5}
                 >
                   <Text style={[styles.todoViewAllText, { color: colors.primary }]}>
                     {t("common.seeAll")}
@@ -361,6 +319,7 @@ const TodoPreview: React.FC<TodoPreviewProps> = React.memo(
   }
 );
 
+// ── Quick Access (Apple HIG: horizontal icon row) ──
 interface QuickAccessProps {
   entries: QuickEntry[];
   onEntryPress: (route: string) => void;
@@ -375,35 +334,38 @@ const QuickAccess: React.FC<QuickAccessProps> = React.memo(({ entries, onEntryPr
       <Text style={[styles.sectionTitle, { color: colors.text }]}>
         {t("profile.quickActions")}
       </Text>
-      <View style={styles.quickGrid}>
-        {entries.map((entry) => {
+      <View style={[styles.quickContainer, { backgroundColor: colors.surface }]}>
+        {entries.map((entry, index) => {
           const press = usePressAnimation();
           return (
-            <AnimatedTouchable
-              key={entry.id}
-              style={[
-                styles.quickCard,
-                { backgroundColor: colors.surface, borderColor: colors.border },
-                press.style,
-              ]}
-              onPress={() => onEntryPress(entry.route)}
-              onPressIn={press.pressIn}
-              onPressOut={press.pressOut}
-              activeOpacity={1}
-              accessibilityLabel={t(entry.labelKey)}
-            >
-              <View style={[styles.quickIcon, { backgroundColor: colors.primary + "12" }]}>
-                <Ionicons name={entry.icon} size={22} color={colors.primary} />
-              </View>
-              <Text style={[styles.quickLabel, { color: colors.text }]}>
-                {t(entry.labelKey)}
-              </Text>
-              {entry.badge !== undefined && entry.badge > 0 && (
-                <View style={[styles.quickBadge, { backgroundColor: colors.primary }]}>
-                  <Text style={styles.quickBadgeText}>{entry.badge}</Text>
-                </View>
+            <React.Fragment key={entry.id}>
+              {index > 0 && (
+                <View style={[styles.quickDivider, { backgroundColor: colors.border }]} />
               )}
-            </AnimatedTouchable>
+              <AnimatedTouchable
+                style={[styles.quickRow, press.style]}
+                onPress={() => onEntryPress(entry.route)}
+                onPressIn={press.pressIn}
+                onPressOut={press.pressOut}
+                activeOpacity={1}
+                accessibilityLabel={t(entry.labelKey)}
+              >
+                <View style={[styles.quickIcon, { backgroundColor: colors.primary + "12" }]}>
+                  <Ionicons name={entry.icon} size={20} color={colors.primary} />
+                </View>
+                <Text style={[styles.quickLabel, { color: colors.text }]}>
+                  {t(entry.labelKey)}
+                </Text>
+                <View style={styles.quickRight}>
+                  {entry.badge !== undefined && entry.badge > 0 && (
+                    <View style={[styles.quickBadge, { backgroundColor: colors.primary }]}>
+                      <Text style={styles.quickBadgeText}>{entry.badge}</Text>
+                    </View>
+                  )}
+                  <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+                </View>
+              </AnimatedTouchable>
+            </React.Fragment>
           );
         })}
       </View>
@@ -411,21 +373,23 @@ const QuickAccess: React.FC<QuickAccessProps> = React.memo(({ entries, onEntryPr
   );
 });
 
+// ── Main Screen ──
 export default function HomeScreen() {
   const router = useRouter();
   const { t } = useTranslation();
   const colors = useThemeColor();
   const [userInfo, setUserInfo] = useState<{ nickname?: string; avatar?: string }>({});
-  const { actionItems, isLoading, toggleComplete, deleteActionItem } = useActionItems();
+  const { actionItems, isLoading, toggleComplete } = useActionItems();
 
+  // Entrance animations (Apple HIG: fade + slide up, staggered)
   const headerOpacity = useSharedValue(0);
-  const headerTranslateY = useSharedValue(-12);
-  const gridOpacity = useSharedValue(0);
-  const gridTranslateY = useSharedValue(16);
+  const headerTranslateY = useSharedValue(8);
+  const recordOpacity = useSharedValue(0);
+  const recordTranslateY = useSharedValue(8);
   const todoOpacity = useSharedValue(0);
-  const todoTranslateY = useSharedValue(16);
+  const todoTranslateY = useSharedValue(8);
   const quickOpacity = useSharedValue(0);
-  const quickTranslateY = useSharedValue(16);
+  const quickTranslateY = useSharedValue(8);
 
   useEffect(() => {
     const storedUserInfo = getStorageItem("userInfo");
@@ -438,26 +402,26 @@ export default function HomeScreen() {
   }, []);
 
   useEffect(() => {
-    headerOpacity.value = withTiming(1, { duration: 400 });
-    headerTranslateY.value = withTiming(0, { duration: 400 });
+    headerOpacity.value = withTiming(1, { duration: 300 });
+    headerTranslateY.value = withTiming(0, { duration: 300 });
 
-    gridOpacity.value = withDelay(80, withTiming(1, { duration: 400 }));
-    gridTranslateY.value = withDelay(80, withTiming(0, { duration: 400 }));
+    recordOpacity.value = withDelay(60, withTiming(1, { duration: 300 }));
+    recordTranslateY.value = withDelay(60, withTiming(0, { duration: 300 }));
 
-    todoOpacity.value = withDelay(160, withTiming(1, { duration: 400 }));
-    todoTranslateY.value = withDelay(160, withTiming(0, { duration: 400 }));
+    todoOpacity.value = withDelay(120, withTiming(1, { duration: 300 }));
+    todoTranslateY.value = withDelay(120, withTiming(0, { duration: 300 }));
 
-    quickOpacity.value = withDelay(240, withTiming(1, { duration: 400 }));
-    quickTranslateY.value = withDelay(240, withTiming(0, { duration: 400 }));
+    quickOpacity.value = withDelay(180, withTiming(1, { duration: 300 }));
+    quickTranslateY.value = withDelay(180, withTiming(0, { duration: 300 }));
   }, []);
 
   const headerAnim = useAnimatedStyle(() => ({
     opacity: headerOpacity.value,
     transform: [{ translateY: headerTranslateY.value }],
   }));
-  const gridAnim = useAnimatedStyle(() => ({
-    opacity: gridOpacity.value,
-    transform: [{ translateY: gridTranslateY.value }],
+  const recordAnim = useAnimatedStyle(() => ({
+    opacity: recordOpacity.value,
+    transform: [{ translateY: recordTranslateY.value }],
   }));
   const todoAnim = useAnimatedStyle(() => ({
     opacity: todoOpacity.value,
@@ -474,10 +438,6 @@ export default function HomeScreen() {
 
   const handleRecordPress = useCallback(() => {
     router.push("/(views)/input");
-  }, []);
-
-  const handleNewContact = useCallback(() => {
-    router.push("/(views)/contact/new");
   }, []);
 
   const handleActionItemPress = useCallback((item: ActionItem) => {
@@ -505,7 +465,7 @@ export default function HomeScreen() {
     () => [
       { id: "contacts", icon: "people", labelKey: "contacts.title", route: "/(tabs)/contacts" },
       { id: "todos", icon: "list", labelKey: "actionItem.title", route: "/(views)/action-item", badge: pendingCount },
-      { id: "settings", icon: "settings", labelKey: "settings.title", route: "/(views)/settings" },
+      { id: "settings", icon: "settings-outline", labelKey: "settings.title", route: "/(views)/settings" },
     ],
     [pendingCount]
   );
@@ -526,11 +486,8 @@ export default function HomeScreen() {
             />
           </Animated.View>
 
-          <Animated.View style={gridAnim}>
-            <ActionGrid
-              onRecord={handleRecordPress}
-              onNewContact={handleNewContact}
-            />
+          <Animated.View style={recordAnim}>
+            <RecordButton onPress={handleRecordPress} />
           </Animated.View>
 
           <Animated.View style={todoAnim}>
@@ -554,38 +511,11 @@ export default function HomeScreen() {
           <View style={styles.bottomSpacer} />
         </ScrollView>
       </SafeAreaView>
-
-      <FabButton onPress={handleRecordPress} />
     </View>
   );
 }
 
-interface FabButtonProps {
-  onPress: () => void;
-}
-
-const FabButton: React.FC<FabButtonProps> = React.memo(({ onPress }) => {
-  const colors = useThemeColor();
-  const pressAnim = usePressAnimation();
-  const pulseStyle = usePulseAnimation();
-
-  return (
-    <View style={styles.fabContainer} pointerEvents="box-none">
-      <Animated.View style={[styles.fabPulse, { backgroundColor: colors.primary }, pulseStyle]} />
-      <AnimatedTouchable
-        style={[styles.fab, { backgroundColor: colors.primary }, pressAnim.style]}
-        onPress={onPress}
-        onPressIn={pressAnim.pressIn}
-        onPressOut={pressAnim.pressOut}
-        activeOpacity={1}
-        accessibilityLabel="添加记录"
-      >
-        <Ionicons name="add" size={28} color="#0a0a0a" />
-      </AnimatedTouchable>
-    </View>
-  );
-});
-
+// ── Apple HIG Styles ──
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -595,130 +525,74 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 100,
+    paddingTop: 12,
+    paddingBottom: 40,
   },
 
-  // ── 顶部导航 ──
+  // ── Header ──
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 8,
-    marginBottom: 20,
+    alignItems: "flex-start",
+    marginBottom: 28,
+  },
+  headerLeft: {
+    flex: 1,
+    paddingTop: 4,
   },
   brand: {
-    fontSize: 26,
+    fontSize: 34,
     fontWeight: "700",
     letterSpacing: -0.5,
-    fontFamily: "Georgia",
   },
   tagline: {
-    fontSize: 12,
-    marginTop: 2,
-    letterSpacing: 0.5,
+    fontSize: 15,
+    marginTop: 4,
+    letterSpacing: 0.2,
   },
   avatarButton: {
     padding: 2,
   },
-  avatarRing: {
-    width: 44,
-    height: 44,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  avatarRingBorder: {
-    position: "absolute",
+  avatarContainer: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    borderWidth: 1.5,
-    opacity: 0.5,
-  },
-  avatarInner: {
-    borderRadius: 18,
     overflow: "hidden",
   },
   avatarPlaceholder: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1,
-  },
-
-  // ── 核心操作区 (Bento Grid) ──
-  actionGrid: {
-    flexDirection: "row",
-    gap: 12,
-    marginBottom: 24,
-  },
-  actionCard: {
-    borderRadius: 20,
-    overflow: "hidden",
-    position: "relative",
-  },
-  actionCardPrimary: {
-    flex: 1.3,
-    padding: 18,
-    minHeight: 120,
-    justifyContent: "center",
-    shadowColor: "#c9a962",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 8,
-  },
-  actionCardSecondary: {
-    flex: 0.7,
-    padding: 16,
-    minHeight: 120,
-    borderWidth: 1,
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  actionCardContent: {
-    zIndex: 1,
-  },
-  actionIconWrapper: {
     width: 44,
     height: 44,
-    borderRadius: 14,
+    borderRadius: 22,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 12,
-    backgroundColor: "rgba(10,10,10,0.15)",
-  },
-  actionCardTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#0a0a0a",
-    marginBottom: 4,
-    letterSpacing: -0.2,
-  },
-  actionCardSubtitle: {
-    fontSize: 12,
-    color: "rgba(10,10,10,0.6)",
-    fontWeight: "500",
-  },
-  actionCardGlow: {
-    position: "absolute",
-    top: -20,
-    right: -20,
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: "rgba(255,255,255,0.15)",
   },
 
-  // ── 通用 Section ──
+  // ── Record Button ──
+  recordSection: {
+    alignItems: "center",
+    marginBottom: 32,
+  },
+  recordButton: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#c9a962",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  recordLabel: {
+    fontSize: 15,
+    fontWeight: "500",
+    marginTop: 12,
+  },
+
+  // ── Section ──
   section: {
-    marginBottom: 24,
+    marginBottom: 28,
   },
   sectionHeader: {
     flexDirection: "row",
@@ -732,16 +606,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: "600",
-    letterSpacing: -0.2,
+    letterSpacing: -0.3,
   },
-  sectionAddBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    justifyContent: "center",
-    alignItems: "center",
+  addBtn: {
+    padding: 2,
   },
   badge: {
     minWidth: 20,
@@ -757,79 +627,76 @@ const styles = StyleSheet.create({
     color: "#0a0a0a",
   },
 
-  // ── 待办预览 ──
-  todoCard: {
+  // ── Todo ──
+  todoContainer: {
     borderRadius: 16,
-    borderWidth: 1,
     overflow: "hidden",
-    padding: 4,
   },
   todoEmpty: {
-    paddingVertical: 28,
+    paddingVertical: 32,
     paddingHorizontal: 20,
     alignItems: "center",
   },
   todoEmptyIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 12,
   },
   todoEmptyTitle: {
-    fontSize: 15,
+    fontSize: 17,
     fontWeight: "600",
     marginBottom: 16,
   },
   todoEmptyBtn: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
     borderRadius: 20,
-    borderWidth: 1,
     gap: 6,
   },
   todoEmptyBtnText: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: "600",
   },
   emptyText: {
-    fontSize: 13,
+    fontSize: 15,
     textAlign: "center",
-    paddingVertical: 16,
+    paddingVertical: 20,
   },
-  todoItem: {
+  todoRow: {
     flexDirection: "row",
-    alignItems: "flex-start",
-    padding: 12,
-    gap: 10,
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    gap: 12,
   },
   todoCheckbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 6,
-    borderWidth: 1.5,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 1,
     flexShrink: 0,
   },
-  todoCheckboxDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+  todoCheckboxInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
   },
   todoContent: {
     flex: 1,
     minWidth: 0,
   },
   todoDescription: {
-    fontSize: 14,
-    fontWeight: "500",
-    lineHeight: 20,
-    marginBottom: 6,
+    fontSize: 16,
+    fontWeight: "400",
+    lineHeight: 22,
+    marginBottom: 4,
   },
   todoMeta: {
     flexDirection: "row",
@@ -837,115 +704,83 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   todoPriorityTag: {
-    paddingHorizontal: 6,
+    paddingHorizontal: 8,
     paddingVertical: 2,
-    borderRadius: 4,
+    borderRadius: 6,
   },
   todoPriorityText: {
-    fontSize: 10,
-    fontWeight: "700",
+    fontSize: 11,
+    fontWeight: "600",
   },
   todoDueDate: {
-    fontSize: 11,
+    fontSize: 13,
   },
   todoDivider: {
     height: StyleSheet.hairlineWidth,
-    marginHorizontal: 12,
+    marginHorizontal: 16,
   },
   todoViewAll: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 10,
+    paddingVertical: 14,
     gap: 4,
   },
   todoViewAllText: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: "600",
   },
 
-  // ── 快捷入口网格 ──
-  quickGrid: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  quickCard: {
-    flex: 1,
-    paddingVertical: 18,
-    paddingHorizontal: 14,
+  // ── Quick Access ──
+  quickContainer: {
     borderRadius: 16,
-    borderWidth: 1,
+    overflow: "hidden",
+  },
+  quickRow: {
+    flexDirection: "row",
     alignItems: "center",
-    position: "relative",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    gap: 14,
   },
   quickIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 10,
+    flexShrink: 0,
   },
   quickLabel: {
-    fontSize: 13,
-    fontWeight: "600",
-    textAlign: "center",
+    fontSize: 16,
+    fontWeight: "400",
+    flex: 1,
+  },
+  quickRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
   },
   quickBadge: {
-    position: "absolute",
-    top: 8,
-    right: 8,
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 5,
+    paddingHorizontal: 6,
   },
   quickBadgeText: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: "700",
     color: "#0a0a0a",
   },
+  quickDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginHorizontal: 16,
+  },
 
-  // ── 底部留白 ──
+  // ── Bottom ──
   bottomSpacer: {
-    height: 40,
-  },
-
-  // ── FAB ──
-  fabContainer: {
-    position: "absolute",
-    bottom: 32,
-    right: 20,
-    width: 56,
-    height: 56,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  fabPulse: {
-    position: "absolute",
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    opacity: 0.2,
-  },
-  fab: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#c9a962",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
-    elevation: 10,
-    zIndex: 1,
+    height: 20,
   },
 });

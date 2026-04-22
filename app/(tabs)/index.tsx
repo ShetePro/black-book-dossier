@@ -112,21 +112,21 @@ const HomeHeader: React.FC<HeaderProps> = React.memo(
   }
 );
 
-// ── Record Button (Apple HIG: large circular, centered) ──
-interface RecordButtonProps {
+// ── Add Button (Apple HIG: large circular, centered) ──
+interface AddButtonProps {
   onPress: () => void;
 }
 
-const RecordButton: React.FC<RecordButtonProps> = React.memo(({ onPress }) => {
+const AddButton: React.FC<AddButtonProps> = React.memo(({ onPress }) => {
   const colors = useThemeColor();
   const { t } = useTranslation();
   const press = usePressAnimation();
 
   return (
-    <View style={styles.recordSection}>
+    <View style={styles.addSection}>
       <AnimatedTouchable
         style={[
-          styles.recordButton,
+          styles.addButton,
           { backgroundColor: colors.primary },
           press.style,
         ]}
@@ -134,12 +134,12 @@ const RecordButton: React.FC<RecordButtonProps> = React.memo(({ onPress }) => {
         onPressIn={press.pressIn}
         onPressOut={press.pressOut}
         activeOpacity={1}
-        accessibilityLabel={t("recording.tapToRecord")}
+        accessibilityLabel={t("home.tapToAddRecord")}
       >
-        <Ionicons name="mic" size={32} color="#0a0a0a" />
+        <Ionicons name="add" size={36} color="#0a0a0a" />
       </AnimatedTouchable>
-      <Text style={[styles.recordLabel, { color: colors.textSecondary }]}>
-        {t("recording.tapToRecord")}
+      <Text style={[styles.addLabel, { color: colors.textSecondary }]}>
+        {t("home.tapToAddRecord")}
       </Text>
     </View>
   );
@@ -384,8 +384,8 @@ export default function HomeScreen() {
   // Entrance animations (Apple HIG: fade + slide up, staggered)
   const headerOpacity = useSharedValue(0);
   const headerTranslateY = useSharedValue(8);
-  const recordOpacity = useSharedValue(0);
-  const recordTranslateY = useSharedValue(8);
+  const addOpacity = useSharedValue(0);
+  const addTranslateY = useSharedValue(8);
   const todoOpacity = useSharedValue(0);
   const todoTranslateY = useSharedValue(8);
   const quickOpacity = useSharedValue(0);
@@ -405,8 +405,8 @@ export default function HomeScreen() {
     headerOpacity.value = withTiming(1, { duration: 300 });
     headerTranslateY.value = withTiming(0, { duration: 300 });
 
-    recordOpacity.value = withDelay(60, withTiming(1, { duration: 300 }));
-    recordTranslateY.value = withDelay(60, withTiming(0, { duration: 300 }));
+addOpacity.value = withDelay(60, withTiming(1, { duration: 300 }));
+  addTranslateY.value = withDelay(60, withTiming(0, { duration: 300 }));
 
     todoOpacity.value = withDelay(120, withTiming(1, { duration: 300 }));
     todoTranslateY.value = withDelay(120, withTiming(0, { duration: 300 }));
@@ -419,9 +419,9 @@ export default function HomeScreen() {
     opacity: headerOpacity.value,
     transform: [{ translateY: headerTranslateY.value }],
   }));
-  const recordAnim = useAnimatedStyle(() => ({
-    opacity: recordOpacity.value,
-    transform: [{ translateY: recordTranslateY.value }],
+  const addAnim = useAnimatedStyle(() => ({
+    opacity: addOpacity.value,
+    transform: [{ translateY: addTranslateY.value }],
   }));
   const todoAnim = useAnimatedStyle(() => ({
     opacity: todoOpacity.value,
@@ -486,8 +486,8 @@ export default function HomeScreen() {
             />
           </Animated.View>
 
-          <Animated.View style={recordAnim}>
-            <RecordButton onPress={handleRecordPress} />
+          <Animated.View style={addAnim}>
+            <AddButton onPress={handleRecordPress} />
           </Animated.View>
 
           <Animated.View style={todoAnim}>
@@ -567,12 +567,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 
-  // ── Record Button ──
-  recordSection: {
+  // ── Add Button ──
+  addSection: {
     alignItems: "center",
     marginBottom: 32,
   },
-  recordButton: {
+  addButton: {
     width: 72,
     height: 72,
     borderRadius: 36,
@@ -584,7 +584,7 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 6,
   },
-  recordLabel: {
+  addLabel: {
     fontSize: 15,
     fontWeight: "500",
     marginTop: 12,

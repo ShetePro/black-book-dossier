@@ -114,7 +114,7 @@ const HomeHeader: React.FC<HeaderProps> = React.memo(
   }
 );
 
-// ── Add Button (Apple HIG: large circular, centered) ──
+// ── Add Button ──
 interface AddButtonProps {
   onPress: () => void;
 }
@@ -122,97 +122,90 @@ interface AddButtonProps {
 const AddButton: React.FC<AddButtonProps> = React.memo(({ onPress }) => {
   const colors = useThemeColor();
   const { t } = useTranslation();
-  const press = usePressAnimation();
 
-  const pulseScale = useSharedValue(1);
-  const glowScale = useSharedValue(1);
-  const glowOpacity = useSharedValue(0.3);
-  const iconRotation = useSharedValue(0);
+  const entryOpacity = useSharedValue(0);
+  const entryTranslateY = useSharedValue(8);
+
+  const pressScale = useSharedValue(1);
+  const pressShadowRadius = useSharedValue(12);
+
+  const subtleScale = useSharedValue(1);
+  const subtleOpacity = useSharedValue(1);
 
   useEffect(() => {
-    pulseScale.value = withRepeat(
-      withSequence(
-        withTiming(1.05, { duration: 1500 }),
-        withTiming(1, { duration: 1500 })
-      ),
-      -1,
-      true
-    );
+    entryOpacity.value = withTiming(1, { duration: 300 });
+    entryTranslateY.value = withTiming(0, { duration: 300 });
 
-    glowScale.value = withRepeat(
-      withSequence(
-        withTiming(1.3, { duration: 2000 }),
-        withTiming(1, { duration: 2000 })
-      ),
-      -1,
-      true
-    );
+    const timer = setTimeout(() => {
+      subtleScale.value = withRepeat(
+        withSequence(
+          withTiming(1.02, { duration: 1500 }),
+          withTiming(1, { duration: 1500 }),
+        ),
+        -1,
+        true,
+      );
+      subtleOpacity.value = withRepeat(
+        withSequence(
+          withTiming(0.95, { duration: 1500 }),
+          withTiming(1, { duration: 1500 }),
+        ),
+        -1,
+        true,
+      );
+    }, 3000);
 
-    glowOpacity.value = withRepeat(
-      withSequence(
-        withTiming(0.5, { duration: 2000 }),
-        withTiming(0.2, { duration: 2000 })
-      ),
-      -1,
-      true
-    );
-
-    iconRotation.value = withRepeat(
-      withSequence(
-        withTiming(90, { duration: 800 }),
-        withTiming(0, { duration: 800 })
-      ),
-      -1,
-      false
-    );
+    return () => clearTimeout(timer);
   }, []);
 
-  const pulseStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: pulseScale.value }],
+  const handlePressIn = useCallback(() => {
+    subtleScale.value = 1;
+    subtleOpacity.value = 1;
+
+    pressScale.value = withSpring(0.97, { damping: 20, stiffness: 300 });
+    pressShadowRadius.value = withTiming(4, { duration: 100 });
+  }, []);
+
+  const handlePressOut = useCallback(() => {
+    pressScale.value = withSpring(1, { damping: 20, stiffness: 300 });
+    pressShadowRadius.value = withTiming(12, { duration: 150 });
+  }, []);
+
+  const entryStyle = useAnimatedStyle(() => ({
+    opacity: entryOpacity.value,
+    transform: [{ translateY: entryTranslateY.value }],
   }));
 
-  const glowStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: glowScale.value }],
-    opacity: glowOpacity.value,
+  const buttonStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pressScale.value }, { scale: subtleScale.value }],
   }));
 
-  const iconStyle = useAnimatedStyle(() => ({
-    transform: [{ rotateZ: `${iconRotation.value}deg` }],
+  const shadowStyle = useAnimatedStyle(() => ({
+    shadowRadius: pressShadowRadius.value,
+    opacity: subtleOpacity.value,
   }));
 
   return (
-    <View style={styles.addSection}>
-      <View style={styles.addButtonWrapper}>
-        <Animated.View
-          style={[
-            styles.addGlow,
-            { backgroundColor: colors.primary },
-            glowStyle,
-          ]}
-        />
-        <Animated.View style={pulseStyle}>
-          <AnimatedTouchable
-            style={[
-              styles.addButton,
-              { backgroundColor: colors.primary },
-              press.style,
-            ]}
-            onPress={onPress}
-            onPressIn={press.pressIn}
-            onPressOut={press.pressOut}
-            activeOpacity={1}
-            accessibilityLabel={t("home.tapToAddRecord")}
-          >
-            <Animated.View style={iconStyle}>
-              <Ionicons name="add" size={36} color="#0a0a0a" />
-            </Animated.View>
-          </AnimatedTouchable>
-        </Animated.View>
-      </View>
+    <Animated.View style={[styles.addSection, entryStyle]}>
+      <AnimatedTouchable
+        style={[
+          styles.addButton,
+          { backgroundColor: colors.primary },
+          buttonStyle,
+          shadowStyle,
+        ]}
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        activeOpacity={1}
+        accessibilityLabel={t("home.tapToAddRecord")}
+      >
+        <Ionicons name="add" size={32} color="#0a0a0a" />
+      </AnimatedTouchable>
       <Text style={[styles.addLabel, { color: colors.textSecondary }]}>
         {t("home.tapToAddRecord")}
       </Text>
-    </View>
+    </Animated.View>
   );
 });
 
@@ -642,18 +635,6 @@ const styles = StyleSheet.create({
   addSection: {
     alignItems: "center",
     marginBottom: 32,
-  },
-  addButtonWrapper: {
-    width: 72,
-    height: 72,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  addGlow: {
-    position: "absolute",
-    width: 72,
-    height: 72,
-    borderRadius: 36,
   },
   addButton: {
     width: 72,

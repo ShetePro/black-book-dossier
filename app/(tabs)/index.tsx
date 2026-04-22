@@ -16,6 +16,8 @@ import Animated, {
   withSpring,
   withTiming,
   withDelay,
+  withRepeat,
+  withSequence,
 } from "react-native-reanimated";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { DefaultAvatar } from "@/components/DefaultAvatar";
@@ -122,22 +124,91 @@ const AddButton: React.FC<AddButtonProps> = React.memo(({ onPress }) => {
   const { t } = useTranslation();
   const press = usePressAnimation();
 
+  const pulseScale = useSharedValue(1);
+  const glowScale = useSharedValue(1);
+  const glowOpacity = useSharedValue(0.3);
+  const iconRotation = useSharedValue(0);
+
+  useEffect(() => {
+    pulseScale.value = withRepeat(
+      withSequence(
+        withTiming(1.05, { duration: 1500 }),
+        withTiming(1, { duration: 1500 })
+      ),
+      -1,
+      true
+    );
+
+    glowScale.value = withRepeat(
+      withSequence(
+        withTiming(1.3, { duration: 2000 }),
+        withTiming(1, { duration: 2000 })
+      ),
+      -1,
+      true
+    );
+
+    glowOpacity.value = withRepeat(
+      withSequence(
+        withTiming(0.5, { duration: 2000 }),
+        withTiming(0.2, { duration: 2000 })
+      ),
+      -1,
+      true
+    );
+
+    iconRotation.value = withRepeat(
+      withSequence(
+        withTiming(90, { duration: 800 }),
+        withTiming(0, { duration: 800 })
+      ),
+      -1,
+      false
+    );
+  }, []);
+
+  const pulseStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pulseScale.value }],
+  }));
+
+  const glowStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: glowScale.value }],
+    opacity: glowOpacity.value,
+  }));
+
+  const iconStyle = useAnimatedStyle(() => ({
+    transform: [{ rotateZ: `${iconRotation.value}deg` }],
+  }));
+
   return (
     <View style={styles.addSection}>
-      <AnimatedTouchable
-        style={[
-          styles.addButton,
-          { backgroundColor: colors.primary },
-          press.style,
-        ]}
-        onPress={onPress}
-        onPressIn={press.pressIn}
-        onPressOut={press.pressOut}
-        activeOpacity={1}
-        accessibilityLabel={t("home.tapToAddRecord")}
-      >
-        <Ionicons name="add" size={36} color="#0a0a0a" />
-      </AnimatedTouchable>
+      <View style={styles.addButtonWrapper}>
+        <Animated.View
+          style={[
+            styles.addGlow,
+            { backgroundColor: colors.primary },
+            glowStyle,
+          ]}
+        />
+        <Animated.View style={pulseStyle}>
+          <AnimatedTouchable
+            style={[
+              styles.addButton,
+              { backgroundColor: colors.primary },
+              press.style,
+            ]}
+            onPress={onPress}
+            onPressIn={press.pressIn}
+            onPressOut={press.pressOut}
+            activeOpacity={1}
+            accessibilityLabel={t("home.tapToAddRecord")}
+          >
+            <Animated.View style={iconStyle}>
+              <Ionicons name="add" size={36} color="#0a0a0a" />
+            </Animated.View>
+          </AnimatedTouchable>
+        </Animated.View>
+      </View>
       <Text style={[styles.addLabel, { color: colors.textSecondary }]}>
         {t("home.tapToAddRecord")}
       </Text>
@@ -571,6 +642,18 @@ const styles = StyleSheet.create({
   addSection: {
     alignItems: "center",
     marginBottom: 32,
+  },
+  addButtonWrapper: {
+    width: 72,
+    height: 72,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  addGlow: {
+    position: "absolute",
+    width: 72,
+    height: 72,
+    borderRadius: 36,
   },
   addButton: {
     width: 72,

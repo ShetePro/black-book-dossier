@@ -26,6 +26,7 @@ import { DefaultAvatar } from "@/components/DefaultAvatar";
 import { getStorageItem } from "@/hooks/useStorageState";
 import { useActionItems } from "@/hooks/actionItem";
 import { ActionItemList } from "@/components/actionItem";
+import { ActionItem } from "@/types";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
@@ -93,6 +94,10 @@ export default function HomeScreen() {
 
   const handleAddPress = () => {
     router.push("/(views)/input");
+  };
+
+  const handleActionItemPress = (actionItem: ActionItem) => {
+    router.push(`/(views)/action-item/new?itemId=${actionItem.id}`);
   };
 
   return (
@@ -242,13 +247,14 @@ export default function HomeScreen() {
                 isLoading={isLoading}
                 onToggleComplete={toggleComplete}
                 onDelete={deleteActionItem}
+                onItemPress={handleActionItemPress}
                 emptyText={t("actionItem.empty")}
                 scrollable={false}
               />
               {actionItems.filter(item => !item.completed).length > 5 && (
                 <TouchableOpacity
                   style={styles.viewAllButton}
-                  onPress={() => router.push("/(tabs)/action-items")}
+                  onPress={() => router.push("/(views)/action-item")}
                 >
                   <Text style={[styles.viewAllText, { color: colors.primary }]}>
                     {t("common.seeAll")} ({actionItems.filter(item => !item.completed).length})

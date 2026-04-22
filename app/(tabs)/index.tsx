@@ -1,11 +1,10 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-  Dimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -18,18 +17,399 @@ import Animated, {
   withRepeat,
   withSequence,
   withTiming,
-  interpolate,
-  Extrapolate,
+  withDelay,
 } from "react-native-reanimated";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { DefaultAvatar } from "@/components/DefaultAvatar";
 import { getStorageItem } from "@/hooks/useStorageState";
 import { useActionItems } from "@/hooks/actionItem";
-import { ActionItemList } from "@/components/actionItem";
 import { ActionItem } from "@/types";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
+
+const PRIORITY_CONFIG = {
+  high: { color: "#ef4444", label: "高", bg: "rgba(239,68,68,0.12)" },
+  medium: { color: "#f59e0b", label: "中", bg: "rgba(245,158,11,0.12)" },
+  low: { color: "#6b7280", label: "低", bg: "rgba(107,114,128,0.12)" },
+} as const;
+
+interface QuickEntry {
+  id: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  labelKey: string;
+  route: string;
+  badge?: number;
+}
+
+function usePressAnimation() {
+  const scale = useSharedValue(1);
+  const opacity = useSharedValue(1);
+
+  const pressIn = useCallback(() => {
+    scale.value = withSpring(0.97, { damping: 20, stiffness: 300 });
+    opacity.value = withTiming(0.8, { duration: 100 });
+  }, []);
+
+  const pressOut = useCallback(() => {
+    scale.value = withSpring(1, { damping: 20, stiffness: 300 });
+    opacity.value = withTiming(1, { duration: 150 });
+  }, []);
+
+  const style = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    opacity: opacity.value,
+  }));
+
+  return { pressIn, pressOut, style };
+}
+
+function usePulseAnimation() {
+  const pulse = useSharedValue(1);
+
+  useEffect(() => {
+    pulse.value = withRepeat(
+      withSequence(
+        withTiming(1.08, { duration: 1200 }),
+        withTiming(1, { duration: 1200 })
+      ),
+      -1,
+      true
+    );
+  }, []);
+
+  return useAnimatedStyle(() => ({
+    transform: [{ scale: pulse.value }],
+  }));
+}
+
+interface HeaderProps {
+  nickname?: string;
+  avatar?: string;
+  onAvatarPress: () => void;
+}
+
+const HomeHeader: React.FC<HeaderProps> = React.memo(
+  ({ nickname, avatar, onAvatarPress }) => {
+    const colors = useThemeColor();
+    const { t } = useTranslation();
+
+    return (
+      <View style={styles.header}>
+        <View>
+          <Text style={[styles.brand, { color: colors.text }]}>
+            Black Book
+          </Text>
+          <Text style={[styles.tagline, { color: colors.textMuted }]}>
+            {t("app.tagline")}
+          </Text>
+        </View>
+
+        <TouchableOpacity
+          onPress={onAvatarPress}
+          style={styles.avatarButton}
+          accessibilityLabel={t("profile.title")}
+        >
+          {avatar ? (
+            <View style={styles.avatarRing}>
+              <View style={[styles.avatarRingBorder, { borderColor: colors.primary }]} />
+              <View style={styles.avatarInner}>
+                <DefaultAvatar nickname={nickname} size={36} />
+              </View>
+            </View>
+          ) : (
+            <View
+              style={[
+                styles.avatarPlaceholder,
+                { backgroundColor: colors.surface, borderColor: colors.primary + "40" },
+              ]}
+            >
+              <Ionicons name="person" size={18} color={colors.primary} />
+            </View>
+          )}
+        </TouchableOpacity>
+      </View>
+    );
+  }
+);
+
+interface ActionGridProps {
+  onRecord: () => void;
+  onNewContact: () => void;
+}
+
+const ActionGrid: React.FC<ActionGridProps> = React.memo(
+  ({ onRecord, onNewContact }) => {
+    const colors = useThemeColor();
+    const { t } = useTranslation();
+    const recordPress = usePressAnimation();
+    const contactPress = usePressAnimation();
+
+    return (
+      <View style={styles.actionGrid}>
+        <AnimatedTouchable
+          style={[styles.actionCard, styles.actionCardPrimary, { backgroundColor: colors.primary }, recordPress.style]}
+          onPress={onRecord}
+          onPressIn={recordPress.pressIn}
+          onPressOut={recordPress.pressOut}
+          activeOpacity={1}
+          accessibilityLabel={t("recording.tapToRecord")}
+        >
+          <View style={styles.actionCardContent}>
+            <View style={styles.actionIconWrapper}>
+              <Ionicons name="mic" size={28} color="#0a0a0a" />
+            </View>
+            <Text style={styles.actionCardTitle}>
+              {t("recording.tapToRecord")}
+            </Text>
+            <Text style={styles.actionCardSubtitle}>
+              {t("home.tapToAddRecord")}
+            </Text>
+          </View>
+          <View style={styles.actionCardGlow} />
+        </AnimatedTouchable>
+
+        <AnimatedTouchable
+          style={[
+            styles.actionCard,
+            styles.actionCardSecondary,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+            contactPress.style,
+          ]}
+          onPress={onNewContact}
+          onPressIn={contactPress.pressIn}
+          onPressOut={contactPress.pressOut}
+          activeOpacity={1}
+          accessibilityLabel={t("contacts.addContact")}
+        >
+          <View style={styles.actionCardContent}>
+            <View style={[styles.actionIconWrapper, { backgroundColor: colors.primary + "15" }]}>
+              <Ionicons name="person-add" size={24} color={colors.primary} />
+            </View>
+            <Text style={[styles.actionCardTitle, { color: colors.text, fontSize: 15 }]}>
+              {t("contacts.addContact")}
+            </Text>
+          </View>
+        </AnimatedTouchable>
+      </View>
+    );
+  }
+);
+
+interface TodoPreviewProps {
+  actionItems: ActionItem[];
+  isLoading: boolean;
+  onToggleComplete: (id: string, completed: boolean) => Promise<void>;
+  onItemPress: (item: ActionItem) => void;
+  onViewAll: () => void;
+  onAdd: () => void;
+}
+
+const TodoPreview: React.FC<TodoPreviewProps> = React.memo(
+  ({ actionItems, isLoading, onToggleComplete, onItemPress, onViewAll, onAdd }) => {
+    const colors = useThemeColor();
+    const { t } = useTranslation();
+
+    const pendingItems = useMemo(
+      () => actionItems.filter((item) => !item.completed).slice(0, 3),
+      [actionItems]
+    );
+    const pendingCount = useMemo(
+      () => actionItems.filter((item) => !item.completed).length,
+      [actionItems]
+    );
+
+    const formatDate = useCallback((timestamp?: number): string => {
+      if (!timestamp) return "";
+      const date = new Date(timestamp);
+      const now = new Date();
+      if (date.toDateString() === now.toDateString()) return t("actionItem.today");
+      const tomorrow = new Date(now);
+      tomorrow.setDate(now.getDate() + 1);
+      if (date.toDateString() === tomorrow.toDateString()) return t("actionItem.tomorrow");
+      return `${date.getMonth() + 1}/${date.getDate()}`;
+    }, []);
+
+    if (isLoading) {
+      return (
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            {t("actionItem.title")}
+          </Text>
+          <View style={[styles.todoCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Text style={[styles.emptyText, { color: colors.textMuted }]}>
+              {t("actionItem.loading")}
+            </Text>
+          </View>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <View style={styles.sectionTitleRow}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              {t("actionItem.title")}
+            </Text>
+            {pendingCount > 0 && (
+              <View style={[styles.badge, { backgroundColor: colors.primary }]}>
+                <Text style={styles.badgeText}>{pendingCount}</Text>
+              </View>
+            )}
+          </View>
+          <TouchableOpacity
+            onPress={onAdd}
+            style={[styles.sectionAddBtn, { backgroundColor: colors.primary + "15" }]}
+            accessibilityLabel={t("actionItem.addButton")}
+          >
+            <Ionicons name="add" size={16} color={colors.primary} />
+          </TouchableOpacity>
+        </View>
+
+        {pendingItems.length === 0 ? (
+          <View
+            style={[
+              styles.todoCard,
+              styles.todoEmpty,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+            ]}
+          >
+            <View style={[styles.todoEmptyIcon, { backgroundColor: colors.success + "12" }]}>
+              <Ionicons name="checkmark-done" size={24} color={colors.success} />
+            </View>
+            <Text style={[styles.todoEmptyTitle, { color: colors.text }]}>
+              {t("actionItem.allCompleted")}
+            </Text>
+            <TouchableOpacity
+              style={[styles.todoEmptyBtn, { borderColor: colors.primary }]}
+              onPress={onAdd}
+            >
+              <Ionicons name="add" size={14} color={colors.primary} />
+              <Text style={[styles.todoEmptyBtnText, { color: colors.primary }]}>
+                {t("actionItem.addButton")}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={[styles.todoCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            {pendingItems.map((item, index) => {
+              const priority = PRIORITY_CONFIG[item.priority];
+              return (
+                <React.Fragment key={item.id}>
+                  {index > 0 && <View style={[styles.todoDivider, { backgroundColor: colors.border }]} />}
+                  <TouchableOpacity
+                    style={styles.todoItem}
+                    onPress={() => onItemPress(item)}
+                    activeOpacity={0.7}
+                  >
+                    <TouchableOpacity
+                      style={[
+                        styles.todoCheckbox,
+                        { borderColor: colors.border },
+                      ]}
+                      onPress={() => onToggleComplete(item.id, true)}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      accessibilityLabel={t("actionItem.completed")}
+                    >
+                      <View style={[styles.todoCheckboxDot, { backgroundColor: priority.color }]} />
+                    </TouchableOpacity>
+
+                    <View style={styles.todoContent}>
+                      <Text
+                        style={[styles.todoDescription, { color: colors.text }]}
+                        numberOfLines={1}
+                      >
+                        {item.description}
+                      </Text>
+                      <View style={styles.todoMeta}>
+                        <View style={[styles.todoPriorityTag, { backgroundColor: priority.bg }]}>
+                          <Text style={[styles.todoPriorityText, { color: priority.color }]}>
+                            {priority.label}
+                          </Text>
+                        </View>
+                        {item.dueDate && (
+                          <Text style={[styles.todoDueDate, { color: colors.textMuted }]}>
+                            {formatDate(item.dueDate)}
+                          </Text>
+                        )}
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                </React.Fragment>
+              );
+            })}
+
+            {pendingCount > 3 && (
+              <>
+                <View style={[styles.todoDivider, { backgroundColor: colors.border }]} />
+                <TouchableOpacity
+                  style={styles.todoViewAll}
+                  onPress={onViewAll}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.todoViewAllText, { color: colors.primary }]}>
+                    {t("common.seeAll")}
+                  </Text>
+                  <Ionicons name="chevron-forward" size={14} color={colors.primary} />
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        )}
+      </View>
+    );
+  }
+);
+
+interface QuickAccessProps {
+  entries: QuickEntry[];
+  onEntryPress: (route: string) => void;
+}
+
+const QuickAccess: React.FC<QuickAccessProps> = React.memo(({ entries, onEntryPress }) => {
+  const colors = useThemeColor();
+  const { t } = useTranslation();
+
+  return (
+    <View style={styles.section}>
+      <Text style={[styles.sectionTitle, { color: colors.text }]}>
+        {t("profile.quickActions")}
+      </Text>
+      <View style={styles.quickGrid}>
+        {entries.map((entry) => {
+          const press = usePressAnimation();
+          return (
+            <AnimatedTouchable
+              key={entry.id}
+              style={[
+                styles.quickCard,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+                press.style,
+              ]}
+              onPress={() => onEntryPress(entry.route)}
+              onPressIn={press.pressIn}
+              onPressOut={press.pressOut}
+              activeOpacity={1}
+              accessibilityLabel={t(entry.labelKey)}
+            >
+              <View style={[styles.quickIcon, { backgroundColor: colors.primary + "12" }]}>
+                <Ionicons name={entry.icon} size={22} color={colors.primary} />
+              </View>
+              <Text style={[styles.quickLabel, { color: colors.text }]}>
+                {t(entry.labelKey)}
+              </Text>
+              {entry.badge !== undefined && entry.badge > 0 && (
+                <View style={[styles.quickBadge, { backgroundColor: colors.primary }]}>
+                  <Text style={styles.quickBadgeText}>{entry.badge}</Text>
+                </View>
+              )}
+            </AnimatedTouchable>
+          );
+        })}
+      </View>
+    </View>
+  );
+});
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -38,499 +418,534 @@ export default function HomeScreen() {
   const [userInfo, setUserInfo] = useState<{ nickname?: string; avatar?: string }>({});
   const { actionItems, isLoading, toggleComplete, deleteActionItem } = useActionItems();
 
-  // 动画值
-  const addButtonScale = useSharedValue(1);
-  const addButtonPulse = useSharedValue(1);
-  const cardY = useSharedValue(20);
-  const cardOpacity = useSharedValue(0);
+  const headerOpacity = useSharedValue(0);
+  const headerTranslateY = useSharedValue(-12);
+  const gridOpacity = useSharedValue(0);
+  const gridTranslateY = useSharedValue(16);
+  const todoOpacity = useSharedValue(0);
+  const todoTranslateY = useSharedValue(16);
+  const quickOpacity = useSharedValue(0);
+  const quickTranslateY = useSharedValue(16);
 
   useEffect(() => {
     const storedUserInfo = getStorageItem("userInfo");
     if (storedUserInfo) {
       try {
-        const parsed = JSON.parse(storedUserInfo);
-        setUserInfo(parsed);
-      } catch (e) {
-        console.error("解析用户信息失败:", e);
+        setUserInfo(JSON.parse(storedUserInfo));
+      } catch {
       }
     }
   }, []);
 
-  // 入场动画
   useEffect(() => {
-    cardY.value = withSpring(0, { damping: 15, stiffness: 100 });
-    cardOpacity.value = withTiming(1, { duration: 600 });
+    headerOpacity.value = withTiming(1, { duration: 400 });
+    headerTranslateY.value = withTiming(0, { duration: 400 });
 
-    // 添加按钮脉冲动画
-    addButtonPulse.value = withRepeat(
-      withSequence(
-        withTiming(1.05, { duration: 1000 }),
-        withTiming(1, { duration: 1000 })
-      ),
-      -1,
-      true
-    );
+    gridOpacity.value = withDelay(80, withTiming(1, { duration: 400 }));
+    gridTranslateY.value = withDelay(80, withTiming(0, { duration: 400 }));
+
+    todoOpacity.value = withDelay(160, withTiming(1, { duration: 400 }));
+    todoTranslateY.value = withDelay(160, withTiming(0, { duration: 400 }));
+
+    quickOpacity.value = withDelay(240, withTiming(1, { duration: 400 }));
+    quickTranslateY.value = withDelay(240, withTiming(0, { duration: 400 }));
   }, []);
 
-  const addButtonAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [
-      { scale: addButtonScale.value },
-      { scale: interpolate(addButtonPulse.value, [1, 1.05], [1, 1.02]) }
-    ],
+  const headerAnim = useAnimatedStyle(() => ({
+    opacity: headerOpacity.value,
+    transform: [{ translateY: headerTranslateY.value }],
+  }));
+  const gridAnim = useAnimatedStyle(() => ({
+    opacity: gridOpacity.value,
+    transform: [{ translateY: gridTranslateY.value }],
+  }));
+  const todoAnim = useAnimatedStyle(() => ({
+    opacity: todoOpacity.value,
+    transform: [{ translateY: todoTranslateY.value }],
+  }));
+  const quickAnim = useAnimatedStyle(() => ({
+    opacity: quickOpacity.value,
+    transform: [{ translateY: quickTranslateY.value }],
   }));
 
-  const cardAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: cardY.value }],
-    opacity: cardOpacity.value,
-  }));
+  const handleAvatarPress = useCallback(() => {
+    router.push("/(views)/profile");
+  }, []);
 
-  const handleAddPressIn = () => {
-    addButtonScale.value = withSpring(0.95, { damping: 20, stiffness: 300 });
-  };
-
-  const handleAddPressOut = () => {
-    addButtonScale.value = withSpring(1, { damping: 20, stiffness: 300 });
-  };
-
-  const handleAddPress = () => {
+  const handleRecordPress = useCallback(() => {
     router.push("/(views)/input");
-  };
+  }, []);
 
-  const handleActionItemPress = (actionItem: ActionItem) => {
-    router.push(`/(views)/action-item/new?itemId=${actionItem.id}`);
-  };
+  const handleNewContact = useCallback(() => {
+    router.push("/(views)/contact/new");
+  }, []);
+
+  const handleActionItemPress = useCallback((item: ActionItem) => {
+    router.push(`/(views)/action-item/new?itemId=${item.id}`);
+  }, []);
+
+  const handleViewAllTodos = useCallback(() => {
+    router.push("/(views)/action-item");
+  }, []);
+
+  const handleAddTodo = useCallback(() => {
+    router.push("/(views)/action-item/new");
+  }, []);
+
+  const handleQuickEntryPress = useCallback((route: string) => {
+    router.push(route as any);
+  }, []);
+
+  const pendingCount = useMemo(
+    () => actionItems.filter((item) => !item.completed).length,
+    [actionItems]
+  );
+
+  const quickEntries: QuickEntry[] = useMemo(
+    () => [
+      { id: "contacts", icon: "people", labelKey: "contacts.title", route: "/(tabs)/contacts" },
+      { id: "todos", icon: "list", labelKey: "actionItem.title", route: "/(views)/action-item", badge: pendingCount },
+      { id: "settings", icon: "settings", labelKey: "settings.title", route: "/(views)/settings" },
+    ],
+    [pendingCount]
+  );
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]} collapsable={false}>
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        {/* 顶部导航栏 */}
-        <View style={styles.header}>
-          <View>
-            <Text style={[styles.brand, { color: colors.text }]}>
-              Black Book
-            </Text>
-            <Text style={[styles.tagline, { color: colors.textSecondary }]}>
-              {t("app.tagline")}
-            </Text>
-          </View>
-
-          <TouchableOpacity
-            onPress={() => router.push("/(views)/profile")}
-            style={styles.avatarButton}
-          >
-            {userInfo?.avatar ? (
-              <View style={styles.avatarContainer}>
-                {/* 金色光环 */}
-                <View style={[styles.avatarGlow, { borderColor: colors.primary }]} />
-                <View style={styles.avatarWrapper}>
-                  <DefaultAvatar nickname={userInfo?.nickname} size={44} />
-                </View>
-              </View>
-            ) : (
-              <View style={[styles.avatarPlaceholder, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                <Ionicons name="person" size={20} color={colors.primary} />
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
-
-        {/* 添加按钮区域 */}
-        <View style={styles.addButtonContainer}>
-          <Animated.View style={[addButtonAnimatedStyle]}>
-            <TouchableOpacity
-              onPress={handleAddPress}
-              onPressIn={handleAddPressIn}
-              onPressOut={handleAddPressOut}
-              activeOpacity={0.9}
-              style={[styles.addButton, { backgroundColor: colors.primary }]}
-            >
-              {/* 内发光效果 */}
-              <View style={[styles.addButtonInnerGlow, { backgroundColor: colors.primaryLight }]} />
-
-              <Ionicons name="add" size={40} color="#0a0a0a" />
-
-              {/* 装饰性光点 */}
-              <View style={[styles.sparkle, { top: 16, left: 24 }]} />
-              <View style={[styles.sparkle, { top: 32, right: 28, width: 4, height: 4 }]} />
-            </TouchableOpacity>
+      <SafeAreaView style={styles.safeArea} edges={["top"]}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+          bounces={false}
+        >
+          <Animated.View style={headerAnim}>
+            <HomeHeader
+              nickname={userInfo.nickname}
+              avatar={userInfo.avatar}
+              onAvatarPress={handleAvatarPress}
+            />
           </Animated.View>
-          <Text style={[styles.addButtonLabel, { color: colors.textMuted }]}>
-            {t("home.tapToAddRecord")}
-          </Text>
-        </View>
 
-        {/* 快捷入口卡片 */}
-        <Animated.View style={[styles.cardsContainer, cardAnimatedStyle]}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            {t("contacts.title")}
-          </Text>
+          <Animated.View style={gridAnim}>
+            <ActionGrid
+              onRecord={handleRecordPress}
+              onNewContact={handleNewContact}
+            />
+          </Animated.View>
 
-          <View style={styles.cardsRow}>
-            <TouchableOpacity
-              style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
-              onPress={() => router.push("/(tabs)/contacts")}
-              activeOpacity={0.8}
-            >
-              <View style={[styles.cardIcon, { backgroundColor: `${colors.primary}20` }]}>
-                <Ionicons name="people" size={24} color={colors.primary} />
-              </View>
-              <Text style={[styles.cardText, { color: colors.text }]}>
-                {t("contacts.all")}
-              </Text>
-              <View style={[styles.cardArrow, { backgroundColor: colors.surface }]}>
-                <Ionicons name="chevron-forward" size={16} color={colors.primary} />
-              </View>
-            </TouchableOpacity>
+          <Animated.View style={todoAnim}>
+            <TodoPreview
+              actionItems={actionItems}
+              isLoading={isLoading}
+              onToggleComplete={toggleComplete}
+              onItemPress={handleActionItemPress}
+              onViewAll={handleViewAllTodos}
+              onAdd={handleAddTodo}
+            />
+          </Animated.View>
 
-            <TouchableOpacity
-              style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
-              onPress={() => router.push("/(views)/settings")}
-              activeOpacity={0.8}
-            >
-              <View style={[styles.cardIcon, { backgroundColor: `${colors.primary}20` }]}>
-                <Ionicons name="settings" size={24} color={colors.primary} />
-              </View>
-              <Text style={[styles.cardText, { color: colors.text }]}>
-                {t("settings.title")}
-              </Text>
-              <View style={[styles.cardArrow, { backgroundColor: colors.surface }]}>
-                <Ionicons name="chevron-forward" size={16} color={colors.primary} />
-              </View>
-            </TouchableOpacity>
-          </View>
-        </Animated.View>
+          <Animated.View style={quickAnim}>
+            <QuickAccess
+              entries={quickEntries}
+              onEntryPress={handleQuickEntryPress}
+            />
+          </Animated.View>
 
-        {/* 待办事项预览区域 */}
-        <Animated.View style={[styles.actionItemsSection, cardAnimatedStyle]}>
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              {t("actionItem.title")}
-            </Text>
-            <View style={styles.sectionActions}>
-              <TouchableOpacity
-                onPress={() => router.push("/(views)/action-item/new")}
-                style={[styles.addButtonSmall, { backgroundColor: `${colors.primary}15` }]}
-              >
-                <Ionicons name="add" size={18} color={colors.primary} />
-              </TouchableOpacity>
-            </View>
-          </View>
+          <View style={styles.bottomSpacer} />
+        </ScrollView>
+      </SafeAreaView>
 
-          {actionItems.filter(item => !item.completed).length === 0 ? (
-            <View style={[styles.emptyState, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <View style={[styles.emptyIcon, { backgroundColor: `${colors.success}15` }]}>
-                <Ionicons name="checkmark-done-outline" size={40} color={colors.success} />
-              </View>
-              <Text style={[styles.emptyTitle, { color: colors.text }]}>
-                {t("actionItem.allCompleted")}
-              </Text>
-              <Text style={[styles.emptySubtitle, { color: colors.textMuted }]}>
-                {t("actionItem.emptyHint")}
-              </Text>
-              <TouchableOpacity
-                style={[styles.emptyButton, { backgroundColor: colors.surface, borderColor: colors.primary }]}
-                onPress={() => router.push("/(views)/action-item/new")}
-              >
-                <Ionicons name="add" size={18} color={colors.primary} />
-                <Text style={[styles.emptyButtonText, { color: colors.primary }]}>
-                  {t("actionItem.addButton")}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <View style={[styles.actionItemsCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <ActionItemList
-                actionItems={actionItems.filter(item => !item.completed).slice(0, 5)}
-                isLoading={isLoading}
-                onToggleComplete={toggleComplete}
-                onDelete={deleteActionItem}
-                onItemPress={handleActionItemPress}
-                emptyText={t("actionItem.empty")}
-                scrollable={false}
-              />
-              {actionItems.filter(item => !item.completed).length > 5 && (
-                <TouchableOpacity
-                  style={styles.viewAllButton}
-                  onPress={() => router.push("/(views)/action-item")}
-                >
-                  <Text style={[styles.viewAllText, { color: colors.primary }]}>
-                    {t("common.seeAll")} ({actionItems.filter(item => !item.completed).length})
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          )}
-        </Animated.View>
-
-        {/* 最近联系人区域 */}
-        <Animated.View style={[styles.recentSection, cardAnimatedStyle]}>
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              {t("contacts.recent")}
-            </Text>
-            <TouchableOpacity onPress={() => router.push("/(tabs)/contacts")}>
-              <Text style={[styles.seeAll, { color: colors.primary }]}>
-                {t("common.seeAll")}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* 空状态 */}
-          <View style={[styles.emptyState, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <View style={[styles.emptyIcon, { backgroundColor: `${colors.primary}15` }]}>
-              <Ionicons name="people-outline" size={40} color={colors.primary} />
-            </View>
-            <Text style={[styles.emptyTitle, { color: colors.text }]}>
-              {t("contacts.noContacts")}
-            </Text>
-            <Text style={[styles.emptySubtitle, { color: colors.textMuted }]}>
-              {t("contacts.addByRecording")}
-            </Text>
-
-            <TouchableOpacity
-              style={[styles.emptyButton, { backgroundColor: colors.surface, borderColor: colors.primary }]}
-              onPress={handleAddPress}
-            >
-              <Ionicons name="add" size={18} color={colors.primary} />
-                <Text style={[styles.emptyButtonText, { color: colors.primary }]}>
-                  {t("interaction.add")}
-                </Text>
-            </TouchableOpacity>
-          </View>
-        </Animated.View>
-      </ScrollView>
+      <FabButton onPress={handleRecordPress} />
     </View>
   );
 }
+
+interface FabButtonProps {
+  onPress: () => void;
+}
+
+const FabButton: React.FC<FabButtonProps> = React.memo(({ onPress }) => {
+  const colors = useThemeColor();
+  const pressAnim = usePressAnimation();
+  const pulseStyle = usePulseAnimation();
+
+  return (
+    <View style={styles.fabContainer} pointerEvents="box-none">
+      <Animated.View style={[styles.fabPulse, { backgroundColor: colors.primary }, pulseStyle]} />
+      <AnimatedTouchable
+        style={[styles.fab, { backgroundColor: colors.primary }, pressAnim.style]}
+        onPress={onPress}
+        onPressIn={pressAnim.pressIn}
+        onPressOut={pressAnim.pressOut}
+        activeOpacity={1}
+        accessibilityLabel="添加记录"
+      >
+        <Ionicons name="add" size={28} color="#0a0a0a" />
+      </AnimatedTouchable>
+    </View>
+  );
+});
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  scrollContent: {
-    paddingHorizontal: 24,
-    paddingTop: 20,
-    paddingBottom: 120,
+  safeArea: {
+    flex: 1,
   },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 100,
+  },
+
+  // ── 顶部导航 ──
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 32,
+    alignItems: "center",
+    paddingVertical: 8,
+    marginBottom: 20,
   },
   brand: {
-    fontSize: 32,
+    fontSize: 26,
     fontWeight: "700",
     letterSpacing: -0.5,
     fontFamily: "Georgia",
   },
   tagline: {
-    fontSize: 14,
-    marginTop: 4,
-    letterSpacing: 0.3,
-  },
-  avatarButton: {
-    position: "relative",
-  },
-  avatarContainer: {
-    position: "relative",
-    width: 52,
-    height: 52,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  avatarGlow: {
-    position: "absolute",
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    borderWidth: 2,
-    opacity: 0.6,
-  },
-  avatarWrapper: {
-    overflow: "hidden",
-    borderRadius: 22,
-  },
-  avatarPlaceholder: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1,
-  },
-  addButtonContainer: {
-    alignItems: "center",
-    marginBottom: 40,
-    paddingHorizontal: 24,
-  },
-  addButton: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    justifyContent: "center",
-    alignItems: "center",
-    position: "relative",
-    // 金色阴影
-    shadowColor: "#c9a962",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 24,
-    elevation: 12,
-  },
-  addButtonInnerGlow: {
-    position: "absolute",
-    top: 8,
-    left: 8,
-    right: 8,
-    bottom: 8,
-    borderRadius: 32,
-    opacity: 0.3,
-  },
-  addButtonLabel: {
-    marginTop: 12,
-    fontSize: 14,
-    fontWeight: "500",
+    fontSize: 12,
+    marginTop: 2,
     letterSpacing: 0.5,
   },
-  sparkle: {
+  avatarButton: {
+    padding: 2,
+  },
+  avatarRing: {
+    width: 44,
+    height: 44,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  avatarRingBorder: {
     position: "absolute",
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: "#ffffff",
-    opacity: 0.6,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1.5,
+    opacity: 0.5,
   },
-  cardsContainer: {
-    marginBottom: 32,
+  avatarInner: {
+    borderRadius: 18,
+    overflow: "hidden",
   },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: "600",
-    marginBottom: 16,
-    letterSpacing: -0.3,
+  avatarPlaceholder: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
   },
-  cardsRow: {
+
+  // ── 核心操作区 (Bento Grid) ──
+  actionGrid: {
     flexDirection: "row",
     gap: 12,
+    marginBottom: 24,
   },
-  card: {
-    flex: 1,
-    padding: 20,
+  actionCard: {
     borderRadius: 20,
-    borderWidth: 1,
+    overflow: "hidden",
     position: "relative",
-    // 卡片阴影
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 6,
   },
-  cardIcon: {
-    width: 48,
-    height: 48,
+  actionCardPrimary: {
+    flex: 1.3,
+    padding: 18,
+    minHeight: 120,
+    justifyContent: "center",
+    shadowColor: "#c9a962",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  actionCardSecondary: {
+    flex: 0.7,
+    padding: 16,
+    minHeight: 120,
+    borderWidth: 1,
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  actionCardContent: {
+    zIndex: 1,
+  },
+  actionIconWrapper: {
+    width: 44,
+    height: 44,
     borderRadius: 14,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 12,
+    backgroundColor: "rgba(10,10,10,0.15)",
   },
-  cardText: {
-    fontSize: 15,
-    fontWeight: "600",
+  actionCardTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#0a0a0a",
+    marginBottom: 4,
+    letterSpacing: -0.2,
   },
-  cardArrow: {
+  actionCardSubtitle: {
+    fontSize: 12,
+    color: "rgba(10,10,10,0.6)",
+    fontWeight: "500",
+  },
+  actionCardGlow: {
     position: "absolute",
-    top: 16,
-    right: 16,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    justifyContent: "center",
-    alignItems: "center",
+    top: -20,
+    right: -20,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "rgba(255,255,255,0.15)",
   },
-  recentSection: {
-    flex: 1,
-  },
-  actionItemsSection: {
-    marginBottom: 32,
+
+  // ── 通用 Section ──
+  section: {
+    marginBottom: 24,
   },
   sectionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 16,
+    marginBottom: 12,
   },
-  sectionActions: {
+  sectionTitleRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-  },
-  addButtonSmall: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  actionItemsCard: {
-    borderRadius: 24,
-    borderWidth: 1,
-    overflow: "hidden",
-  },
-  viewAllButton: {
-    paddingVertical: 12,
-    alignItems: "center",
-    borderTopWidth: StyleSheet.hairlineWidth,
-  },
-  viewAllText: {
-    fontSize: 14,
-    fontWeight: "500",
-  },
-  seeAll: {
-    fontSize: 14,
-    fontWeight: "500",
-  },
-  emptyState: {
-    padding: 40,
-    borderRadius: 24,
-    borderWidth: 1,
-    alignItems: "center",
-    borderStyle: "dashed",
-  },
-  emptyIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 20,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    marginBottom: 8,
-  },
-  emptySubtitle: {
-    fontSize: 14,
-    textAlign: "center",
-    marginBottom: 24,
-    lineHeight: 20,
-  },
-  emptyButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 24,
-    borderWidth: 1.5,
     gap: 8,
   },
-  emptyButtonText: {
-    fontSize: 14,
+  sectionTitle: {
+    fontSize: 18,
     fontWeight: "600",
+    letterSpacing: -0.2,
+  },
+  sectionAddBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  badge: {
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 6,
+  },
+  badgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#0a0a0a",
+  },
+
+  // ── 待办预览 ──
+  todoCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    overflow: "hidden",
+    padding: 4,
+  },
+  todoEmpty: {
+    paddingVertical: 28,
+    paddingHorizontal: 20,
+    alignItems: "center",
+  },
+  todoEmptyIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  todoEmptyTitle: {
+    fontSize: 15,
+    fontWeight: "600",
+    marginBottom: 16,
+  },
+  todoEmptyBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 6,
+  },
+  todoEmptyBtnText: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  emptyText: {
+    fontSize: 13,
+    textAlign: "center",
+    paddingVertical: 16,
+  },
+  todoItem: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    padding: 12,
+    gap: 10,
+  },
+  todoCheckbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 1,
+    flexShrink: 0,
+  },
+  todoCheckboxDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  todoContent: {
+    flex: 1,
+    minWidth: 0,
+  },
+  todoDescription: {
+    fontSize: 14,
+    fontWeight: "500",
+    lineHeight: 20,
+    marginBottom: 6,
+  },
+  todoMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  todoPriorityTag: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  todoPriorityText: {
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  todoDueDate: {
+    fontSize: 11,
+  },
+  todoDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginHorizontal: 12,
+  },
+  todoViewAll: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 10,
+    gap: 4,
+  },
+  todoViewAllText: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+
+  // ── 快捷入口网格 ──
+  quickGrid: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  quickCard: {
+    flex: 1,
+    paddingVertical: 18,
+    paddingHorizontal: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    alignItems: "center",
+    position: "relative",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  quickIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  quickLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  quickBadge: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 5,
+  },
+  quickBadgeText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#0a0a0a",
+  },
+
+  // ── 底部留白 ──
+  bottomSpacer: {
+    height: 40,
+  },
+
+  // ── FAB ──
+  fabContainer: {
+    position: "absolute",
+    bottom: 32,
+    right: 20,
+    width: 56,
+    height: 56,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  fabPulse: {
+    position: "absolute",
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    opacity: 0.2,
+  },
+  fab: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#c9a962",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 10,
+    zIndex: 1,
   },
 });

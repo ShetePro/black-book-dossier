@@ -115,8 +115,8 @@ const HomeHeader: React.FC<HeaderProps> = React.memo(
 );
 
 // ── Particle System ──
-const PARTICLE_COUNT = 12;
-const PARTICLE_DURATION = 2000;
+const PARTICLE_COUNT = 8;
+const PARTICLE_DURATION = 3000;
 
 interface ParticleConfig {
   id: number;
@@ -128,9 +128,9 @@ interface ParticleConfig {
 const generateParticles = (): ParticleConfig[] => {
   return Array.from({ length: PARTICLE_COUNT }, (_, i) => ({
     id: i,
-    angle: (360 / PARTICLE_COUNT) * i + Math.random() * 20 - 10,
-    delay: i * 150 + Math.random() * 100,
-    size: 4 + Math.random() * 3,
+    angle: (360 / PARTICLE_COUNT) * i,
+    delay: i * 120,
+    size: 8 + Math.random() * 4,
   }));
 };
 
@@ -140,41 +140,42 @@ const Particle: React.FC<{
   active: boolean;
 }> = React.memo(({ config, color, active }) => {
   const opacity = useSharedValue(0);
-  const scale = useSharedValue(0);
+  const scale = useSharedValue(0.5);
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
 
   useEffect(() => {
     if (!active) {
       opacity.value = 0;
-      scale.value = 0;
+      scale.value = 0.5;
       return;
     }
 
-    const radius = 40;
+    const radius = 50;
     const angleRad = (config.angle * Math.PI) / 180;
     const targetX = Math.cos(angleRad) * radius;
     const targetY = Math.sin(angleRad) * radius;
 
     const runAnimation = () => {
       opacity.value = 0;
-      scale.value = 0;
+      scale.value = 0.5;
       translateX.value = 0;
       translateY.value = 0;
 
       opacity.value = withDelay(
         config.delay,
         withSequence(
-          withTiming(0.8, { duration: 200 }),
-          withTiming(0, { duration: PARTICLE_DURATION - 400 })
+          withTiming(1, { duration: 300 }),
+          withTiming(0.6, { duration: 500 }),
+          withTiming(0, { duration: 2200 })
         )
       );
 
       scale.value = withDelay(
         config.delay,
         withSequence(
-          withTiming(1, { duration: 200 }),
-          withTiming(0.3, { duration: PARTICLE_DURATION - 400 })
+          withTiming(1.2, { duration: 300 }),
+          withTiming(0.8, { duration: PARTICLE_DURATION - 300 })
         )
       );
 
@@ -191,7 +192,7 @@ const Particle: React.FC<{
 
     runAnimation();
 
-    const interval = setInterval(runAnimation, PARTICLE_DURATION + 300);
+    const interval = setInterval(runAnimation, PARTICLE_DURATION + 500);
     return () => clearInterval(interval);
   }, [active, config]);
 
@@ -208,6 +209,7 @@ const Particle: React.FC<{
     <Animated.View
       style={[
         styles.particle,
+        styles.particleGlow,
         { backgroundColor: color, width: config.size, height: config.size },
         style,
       ]}
@@ -738,6 +740,13 @@ const styles = StyleSheet.create({
   particle: {
     position: "absolute",
     borderRadius: 10,
+  },
+  particleGlow: {
+    shadowColor: "#c9a962",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 8,
+    elevation: 4,
   },
   addButton: {
     width: 72,

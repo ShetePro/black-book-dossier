@@ -67,6 +67,7 @@ export const zhCN = {
     title: '个人中心',
     noNickname: '未设置昵称',
     joinedDays: '已加入 {{days}} 天',
+    daysLabel: '使用天数',
     contacts: '联系人',
     interactions: '交往记录',
     completionRate: '待办完成',

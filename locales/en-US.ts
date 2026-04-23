@@ -67,6 +67,7 @@ export const enUS = {
     title: 'Profile',
     noNickname: 'No nickname set',
     joinedDays: 'Joined {{days}} days',
+    daysLabel: 'Days Used',
     contacts: 'Contacts',
     interactions: 'Interactions',
     completionRate: 'Task Completion',

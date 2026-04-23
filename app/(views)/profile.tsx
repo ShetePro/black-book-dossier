@@ -12,13 +12,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useThemeColor } from "@/hooks/useThemeColor";
-import { DefaultAvatar } from "@/components/DefaultAvatar";
 import { useContactStore } from "@/store";
 import { useInteractionStore } from "@/store/interactions/interactionStore";
 import { useActionItemStore } from "@/store/actionItems/actionItemStore";
-import { getStorageItemAsync } from "@/hooks/useStorageState";
-
-type UserInfo = { nickname?: string; avatar?: string };
 
 const INTERACTION_TYPE_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   meeting: "restaurant",
@@ -53,25 +49,13 @@ export default function ProfileScreen() {
   const { contacts } = useContactStore();
   const { interactions, loadAllInteractions } = useInteractionStore();
   const { actionItems, loadActionItems } = useActionItemStore();
-  const [userInfo, setUserInfo] = useState<UserInfo>({});
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true);
       try {
-        const [savedUserInfo] = await Promise.all([
-          getStorageItemAsync("userInfo"),
-          loadAllInteractions(),
-          loadActionItems(),
-        ]);
-        if (savedUserInfo) {
-          try {
-            setUserInfo(JSON.parse(savedUserInfo));
-          } catch {
-            setUserInfo({});
-          }
-        }
+        await Promise.all([loadAllInteractions(), loadActionItems()]);
       } catch (error) {
         console.error("Failed to load profile data:", error);
       } finally {
@@ -173,14 +157,54 @@ export default function ProfileScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        <View style={[styles.userCard, { backgroundColor: colors.surface }]}>
-          <DefaultAvatar nickname={userInfo.nickname} size={72} />
-          <Text style={[styles.userName, { color: colors.text }]}>
-            {userInfo.nickname || t("profile.noNickname")}
+        <View style={[styles.summaryCard, { backgroundColor: colors.surface }]}>
+          <View style={styles.summaryHeader}>
+            <Ionicons name="book" size={24} color={colors.primary} />
+            <Text style={[styles.summaryTitle, { color: colors.text }]}>
+              Black Book
+            </Text>
+          </View>
+          <Text style={[styles.summarySubtitle, { color: colors.textMuted }]}>
+            {t("app.tagline")}
           </Text>
-          <Text style={[styles.userSubtitle, { color: colors.textMuted }]}>
-            {t("profile.joinedDays", { days: stats.daysSinceJoined })}
-          </Text>
+          <View style={styles.summaryStats}>
+            <View style={styles.summaryStatItem}>
+              <Text style={[styles.summaryStatValue, { color: colors.primary }]}>
+                {stats.totalContacts}
+              </Text>
+              <Text style={[styles.summaryStatLabel, { color: colors.textMuted }]}>
+                {t("profile.contacts")}
+              </Text>
+            </View>
+            <View style={[styles.summaryDivider, { backgroundColor: colors.border }]} />
+            <View style={styles.summaryStatItem}>
+              <Text style={[styles.summaryStatValue, { color: colors.primary }]}>
+                {stats.totalInteractions}
+              </Text>
+              <Text style={[styles.summaryStatLabel, { color: colors.textMuted }]}>
+                {t("profile.interactions")}
+              </Text>
+            </View>
+            <View style={[styles.summaryDivider, { backgroundColor: colors.border }]} />
+            <View style={styles.summaryStatItem}>
+              <Text style={[styles.summaryStatValue, { color: colors.primary }]}>
+                {stats.daysSinceJoined}
+              </Text>
+              <Text style={[styles.summaryStatLabel, { color: colors.textMuted }]}>
+                {t("profile.joinedDays", { days: "" }).replace(" ", "")}
+              </Text>
+            </View>
+          </View>
+          <TouchableOpacity
+            style={[styles.addRecordButton, { backgroundColor: colors.primary }]}
+            onPress={() => router.push("/(views)/input")}
+            activeOpacity={0.9}
+          >
+            <Ionicons name="add" size={20} color="#0a0a0a" />
+            <Text style={styles.addRecordButtonText}>
+              {t("home.tapToAddRecord")}
+            </Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.statsGrid}>
@@ -467,20 +491,59 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 16,
   },
-  userCard: {
-    alignItems: "center",
-    paddingVertical: 24,
+  summaryCard: {
+    padding: 20,
     borderRadius: 20,
     marginBottom: 20,
   },
-  userName: {
+  summaryHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  summaryTitle: {
     fontSize: 20,
     fontWeight: "700",
-    marginTop: 12,
   },
-  userSubtitle: {
+  summarySubtitle: {
     fontSize: 13,
     marginTop: 4,
+  },
+  summaryStats: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    alignItems: "center",
+    marginTop: 16,
+    paddingVertical: 12,
+  },
+  summaryStatItem: {
+    alignItems: "center",
+  },
+  summaryStatValue: {
+    fontSize: 24,
+    fontWeight: "700",
+  },
+  summaryStatLabel: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  summaryDivider: {
+    width: 1,
+    height: 40,
+  },
+  addRecordButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 8,
+  },
+  addRecordButtonText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#0a0a0a",
   },
   statsGrid: {
     flexDirection: "row",

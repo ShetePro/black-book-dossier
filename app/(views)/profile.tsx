@@ -160,41 +160,63 @@ export default function ProfileScreen() {
         <View style={[styles.summaryCard, { backgroundColor: colors.surface }]}>
           <View style={styles.summaryHeader}>
             <Ionicons name="book" size={24} color={colors.primary} />
-            <Text style={[styles.summaryTitle, { color: colors.text }]}>
-              Black Book
-            </Text>
+            <View>
+              <Text style={[styles.summaryTitle, { color: colors.text }]}>
+                Black Book
+              </Text>
+              <Text style={[styles.summarySubtitle, { color: colors.textMuted }]}>
+                {t("app.tagline")}
+              </Text>
+            </View>
           </View>
-          <Text style={[styles.summarySubtitle, { color: colors.textMuted }]}>
-            {t("app.tagline")}
-          </Text>
-          <View style={styles.summaryStats}>
+
+          <View style={styles.summaryStatsGrid}>
             <View style={styles.summaryStatItem}>
-              <Text style={[styles.summaryStatValue, { color: colors.primary }]}>
+              <View style={[styles.summaryStatIcon, { backgroundColor: `${colors.primary}15` }]}>
+                <Ionicons name="people" size={18} color={colors.primary} />
+              </View>
+              <Text style={[styles.summaryStatValue, { color: colors.text }]}>
                 {stats.totalContacts}
               </Text>
               <Text style={[styles.summaryStatLabel, { color: colors.textMuted }]}>
                 {t("profile.contacts")}
               </Text>
             </View>
-            <View style={[styles.summaryDivider, { backgroundColor: colors.border }]} />
             <View style={styles.summaryStatItem}>
-              <Text style={[styles.summaryStatValue, { color: colors.primary }]}>
+              <View style={[styles.summaryStatIcon, { backgroundColor: `${colors.primary}15` }]}>
+                <Ionicons name="swap-horizontal" size={18} color={colors.primary} />
+              </View>
+              <Text style={[styles.summaryStatValue, { color: colors.text }]}>
                 {stats.totalInteractions}
               </Text>
               <Text style={[styles.summaryStatLabel, { color: colors.textMuted }]}>
                 {t("profile.interactions")}
               </Text>
             </View>
-            <View style={[styles.summaryDivider, { backgroundColor: colors.border }]} />
             <View style={styles.summaryStatItem}>
-              <Text style={[styles.summaryStatValue, { color: colors.primary }]}>
-                {stats.daysSinceJoined}
+              <View style={[styles.summaryStatIcon, { backgroundColor: `${colors.primary}15` }]}>
+                <Ionicons name="checkbox" size={18} color={colors.primary} />
+              </View>
+              <Text style={[styles.summaryStatValue, { color: colors.text }]}>
+                {stats.completionRate}%
               </Text>
               <Text style={[styles.summaryStatLabel, { color: colors.textMuted }]}>
-                {t("profile.joinedDays", { days: "" }).replace(" ", "")}
+                {t("profile.completionRate")}
+              </Text>
+            </View>
+            <View style={styles.summaryStatItem}>
+              <View style={[styles.summaryStatIcon, { backgroundColor: `${colors.primary}15` }]}>
+                <Ionicons name="star" size={18} color={colors.primary} />
+              </View>
+              <Text style={[styles.summaryStatValue, { color: colors.text }]}>
+                {stats.highPriorityContacts}
+              </Text>
+              <Text style={[styles.summaryStatLabel, { color: colors.textMuted }]}>
+                {t("profile.keyContacts")}
               </Text>
             </View>
           </View>
+
           <TouchableOpacity
             style={[styles.addRecordButton, { backgroundColor: colors.primary }]}
             onPress={() => router.push("/(views)/input")}
@@ -205,33 +227,6 @@ export default function ProfileScreen() {
               {t("home.tapToAddRecord")}
             </Text>
           </TouchableOpacity>
-        </View>
-
-        <View style={styles.statsGrid}>
-          <StatCard
-            icon="people"
-            value={stats.totalContacts}
-            label={t("profile.contacts")}
-            colors={colors}
-          />
-          <StatCard
-            icon="swap-horizontal"
-            value={stats.totalInteractions}
-            label={t("profile.interactions")}
-            colors={colors}
-          />
-          <StatCard
-            icon="checkbox"
-            value={`${stats.completionRate}%`}
-            label={t("profile.completionRate")}
-            colors={colors}
-          />
-          <StatCard
-            icon="star"
-            value={stats.highPriorityContacts}
-            label={t("profile.keyContacts")}
-            colors={colors}
-          />
         </View>
 
         {typeDistribution.length > 0 && (
@@ -445,28 +440,6 @@ export default function ProfileScreen() {
   );
 }
 
-function StatCard({
-  icon,
-  value,
-  label,
-  colors,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  value: string | number;
-  label: string;
-  colors: any;
-}) {
-  return (
-    <View style={[styles.statCard, { backgroundColor: colors.surface }]}>
-      <View style={[styles.statIcon, { backgroundColor: `${colors.primary}15` }]}>
-        <Ionicons name={icon} size={20} color={colors.primary} />
-      </View>
-      <Text style={[styles.statValue, { color: colors.text }]}>{value}</Text>
-      <Text style={[styles.statLabel, { color: colors.textMuted }]}>{label}</Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -494,49 +467,55 @@ const styles = StyleSheet.create({
   summaryCard: {
     padding: 20,
     borderRadius: 20,
-    marginBottom: 20,
+    marginBottom: 24,
   },
   summaryHeader: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 12,
   },
   summaryTitle: {
     fontSize: 20,
     fontWeight: "700",
   },
   summarySubtitle: {
-    fontSize: 13,
-    marginTop: 4,
+    fontSize: 12,
+    marginTop: 2,
   },
-  summaryStats: {
+  summaryStatsGrid: {
     flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
     marginTop: 16,
-    paddingVertical: 12,
+    gap: 12,
   },
   summaryStatItem: {
+    width: "48%",
     alignItems: "center",
+    paddingVertical: 12,
+  },
+  summaryStatIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 6,
   },
   summaryStatValue: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: "700",
   },
   summaryStatLabel: {
     fontSize: 12,
     marginTop: 2,
   },
-  summaryDivider: {
-    width: 1,
-    height: 40,
-  },
   addRecordButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     marginTop: 16,
-    paddingVertical: 12,
+    paddingVertical: 14,
     borderRadius: 12,
     gap: 8,
   },
@@ -544,34 +523,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "600",
     color: "#0a0a0a",
-  },
-  statsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 12,
-    marginBottom: 24,
-  },
-  statCard: {
-    flex: 1,
-    minWidth: "47%",
-    alignItems: "center",
-    paddingVertical: 16,
-    borderRadius: 16,
-    gap: 6,
-  },
-  statIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  statValue: {
-    fontSize: 22,
-    fontWeight: "700",
-  },
-  statLabel: {
-    fontSize: 12,
   },
   section: {
     marginBottom: 24,

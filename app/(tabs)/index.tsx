@@ -279,9 +279,14 @@ const AddButton: React.FC<AddButtonProps> = React.memo(({ onPress }) => {
     pressShadowRadius.value = withTiming(12, { duration: 150 });
   }, []);
 
+  useEffect(() => {
+    if (!particleTrigger) return;
+    const timer = setTimeout(() => setParticleTrigger(false), 1500);
+    return () => clearTimeout(timer);
+  }, [particleTrigger]);
+
   const handlePress = useCallback(() => {
     setParticleTrigger(true);
-    setTimeout(() => setParticleTrigger(false), 1500);
     onPress();
   }, [onPress]);
 
@@ -514,6 +519,45 @@ interface QuickAccessProps {
   onEntryPress: (route: string) => void;
 }
 
+const QuickEntryRow: React.FC<{
+  entry: QuickEntry;
+  isFirst: boolean;
+  onPress: (route: string) => void;
+}> = React.memo(({ entry, isFirst, onPress }) => {
+  const colors = useThemeColor();
+  const { t } = useTranslation();
+  const press = usePressAnimation();
+
+  return (
+    <>
+      {!isFirst && <View style={[styles.quickDivider, { backgroundColor: colors.border }]} />}
+      <AnimatedTouchable
+        style={[styles.quickRow, press.style]}
+        onPress={() => onPress(entry.route)}
+        onPressIn={press.pressIn}
+        onPressOut={press.pressOut}
+        activeOpacity={1}
+        accessibilityLabel={t(entry.labelKey)}
+      >
+        <View style={[styles.quickIcon, { backgroundColor: colors.primary + "12" }]}>
+          <Ionicons name={entry.icon} size={20} color={colors.primary} />
+        </View>
+        <Text style={[styles.quickLabel, { color: colors.text }]}>
+          {t(entry.labelKey)}
+        </Text>
+        <View style={styles.quickRight}>
+          {entry.badge !== undefined && entry.badge > 0 && (
+            <View style={[styles.quickBadge, { backgroundColor: colors.primary }]}>
+              <Text style={styles.quickBadgeText}>{entry.badge}</Text>
+            </View>
+          )}
+          <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+        </View>
+      </AnimatedTouchable>
+    </>
+  );
+});
+
 const QuickAccess: React.FC<QuickAccessProps> = React.memo(({ entries, onEntryPress }) => {
   const colors = useThemeColor();
   const { t } = useTranslation();
@@ -524,39 +568,14 @@ const QuickAccess: React.FC<QuickAccessProps> = React.memo(({ entries, onEntryPr
         {t("profile.quickActions")}
       </Text>
       <View style={[styles.quickContainer, { backgroundColor: colors.surface }]}>
-        {entries.map((entry, index) => {
-          const press = usePressAnimation();
-          return (
-            <React.Fragment key={entry.id}>
-              {index > 0 && (
-                <View style={[styles.quickDivider, { backgroundColor: colors.border }]} />
-              )}
-              <AnimatedTouchable
-                style={[styles.quickRow, press.style]}
-                onPress={() => onEntryPress(entry.route)}
-                onPressIn={press.pressIn}
-                onPressOut={press.pressOut}
-                activeOpacity={1}
-                accessibilityLabel={t(entry.labelKey)}
-              >
-                <View style={[styles.quickIcon, { backgroundColor: colors.primary + "12" }]}>
-                  <Ionicons name={entry.icon} size={20} color={colors.primary} />
-                </View>
-                <Text style={[styles.quickLabel, { color: colors.text }]}>
-                  {t(entry.labelKey)}
-                </Text>
-                <View style={styles.quickRight}>
-                  {entry.badge !== undefined && entry.badge > 0 && (
-                    <View style={[styles.quickBadge, { backgroundColor: colors.primary }]}>
-                      <Text style={styles.quickBadgeText}>{entry.badge}</Text>
-                    </View>
-                  )}
-                  <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
-                </View>
-              </AnimatedTouchable>
-            </React.Fragment>
-          );
-        })}
+        {entries.map((entry, index) => (
+          <QuickEntryRow
+            key={entry.id}
+            entry={entry}
+            isFirst={index === 0}
+            onPress={onEntryPress}
+          />
+        ))}
       </View>
     </View>
   );
@@ -585,7 +604,8 @@ export default function HomeScreen() {
     if (storedUserInfo) {
       try {
         setUserInfo(JSON.parse(storedUserInfo));
-      } catch {
+      } catch (e) {
+        console.warn("Failed to parse userInfo:", e);
       }
     }
   }, []);

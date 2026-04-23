@@ -114,6 +114,107 @@ const HomeHeader: React.FC<HeaderProps> = React.memo(
   }
 );
 
+// ── Particle System ──
+const PARTICLE_COUNT = 12;
+const PARTICLE_DURATION = 2000;
+
+interface ParticleConfig {
+  id: number;
+  angle: number;
+  delay: number;
+  size: number;
+}
+
+const generateParticles = (): ParticleConfig[] => {
+  return Array.from({ length: PARTICLE_COUNT }, (_, i) => ({
+    id: i,
+    angle: (360 / PARTICLE_COUNT) * i + Math.random() * 20 - 10,
+    delay: i * 150 + Math.random() * 100,
+    size: 4 + Math.random() * 3,
+  }));
+};
+
+const Particle: React.FC<{
+  config: ParticleConfig;
+  color: string;
+  active: boolean;
+}> = React.memo(({ config, color, active }) => {
+  const opacity = useSharedValue(0);
+  const scale = useSharedValue(0);
+  const translateX = useSharedValue(0);
+  const translateY = useSharedValue(0);
+
+  useEffect(() => {
+    if (!active) {
+      opacity.value = 0;
+      scale.value = 0;
+      return;
+    }
+
+    const radius = 40;
+    const angleRad = (config.angle * Math.PI) / 180;
+    const targetX = Math.cos(angleRad) * radius;
+    const targetY = Math.sin(angleRad) * radius;
+
+    const runAnimation = () => {
+      opacity.value = 0;
+      scale.value = 0;
+      translateX.value = 0;
+      translateY.value = 0;
+
+      opacity.value = withDelay(
+        config.delay,
+        withSequence(
+          withTiming(0.8, { duration: 200 }),
+          withTiming(0, { duration: PARTICLE_DURATION - 400 })
+        )
+      );
+
+      scale.value = withDelay(
+        config.delay,
+        withSequence(
+          withTiming(1, { duration: 200 }),
+          withTiming(0.3, { duration: PARTICLE_DURATION - 400 })
+        )
+      );
+
+      translateX.value = withDelay(
+        config.delay,
+        withTiming(targetX, { duration: PARTICLE_DURATION })
+      );
+
+      translateY.value = withDelay(
+        config.delay,
+        withTiming(targetY, { duration: PARTICLE_DURATION })
+      );
+    };
+
+    runAnimation();
+
+    const interval = setInterval(runAnimation, PARTICLE_DURATION + 300);
+    return () => clearInterval(interval);
+  }, [active, config]);
+
+  const style = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [
+      { translateX: translateX.value },
+      { translateY: translateY.value },
+      { scale: scale.value },
+    ],
+  }));
+
+  return (
+    <Animated.View
+      style={[
+        styles.particle,
+        { backgroundColor: color, width: config.size, height: config.size },
+        style,
+      ]}
+    />
+  );
+});
+
 // ── Add Button ──
 interface AddButtonProps {
   onPress: () => void;
@@ -122,6 +223,8 @@ interface AddButtonProps {
 const AddButton: React.FC<AddButtonProps> = React.memo(({ onPress }) => {
   const colors = useThemeColor();
   const { t } = useTranslation();
+  const [particlesActive, setParticlesActive] = useState(false);
+  const particleConfigs = useMemo(() => generateParticles(), []);
 
   const entryOpacity = useSharedValue(0);
   const entryTranslateY = useSharedValue(8);
@@ -129,39 +232,18 @@ const AddButton: React.FC<AddButtonProps> = React.memo(({ onPress }) => {
   const pressScale = useSharedValue(1);
   const pressShadowRadius = useSharedValue(12);
 
-  const subtleScale = useSharedValue(1);
-  const subtleOpacity = useSharedValue(1);
-
   useEffect(() => {
     entryOpacity.value = withTiming(1, { duration: 300 });
     entryTranslateY.value = withTiming(0, { duration: 300 });
 
-    const timer = setTimeout(() => {
-      subtleScale.value = withRepeat(
-        withSequence(
-          withTiming(1.02, { duration: 1500 }),
-          withTiming(1, { duration: 1500 }),
-        ),
-        -1,
-        true,
-      );
-      subtleOpacity.value = withRepeat(
-        withSequence(
-          withTiming(0.95, { duration: 1500 }),
-          withTiming(1, { duration: 1500 }),
-        ),
-        -1,
-        true,
-      );
-    }, 3000);
+    const particleTimer = setTimeout(() => {
+      setParticlesActive(true);
+    }, 500);
 
-    return () => clearTimeout(timer);
+    return () => clearTimeout(particleTimer);
   }, []);
 
   const handlePressIn = useCallback(() => {
-    subtleScale.value = 1;
-    subtleOpacity.value = 1;
-
     pressScale.value = withSpring(0.97, { damping: 20, stiffness: 300 });
     pressShadowRadius.value = withTiming(4, { duration: 100 });
   }, []);
@@ -177,31 +259,42 @@ const AddButton: React.FC<AddButtonProps> = React.memo(({ onPress }) => {
   }));
 
   const buttonStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: pressScale.value }, { scale: subtleScale.value }],
+    transform: [{ scale: pressScale.value }],
   }));
 
   const shadowStyle = useAnimatedStyle(() => ({
     shadowRadius: pressShadowRadius.value,
-    opacity: subtleOpacity.value,
   }));
 
   return (
     <Animated.View style={[styles.addSection, entryStyle]}>
-      <AnimatedTouchable
-        style={[
-          styles.addButton,
-          { backgroundColor: colors.primary },
-          buttonStyle,
-          shadowStyle,
-        ]}
-        onPress={onPress}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
-        activeOpacity={1}
-        accessibilityLabel={t("home.tapToAddRecord")}
-      >
-        <Ionicons name="add" size={32} color="#0a0a0a" />
-      </AnimatedTouchable>
+      <View style={styles.addButtonContainer}>
+        {particleConfigs.map((config) => (
+          <Particle
+            key={config.id}
+            config={config}
+            color={colors.primary}
+            active={particlesActive}
+          />
+        ))}
+
+        <AnimatedTouchable
+          style={[
+            styles.addButton,
+            { backgroundColor: colors.primary },
+            buttonStyle,
+            shadowStyle,
+          ]}
+          onPress={onPress}
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
+          activeOpacity={1}
+          accessibilityLabel={t("home.tapToAddRecord")}
+        >
+          <Ionicons name="add" size={32} color="#0a0a0a" />
+        </AnimatedTouchable>
+      </View>
+
       <Text style={[styles.addLabel, { color: colors.textSecondary }]}>
         {t("home.tapToAddRecord")}
       </Text>
@@ -635,6 +728,16 @@ const styles = StyleSheet.create({
   addSection: {
     alignItems: "center",
     marginBottom: 32,
+  },
+  addButtonContainer: {
+    width: 72,
+    height: 72,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  particle: {
+    position: "absolute",
+    borderRadius: 10,
   },
   addButton: {
     width: 72,

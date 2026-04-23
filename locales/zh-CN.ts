@@ -223,6 +223,15 @@ export const zhCN = {
     },
     ok: '确定',
   },
+  lastInteraction: {
+    never: '从未联系',
+    today: '今天刚联系',
+    yesterday: '昨天联系',
+    daysAgo: '{{days}} 天前',
+    weeksAgo: '{{weeks}} 周前',
+    monthsAgo: '{{months}} 个月前',
+    longTime: '已 {{months}}+ 月未联系',
+  },
   // 交往记录
   interaction: {
     title: '交往记录',

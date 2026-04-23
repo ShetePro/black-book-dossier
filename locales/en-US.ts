@@ -212,6 +212,15 @@ export const enUS = {
     deleteError: 'Failed to delete contact',
     ok: 'OK',
   },
+  lastInteraction: {
+    never: 'Never contacted',
+    today: 'Contacted today',
+    yesterday: 'Yesterday',
+    daysAgo: '{{days}} days ago',
+    weeksAgo: '{{weeks}} weeks ago',
+    monthsAgo: '{{months}} months ago',
+    longTime: '{{months}}+ months inactive',
+  },
   // Interaction
   interaction: {
     title: 'Interactions',

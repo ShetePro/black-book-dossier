@@ -17,6 +17,50 @@ import { DefaultAvatar } from '@/components/DefaultAvatar';
 import { ContactSkeleton } from '@/components/contact/ContactSkeleton';
 import { InteractionList } from '@/components/interaction';
 import type { FamilyMember } from '@/types';
+import type { Interaction } from '@/types';
+
+function getLastInteractionInfo(interactions: Interaction[]): {
+  days: number;
+  urgency: 'recent' | 'normal' | 'warning' | 'critical';
+} {
+  if (!interactions || interactions.length === 0) {
+    return { days: -1, urgency: 'critical' };
+  }
+
+  const lastInteraction = interactions.reduce((latest, current) => 
+    current.date > latest.date ? current : latest
+  , interactions[0]);
+
+  const lastDate = new Date(lastInteraction.date);
+  const now = new Date();
+  const diffMs = now.getTime() - lastDate.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffDays < 2) return { days: diffDays, urgency: 'recent' };
+  if (diffDays < 7) return { days: diffDays, urgency: 'normal' };
+  if (diffDays < 30) return { days: diffDays, urgency: 'warning' };
+  return { days: diffDays, urgency: 'critical' };
+}
+
+function formatLastInteractionText(days: number, urgency: string, t: (key: string, options?: any) => string): string {
+  if (days === -1) return t('contact.lastInteraction.never');
+  if (days === 0) return t('contact.lastInteraction.today');
+  if (days === 1) return t('contact.lastInteraction.yesterday');
+  if (days < 7) return t('contact.lastInteraction.daysAgo', { days });
+  if (days < 30) return t('contact.lastInteraction.weeksAgo', { weeks: Math.floor(days / 7) });
+  if (days < 90) return t('contact.lastInteraction.monthsAgo', { months: Math.floor(days / 30) });
+  return t('contact.lastInteraction.longTime', { months: Math.floor(days / 30) });
+}
+
+function getUrgencyColor(urgency: string): string {
+  switch (urgency) {
+    case 'recent': return '#22c55e';
+    case 'normal': return '#60a5fa';
+    case 'warning': return '#f59e0b';
+    case 'critical': return '#ef4444';
+    default: return '#f59e0b';
+  }
+}
 
 export default function ContactDetailScreen() {
   const router = useRouter();
@@ -62,6 +106,10 @@ export default function ContactDetailScreen() {
   };
 
   const isLoading = isContactLoading || isInteractionsLoading;
+
+  const lastInteractionInfo = getLastInteractionInfo(interactions);
+  const lastInteractionText = formatLastInteractionText(lastInteractionInfo.days, lastInteractionInfo.urgency, t);
+  const lastInteractionColor = getUrgencyColor(lastInteractionInfo.urgency);
 
   if (isLoading) {
     return (
@@ -130,6 +178,17 @@ export default function ContactDetailScreen() {
               {[contact.title, contact.company].filter(Boolean).join(' · ')}
             </Text>
           )}
+          
+          <View style={[styles.lastInteractionBadge, { backgroundColor: `${lastInteractionColor}15` }]}>
+            <Ionicons 
+              name={lastInteractionInfo.urgency === 'critical' ? 'alert-circle' : 'time-outline'} 
+              size={14} 
+              color={lastInteractionColor} 
+            />
+            <Text style={[styles.lastInteractionText, { color: lastInteractionColor }]}>
+              {lastInteractionText}
+            </Text>
+          </View>
           
           {contact.tags && contact.tags.length > 0 && (
             <View style={styles.tagsContainer}>
@@ -511,6 +570,19 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 16,
     marginTop: 4,
+  },
+  lastInteractionBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginTop: 12,
+    gap: 6,
+  },
+  lastInteractionText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
   tagsContainer: {
     flexDirection: 'row',

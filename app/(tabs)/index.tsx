@@ -16,7 +16,6 @@ import Animated, {
   withSpring,
   withTiming,
   withDelay,
-  withRepeat,
   withSequence,
 } from "react-native-reanimated";
 import { useThemeColor } from "@/hooks/useThemeColor";
@@ -114,94 +113,116 @@ const HomeHeader: React.FC<HeaderProps> = React.memo(
   }
 );
 
-// ── Particle System ──
-const PARTICLE_COUNT = 8;
-const PARTICLE_DURATION = 3000;
-
 interface ParticleConfig {
   id: number;
-  angle: number;
+  startAngle: number;
+  curveAmplitude: number;
+  curveFrequency: number;
   delay: number;
   size: number;
+  duration: number;
+  targetRadius: number;
 }
 
 const generateParticles = (): ParticleConfig[] => {
-  return Array.from({ length: PARTICLE_COUNT }, (_, i) => ({
+  const count = 10;
+  return Array.from({ length: count }, (_, i) => ({
     id: i,
-    angle: (360 / PARTICLE_COUNT) * i,
-    delay: i * 120,
-    size: 8 + Math.random() * 4,
+    startAngle: (360 / count) * i + (Math.random() * 20 - 10),
+    curveAmplitude: 12 + Math.random() * 12,
+    curveFrequency: 0.8 + Math.random() * 0.6,
+    delay: i * 60 + Math.random() * 40,
+    size: 6 + Math.random() * 8,
+    duration: 1200 + Math.random() * 400,
+    targetRadius: 50 + Math.random() * 25,
   }));
 };
 
 const Particle: React.FC<{
   config: ParticleConfig;
   color: string;
-  active: boolean;
-}> = React.memo(({ config, color, active }) => {
+  trigger: boolean;
+}> = React.memo(({ config, color, trigger }) => {
   const opacity = useSharedValue(0);
   const scale = useSharedValue(0.5);
-  const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
+  const translateX = useSharedValue(0);
+  const rotation = useSharedValue(0);
 
   useEffect(() => {
-    if (!active) {
+    if (!trigger) {
       opacity.value = 0;
       scale.value = 0.5;
+      translateY.value = 0;
+      translateX.value = 0;
+      rotation.value = 0;
       return;
     }
 
-    const radius = 50;
-    const angleRad = (config.angle * Math.PI) / 180;
-    const targetX = Math.cos(angleRad) * radius;
-    const targetY = Math.sin(angleRad) * radius;
+    const angleRad = (config.startAngle * Math.PI) / 180;
+    const targetX = Math.cos(angleRad) * config.targetRadius;
+    const targetY = -45 - Math.random() * 25;
 
-    const runAnimation = () => {
-      opacity.value = 0;
-      scale.value = 0.5;
-      translateX.value = 0;
-      translateY.value = 0;
+    // Phase 1: Appear + scale up (0-200ms)
+    opacity.value = withDelay(
+      config.delay,
+      withTiming(1, { duration: 200 })
+    );
 
-      opacity.value = withDelay(
-        config.delay,
-        withSequence(
-          withTiming(1, { duration: 300 }),
-          withTiming(0.6, { duration: 500 }),
-          withTiming(0, { duration: 2200 })
-        )
-      );
+    scale.value = withDelay(
+      config.delay,
+      withSequence(
+        withTiming(1.3, { duration: 200 }),
+        withTiming(0.9, { duration: 300 }),
+        withTiming(0.3, { duration: 500 })
+      )
+    );
 
-      scale.value = withDelay(
-        config.delay,
-        withSequence(
-          withTiming(1.2, { duration: 300 }),
-          withTiming(0.8, { duration: PARTICLE_DURATION - 300 })
-        )
-      );
+    // Phase 2: Float upward + curve trajectory (200-800ms)
+    translateY.value = withDelay(
+      config.delay,
+      withSequence(
+        withTiming(-35, { duration: 300 }),
+        withTiming(targetY, { duration: 500 })
+      )
+    );
 
-      translateX.value = withDelay(
-        config.delay,
-        withTiming(targetX, { duration: PARTICLE_DURATION })
-      );
+    // Curve trajectory: oscillate left-right while moving upward
+    translateX.value = withDelay(
+      config.delay,
+      withSequence(
+        withTiming(config.curveAmplitude, { duration: 250 }),
+        withTiming(-config.curveAmplitude * 0.6, { duration: 250 }),
+        withTiming(config.curveAmplitude * 0.3, { duration: 200 }),
+        withTiming(targetX, { duration: 300 })
+      )
+    );
 
-      translateY.value = withDelay(
-        config.delay,
-        withTiming(targetY, { duration: PARTICLE_DURATION })
-      );
-    };
+    // Rotation: subtle oscillation
+    rotation.value = withDelay(
+      config.delay,
+      withSequence(
+        withTiming(20, { duration: 250 }),
+        withTiming(-20, { duration: 250 }),
+        withTiming(10, { duration: 200 }),
+        withTiming(0, { duration: 300 })
+      )
+    );
 
-    runAnimation();
-
-    const interval = setInterval(runAnimation, PARTICLE_DURATION + 500);
-    return () => clearInterval(interval);
-  }, [active, config]);
+    // Phase 3: Fade out (600ms+)
+    opacity.value = withDelay(
+      config.delay + 600,
+      withTiming(0, { duration: 600 })
+    );
+  }, [trigger, config]);
 
   const style = useAnimatedStyle(() => ({
     opacity: opacity.value,
     transform: [
-      { translateX: translateX.value },
       { translateY: translateY.value },
+      { translateX: translateX.value },
       { scale: scale.value },
+      { rotateZ: `${rotation.value}deg` },
     ],
   }));
 
@@ -209,8 +230,17 @@ const Particle: React.FC<{
     <Animated.View
       style={[
         styles.particle,
-        styles.particleGlow,
-        { backgroundColor: color, width: config.size, height: config.size },
+        {
+          backgroundColor: color,
+          width: config.size,
+          height: config.size,
+          borderRadius: config.size * 0.35,
+          shadowColor: color,
+          shadowOffset: { width: 0, height: 0 },
+          shadowOpacity: 0.4,
+          shadowRadius: 4,
+          elevation: 3,
+        },
         style,
       ]}
     />
@@ -225,7 +255,7 @@ interface AddButtonProps {
 const AddButton: React.FC<AddButtonProps> = React.memo(({ onPress }) => {
   const colors = useThemeColor();
   const { t } = useTranslation();
-  const [particlesActive, setParticlesActive] = useState(false);
+  const [particleTrigger, setParticleTrigger] = useState(false);
   const particleConfigs = useMemo(() => generateParticles(), []);
 
   const entryOpacity = useSharedValue(0);
@@ -237,12 +267,6 @@ const AddButton: React.FC<AddButtonProps> = React.memo(({ onPress }) => {
   useEffect(() => {
     entryOpacity.value = withTiming(1, { duration: 300 });
     entryTranslateY.value = withTiming(0, { duration: 300 });
-
-    const particleTimer = setTimeout(() => {
-      setParticlesActive(true);
-    }, 500);
-
-    return () => clearTimeout(particleTimer);
   }, []);
 
   const handlePressIn = useCallback(() => {
@@ -254,6 +278,12 @@ const AddButton: React.FC<AddButtonProps> = React.memo(({ onPress }) => {
     pressScale.value = withSpring(1, { damping: 20, stiffness: 300 });
     pressShadowRadius.value = withTiming(12, { duration: 150 });
   }, []);
+
+  const handlePress = useCallback(() => {
+    setParticleTrigger(true);
+    setTimeout(() => setParticleTrigger(false), 1500);
+    onPress();
+  }, [onPress]);
 
   const entryStyle = useAnimatedStyle(() => ({
     opacity: entryOpacity.value,
@@ -276,7 +306,7 @@ const AddButton: React.FC<AddButtonProps> = React.memo(({ onPress }) => {
             key={config.id}
             config={config}
             color={colors.primary}
-            active={particlesActive}
+            trigger={particleTrigger}
           />
         ))}
 
@@ -287,7 +317,7 @@ const AddButton: React.FC<AddButtonProps> = React.memo(({ onPress }) => {
             buttonStyle,
             shadowStyle,
           ]}
-          onPress={onPress}
+          onPress={handlePress}
           onPressIn={handlePressIn}
           onPressOut={handlePressOut}
           activeOpacity={1}
@@ -740,13 +770,6 @@ const styles = StyleSheet.create({
   particle: {
     position: "absolute",
     borderRadius: 10,
-  },
-  particleGlow: {
-    shadowColor: "#c9a962",
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 8,
-    elevation: 4,
   },
   addButton: {
     width: 72,

@@ -43,13 +43,13 @@ function getLastInteractionInfo(interactions: Interaction[]): {
 }
 
 function formatLastInteractionText(days: number, urgency: string, t: (key: string, options?: any) => string): string {
-  if (days === -1) return t('contact.lastInteraction.never');
-  if (days === 0) return t('contact.lastInteraction.today');
-  if (days === 1) return t('contact.lastInteraction.yesterday');
-  if (days < 7) return t('contact.lastInteraction.daysAgo', { days });
-  if (days < 30) return t('contact.lastInteraction.weeksAgo', { weeks: Math.floor(days / 7) });
-  if (days < 90) return t('contact.lastInteraction.monthsAgo', { months: Math.floor(days / 30) });
-  return t('contact.lastInteraction.longTime', { months: Math.floor(days / 30) });
+  if (days === -1) return t('lastInteraction.never');
+  if (days === 0) return t('lastInteraction.today');
+  if (days === 1) return t('lastInteraction.yesterday');
+  if (days < 7) return t('lastInteraction.daysAgo', { days });
+  if (days < 30) return t('lastInteraction.weeksAgo', { weeks: Math.floor(days / 7) });
+  if (days < 90) return t('lastInteraction.monthsAgo', { months: Math.floor(days / 30) });
+  return t('lastInteraction.longTime', { months: Math.floor(days / 30) });
 }
 
 function getUrgencyColor(urgency: string): string {

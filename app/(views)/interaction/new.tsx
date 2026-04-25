@@ -23,10 +23,10 @@ const INTERACTION_TYPES: {
   i18nKey: string;
   color: string;
 }[] = [
-  { type: 'meeting', icon: 'restaurant', i18nKey: 'interaction.types.meeting', color: '#f59e0b' },
-  { type: 'call', icon: 'bicycle', i18nKey: 'interaction.types.call', color: '#22c55e' },
-  { type: 'message', icon: 'school', i18nKey: 'interaction.types.message', color: '#3b82f6' },
-  { type: 'gift', icon: 'golf', i18nKey: 'interaction.types.gift', color: '#8b5cf6' },
+  { type: 'meeting', icon: 'people', i18nKey: 'interaction.types.meeting', color: '#f59e0b' },
+  { type: 'call', icon: 'call', i18nKey: 'interaction.types.call', color: '#22c55e' },
+  { type: 'message', icon: 'chatbubble', i18nKey: 'interaction.types.message', color: '#3b82f6' },
+  { type: 'gift', icon: 'gift', i18nKey: 'interaction.types.gift', color: '#8b5cf6' },
   { type: 'other', icon: 'ellipsis-horizontal', i18nKey: 'interaction.types.other', color: '#6b7280' },
 ];
 
@@ -71,6 +71,17 @@ export default function NewInteractionScreen() {
   const [valueDescription, setValueDescription] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
+  const activityDate = useMemo(() => {
+    const dateParam = params.activityDate as string;
+    if (dateParam) {
+      const parsed = parseInt(dateParam, 10);
+      if (parsed > 0) return parsed;
+    }
+    return Date.now();
+  }, [params.activityDate]);
+
+  const activityDateDisplay = (params.activityDateDisplay as string) || '';
+
   const handleSave = async () => {
     if (!content.trim()) {
       Alert.alert(t('common.notice'), t('interaction.validationError'));
@@ -95,7 +106,7 @@ export default function NewInteractionScreen() {
           extractedEntities: [],
           actionItems: [],
           location: location.trim() || undefined,
-          date: Date.now(),
+          date: activityDate,
           valueExchange,
           valueDescription: valueDescription.trim() || undefined,
           createdAt: Date.now(),
@@ -231,6 +242,23 @@ export default function NewInteractionScreen() {
             </View>
           </View>
         </View>
+
+        {activityDateDisplay && (
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('interaction.activityTime')}</Text>
+            <View style={[styles.dateCard, { backgroundColor: colors.surface }]}>
+              <View style={styles.dateRow}>
+                <Ionicons name="calendar-outline" size={20} color={colors.primary} />
+                <Text style={[styles.dateText, { color: colors.text }]}>
+                  {activityDateDisplay}
+                </Text>
+                <Text style={[styles.dateHint, { color: colors.textMuted }]}>
+                  {t('interaction.activityTimeHint')}
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
 
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('interaction.valueExchange')}</Text>
@@ -403,5 +431,23 @@ const styles = StyleSheet.create({
   contactChipDivider: {
     fontSize: 13,
     marginHorizontal: 6,
+  },
+  dateCard: {
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  dateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  dateText: {
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  dateHint: {
+    fontSize: 12,
+    marginLeft: 4,
   },
 });

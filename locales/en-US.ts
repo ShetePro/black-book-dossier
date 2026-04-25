@@ -237,6 +237,8 @@ export const enUS = {
     contentPlaceholder: 'Record the details of this interaction...',
     location: 'Location (Optional)',
     locationPlaceholder: 'Enter location',
+    activityTime: 'Activity Time',
+    activityTimeHint: '(extracted from input)',
     valueExchange: 'Value Exchange',
     valueTypes: {
       neutral: 'Neutral',

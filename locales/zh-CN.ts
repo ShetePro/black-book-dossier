@@ -248,6 +248,8 @@ export const zhCN = {
     contentPlaceholder: '记录这次交往的详细内容...',
     location: '地点（可选）',
     locationPlaceholder: '输入地点',
+    activityTime: '活动时间',
+    activityTimeHint: '（根据输入分析）',
     valueExchange: '价值交换',
     valueTypes: {
       neutral: '普通',

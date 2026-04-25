@@ -25,6 +25,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import { extractEntities } from '@/services/ai/entityExtractor';
 import { analyzeWithLLM, LLMAnalysisResult } from '@/services/ai/llmAnalyzer';
+import { extractAndParseTimeFromTags, formatTimestamp } from '@/services/ai/timeParser';
 import { LLMReasoningCard } from '@/components/analysis/LLMReasoningCard';
 import { useAutoInteraction } from '@/hooks/useAutoInteraction';
 import { AutoInteractionConfirm } from '@/components/interaction/AutoInteractionConfirm';
@@ -710,15 +711,17 @@ export default function AgentReviewScreen() {
   // 添加活动到已匹配的联系人
   const handleAddActivityToContact = async () => {
     const activities = llmAnalysis?.insights?.activities || [];
-    const timeTag = llmAnalysis?.suggestedTags?.find(t => t.startsWith('time:'))?.replace('time:', '');
     const locationTag = llmAnalysis?.suggestedTags?.find(t => t.startsWith('location:'))?.replace('location:', '');
-    
+
+    const timeResult = extractAndParseTimeFromTags(llmAnalysis?.suggestedTags || []);
+    const activityDate = timeResult.timestamp;
+    const activityDateDisplay = timeResult.confidence > 0 ? formatTimestamp(activityDate) : '';
+
     if (activities.length === 0) {
       Alert.alert(t('common.notice'), t('agentReview.noActivities'));
       return;
     }
 
-    // 使用当前状态中的 matchedContacts（包含用户手动替换的联系人）
     const targetContacts = matchedContacts.map(m => m.contact);
 
     if (targetContacts.length === 0) {
@@ -734,6 +737,8 @@ export default function AgentReviewScreen() {
         content: activities.join('、'),
         location: locationTag || '',
         transcription: transcription || '',
+        activityDate: activityDate.toString(),
+        activityDateDisplay,
       }
     });
   };

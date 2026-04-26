@@ -7,15 +7,19 @@ import {
   TextInput,
   StyleSheet,
   Alert,
+  Platform,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+import DatePicker from 'expo-datepicker';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import { useInteractionStore } from '@/store/interactions/interactionStore';
 import { useContactStore } from '@/store';
 import { Interaction, Contact } from '@/types';
+import { formatTimestamp } from '@/services/ai/timeParser';
 
 const INTERACTION_TYPES: {
   type: Interaction['type'];
@@ -26,6 +30,8 @@ const INTERACTION_TYPES: {
   { type: 'meeting', icon: 'people', i18nKey: 'interaction.types.meeting', color: '#f59e0b' },
   { type: 'call', icon: 'call', i18nKey: 'interaction.types.call', color: '#22c55e' },
   { type: 'message', icon: 'chatbubble', i18nKey: 'interaction.types.message', color: '#3b82f6' },
+  { type: 'meal', icon: 'restaurant', i18nKey: 'interaction.types.meal', color: '#eab308' },
+  { type: 'exercise', icon: 'fitness', i18nKey: 'interaction.types.exercise', color: '#06b6d4' },
   { type: 'gift', icon: 'gift', i18nKey: 'interaction.types.gift', color: '#8b5cf6' },
   { type: 'other', icon: 'ellipsis-horizontal', i18nKey: 'interaction.types.other', color: '#6b7280' },
 ];
@@ -71,16 +77,39 @@ export default function NewInteractionScreen() {
   const [valueDescription, setValueDescription] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
-  const activityDate = useMemo(() => {
+  const initialActivityDate = useMemo(() => {
     const dateParam = params.activityDate as string;
     if (dateParam) {
       const parsed = parseInt(dateParam, 10);
-      if (parsed > 0) return parsed;
+      if (!isNaN(parsed) && parsed > 1000000000000 && parsed < 2000000000000) {
+        return parsed;
+      }
     }
     return Date.now();
   }, [params.activityDate]);
 
-  const activityDateDisplay = (params.activityDateDisplay as string) || '';
+  const [activityDate, setActivityDate] = useState(initialActivityDate);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+
+  const safeFormatDate = (timestamp: number): string => {
+    try {
+      const date = new Date(timestamp);
+      if (isNaN(date.getTime())) return new Date().toISOString().split('T')[0];
+      return date.toISOString().split('T')[0];
+    } catch {
+      return new Date().toISOString().split('T')[0];
+    }
+  };
+
+  const getSafeDate = (timestamp: number): Date => {
+    const date = new Date(timestamp);
+    if (isNaN(date.getTime())) return new Date();
+    return date;
+  };
+
+  const safeDate = getSafeDate(activityDate);
+  const activityDateDisplay = formatTimestamp(activityDate);
 
   const handleSave = async () => {
     if (!content.trim()) {
@@ -243,22 +272,200 @@ export default function NewInteractionScreen() {
           </View>
         </View>
 
-        {activityDateDisplay && (
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('interaction.activityTime')}</Text>
-            <View style={[styles.dateCard, { backgroundColor: colors.surface }]}>
-              <View style={styles.dateRow}>
-                <Ionicons name="calendar-outline" size={20} color={colors.primary} />
-                <Text style={[styles.dateText, { color: colors.text }]}>
-                  {activityDateDisplay}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('interaction.activityTime')}</Text>
+          <TouchableOpacity
+            style={[styles.dateCard, { backgroundColor: colors.surface }]}
+            onPress={() => setShowDatePicker(true)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.dateRow}>
+              <Ionicons name="calendar-outline" size={20} color={colors.primary} />
+              <Text style={[styles.dateText, { color: colors.text }]}>
+                {formatTimestamp(activityDate)}
+              </Text>
+              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+            </View>
+          </TouchableOpacity>
+        </View>
+
+        <Modal
+          visible={showDatePicker}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setShowDatePicker(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
+              <View style={styles.modalHeader}>
+                <Text style={[styles.modalTitle, { color: colors.text }]}>
+                  {t('interaction.selectDate')}
                 </Text>
-                <Text style={[styles.dateHint, { color: colors.textMuted }]}>
-                  {t('interaction.activityTimeHint')}
-                </Text>
+                <TouchableOpacity onPress={() => setShowDatePicker(false)}>
+                  <Ionicons name="close" size={24} color={colors.textMuted} />
+                </TouchableOpacity>
               </View>
+              <DatePicker
+                date={safeFormatDate(activityDate)}
+                onChange={(dateStr: string) => {
+                  const newDate = new Date(dateStr);
+                  if (isNaN(newDate.getTime())) return;
+                  const current = getSafeDate(activityDate);
+                  newDate.setHours(current.getHours());
+                  newDate.setMinutes(current.getMinutes());
+                  setActivityDate(newDate.getTime());
+                }}
+                backgroundColor={colors.elevated}
+                borderColor={colors.border}
+                modalBackgroundColor={colors.surface}
+                selectedColor={colors.primary}
+                selectedTextColor="#0a0a0a"
+              />
+              <Text style={[styles.timeLabel, { color: colors.textMuted }]}>
+                {t('interaction.selectTime')}
+              </Text>
+              <View style={styles.timeOptionsRow}>
+                {['上午', '中午', '下午', '晚上'].map((period, idx) => {
+                  const hours = [9, 12, 15, 20];
+                  return (
+                    <TouchableOpacity
+                      key={period}
+                      style={[
+                        styles.timeOption,
+                        {
+                          backgroundColor: colors.elevated,
+                          borderColor: safeDate.getHours() === hours[idx] ? colors.primary : colors.border,
+                        },
+                      ]}
+                      onPress={() => {
+                        const newDate = getSafeDate(activityDate);
+                        newDate.setHours(hours[idx]);
+                        newDate.setMinutes(0);
+                        setActivityDate(newDate.getTime());
+                      }}
+                    >
+                      <Text style={[
+                        styles.timeOptionText,
+                        { color: safeDate.getHours() === hours[idx] ? colors.primary : colors.text },
+                      ]}>
+                        {period}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              <View style={styles.customTimeRow}>
+                <Text style={[styles.customTimeLabel, { color: colors.text }]}>
+                  {t('interaction.customTime')}
+                </Text>
+                <TouchableOpacity
+                  style={[styles.timeInputButton, { backgroundColor: colors.elevated }]}
+                  onPress={() => setShowTimePicker(true)}
+                >
+                  <Ionicons name="time-outline" size={16} color={colors.primary} />
+                  <Text style={[styles.timeInputText, { color: colors.text }]}>
+                    {`${String(safeDate.getHours()).padStart(2, '0')}:${String(safeDate.getMinutes()).padStart(2, '0')}`}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity
+                style={[styles.modalButton, { backgroundColor: colors.primary }]}
+                onPress={() => setShowDatePicker(false)}
+              >
+                <Text style={styles.modalButtonText}>{t('common.confirm')}</Text>
+              </TouchableOpacity>
             </View>
           </View>
-        )}
+        </Modal>
+
+        <Modal
+          visible={showTimePicker}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setShowTimePicker(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
+              <View style={styles.modalHeader}>
+                <Text style={[styles.modalTitle, { color: colors.text }]}>
+                  {t('interaction.selectTime')}
+                </Text>
+                <TouchableOpacity onPress={() => setShowTimePicker(false)}>
+                  <Ionicons name="close" size={24} color={colors.textMuted} />
+                </TouchableOpacity>
+              </View>
+              <View style={styles.timePickerContainer}>
+                <View style={styles.timePickerRow}>
+                  <TouchableOpacity
+                    style={[styles.timePickerButton, { backgroundColor: colors.elevated }]}
+                    onPress={() => {
+                      const newDate = getSafeDate(activityDate);
+                      const currentHour = newDate.getHours();
+                      newDate.setHours(Math.max(0, currentHour - 1));
+                      setActivityDate(newDate.getTime());
+                    }}
+                  >
+                    <Ionicons name="chevron-up" size={24} color={colors.text} />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.timePickerButton, { backgroundColor: colors.elevated }]}
+                    onPress={() => {
+                      const newDate = getSafeDate(activityDate);
+                      const currentMinute = newDate.getMinutes();
+                      newDate.setMinutes(Math.max(0, currentMinute - 10));
+                      setActivityDate(newDate.getTime());
+                    }}
+                  >
+                    <Ionicons name="chevron-up" size={24} color={colors.text} />
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.timeDisplayRow}>
+                  <View style={[styles.timeDisplayBox, { backgroundColor: colors.elevated }]}>
+                    <Text style={[styles.timeDisplayText, { color: colors.text }]}>
+                      {String(safeDate.getHours()).padStart(2, '0')}
+                    </Text>
+                  </View>
+                  <Text style={[styles.timeColon, { color: colors.text }]}>:</Text>
+                  <View style={[styles.timeDisplayBox, { backgroundColor: colors.elevated }]}>
+                    <Text style={[styles.timeDisplayText, { color: colors.text }]}>
+                      {String(safeDate.getMinutes()).padStart(2, '0')}
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.timePickerRow}>
+                  <TouchableOpacity
+                    style={[styles.timePickerButton, { backgroundColor: colors.elevated }]}
+                    onPress={() => {
+                      const newDate = getSafeDate(activityDate);
+                      const currentHour = newDate.getHours();
+                      newDate.setHours(Math.min(23, currentHour + 1));
+                      setActivityDate(newDate.getTime());
+                    }}
+                  >
+                    <Ionicons name="chevron-down" size={24} color={colors.text} />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.timePickerButton, { backgroundColor: colors.elevated }]}
+                    onPress={() => {
+                      const newDate = getSafeDate(activityDate);
+                      const currentMinute = newDate.getMinutes();
+                      newDate.setMinutes(Math.min(59, currentMinute + 10));
+                      setActivityDate(newDate.getTime());
+                    }}
+                  >
+                    <Ionicons name="chevron-down" size={24} color={colors.text} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+              <TouchableOpacity
+                style={[styles.modalButton, { backgroundColor: colors.primary }]}
+                onPress={() => setShowTimePicker(false)}
+              >
+                <Text style={styles.modalButtonText}>{t('common.confirm')}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
 
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('interaction.valueExchange')}</Text>
@@ -353,18 +560,20 @@ const styles = StyleSheet.create({
   typeGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
-  },
-  typeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
     gap: 8,
   },
+  typeButton: {
+    width: '31%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 10,
+    borderRadius: 12,
+    gap: 4,
+  },
   typeLabel: {
-    fontSize: 14,
+    fontSize: 13,
   },
   contentCard: {
     borderRadius: 16,
@@ -445,9 +654,119 @@ const styles = StyleSheet.create({
   dateText: {
     fontSize: 15,
     fontWeight: '500',
+    flex: 1,
   },
   dateHint: {
     fontSize: 12,
     marginLeft: 4,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: '90%',
+    borderRadius: 20,
+    padding: 20,
+    paddingBottom: 24,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  modalButton: {
+    marginTop: 20,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  modalButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#0a0a0a',
+  },
+  timeLabel: {
+    fontSize: 14,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  timeOptionsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  timeOption: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  timeOptionText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  customTimeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 12,
+  },
+  customTimeLabel: {
+    fontSize: 14,
+  },
+  timeInputButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    gap: 6,
+  },
+  timeInputText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  timePickerContainer: {
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  timePickerRow: {
+    flexDirection: 'row',
+    gap: 20,
+  },
+  timePickerButton: {
+    width: 60,
+    height: 40,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  timeDisplayRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 16,
+    gap: 8,
+  },
+  timeDisplayBox: {
+    width: 60,
+    height: 50,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  timeDisplayText: {
+    fontSize: 28,
+    fontWeight: '600',
+  },
+  timeColon: {
+    fontSize: 28,
+    fontWeight: '600',
   },
 });

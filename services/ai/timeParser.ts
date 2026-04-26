@@ -329,6 +329,13 @@ export const parseMultipleTimes = (texts: string[]): TimeParseResult[] => {
 
 export const formatTimestamp = (timestamp: number, includeTime: boolean = true): string => {
   const date = new Date(timestamp);
+  if (isNaN(date.getTime())) {
+    const now = new Date();
+    const fallbackYear = now.getFullYear();
+    const fallbackMonth = now.getMonth() + 1;
+    const fallbackDay = now.getDate();
+    return `${fallbackYear}年${fallbackMonth}月${fallbackDay}日`;
+  }
   const year = date.getFullYear();
   const month = date.getMonth() + 1;
   const day = date.getDate();
@@ -347,6 +354,12 @@ export const formatTimestamp = (timestamp: number, includeTime: boolean = true):
 
 export const formatTimeOnly = (timestamp: number): string => {
   const date = new Date(timestamp);
+  if (isNaN(date.getTime())) {
+    const now = new Date();
+    const hour = now.getHours();
+    const minute = now.getMinutes();
+    return `${hour < 10 ? `0${hour}` : hour}:${minute < 10 ? `0${minute}` : minute}`;
+  }
   const hour = date.getHours();
   const minute = date.getMinutes();
   const hourStr = hour < 10 ? `0${hour}` : `${hour}`;

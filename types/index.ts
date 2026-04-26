@@ -30,7 +30,7 @@ export interface FamilyMember {
 export interface Interaction {
   id: string;
   contactId: string;
-  type: 'meeting' | 'call' | 'message' | 'gift' | 'other';
+  type: 'meeting' | 'call' | 'message' | 'gift' | 'meal' | 'exercise' | 'other';
   content: string;
   rawTranscript?: string;
   extractedEntities: ExtractedEntity[];

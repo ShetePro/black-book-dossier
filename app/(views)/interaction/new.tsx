@@ -89,8 +89,8 @@ export default function NewInteractionScreen() {
   }, [params.activityDate]);
 
   const [activityDate, setActivityDate] = useState(initialActivityDate);
-  const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [datePickerKey, setDatePickerKey] = useState(0);
 
   const safeFormatDate = (timestamp: number): string => {
     try {
@@ -274,38 +274,10 @@ export default function NewInteractionScreen() {
 
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('interaction.activityTime')}</Text>
-          <TouchableOpacity
-            style={[styles.dateCard, { backgroundColor: colors.surface }]}
-            onPress={() => setShowDatePicker(true)}
-            activeOpacity={0.7}
-          >
-            <View style={styles.dateRow}>
-              <Ionicons name="calendar-outline" size={20} color={colors.primary} />
-              <Text style={[styles.dateText, { color: colors.text }]}>
-                {formatTimestamp(activityDate)}
-              </Text>
-              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-            </View>
-          </TouchableOpacity>
-        </View>
-
-        <Modal
-          visible={showDatePicker}
-          transparent
-          animationType="slide"
-          onRequestClose={() => setShowDatePicker(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
-              <View style={styles.modalHeader}>
-                <Text style={[styles.modalTitle, { color: colors.text }]}>
-                  {t('interaction.selectDate')}
-                </Text>
-                <TouchableOpacity onPress={() => setShowDatePicker(false)}>
-                  <Ionicons name="close" size={24} color={colors.textMuted} />
-                </TouchableOpacity>
-              </View>
+          <View style={styles.activityTimeRow}>
+            <View style={[styles.dateCard, { backgroundColor: colors.surface }]}>
               <DatePicker
+                key={datePickerKey}
                 date={safeFormatDate(activityDate)}
                 onChange={(dateStr: string) => {
                   const newDate = new Date(dateStr);
@@ -314,69 +286,28 @@ export default function NewInteractionScreen() {
                   newDate.setHours(current.getHours());
                   newDate.setMinutes(current.getMinutes());
                   setActivityDate(newDate.getTime());
+                  setDatePickerKey(prev => prev + 1);
                 }}
                 backgroundColor={colors.elevated}
                 borderColor={colors.border}
                 modalBackgroundColor={colors.surface}
                 selectedColor={colors.primary}
                 selectedTextColor="#0a0a0a"
+                icon={<Ionicons name="calendar-outline" size={18} color={colors.primary} />}
               />
-              <Text style={[styles.timeLabel, { color: colors.textMuted }]}>
-                {t('interaction.selectTime')}
-              </Text>
-              <View style={styles.timeOptionsRow}>
-                {['上午', '中午', '下午', '晚上'].map((period, idx) => {
-                  const hours = [9, 12, 15, 20];
-                  return (
-                    <TouchableOpacity
-                      key={period}
-                      style={[
-                        styles.timeOption,
-                        {
-                          backgroundColor: colors.elevated,
-                          borderColor: safeDate.getHours() === hours[idx] ? colors.primary : colors.border,
-                        },
-                      ]}
-                      onPress={() => {
-                        const newDate = getSafeDate(activityDate);
-                        newDate.setHours(hours[idx]);
-                        newDate.setMinutes(0);
-                        setActivityDate(newDate.getTime());
-                      }}
-                    >
-                      <Text style={[
-                        styles.timeOptionText,
-                        { color: safeDate.getHours() === hours[idx] ? colors.primary : colors.text },
-                      ]}>
-                        {period}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-              <View style={styles.customTimeRow}>
-                <Text style={[styles.customTimeLabel, { color: colors.text }]}>
-                  {t('interaction.customTime')}
-                </Text>
-                <TouchableOpacity
-                  style={[styles.timeInputButton, { backgroundColor: colors.elevated }]}
-                  onPress={() => setShowTimePicker(true)}
-                >
-                  <Ionicons name="time-outline" size={16} color={colors.primary} />
-                  <Text style={[styles.timeInputText, { color: colors.text }]}>
-                    {`${String(safeDate.getHours()).padStart(2, '0')}:${String(safeDate.getMinutes()).padStart(2, '0')}`}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-              <TouchableOpacity
-                style={[styles.modalButton, { backgroundColor: colors.primary }]}
-                onPress={() => setShowDatePicker(false)}
-              >
-                <Text style={styles.modalButtonText}>{t('common.confirm')}</Text>
-              </TouchableOpacity>
             </View>
+            <TouchableOpacity
+              style={[styles.timeCard, { backgroundColor: colors.surface }]}
+              onPress={() => setShowTimePicker(true)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="time-outline" size={18} color={colors.primary} />
+              <Text style={[styles.timeText, { color: colors.text }]}>
+                {`${String(safeDate.getHours()).padStart(2, '0')}:${String(safeDate.getMinutes()).padStart(2, '0')}`}
+              </Text>
+            </TouchableOpacity>
           </View>
-        </Modal>
+        </View>
 
         <Modal
           visible={showTimePicker}
@@ -659,6 +590,22 @@ const styles = StyleSheet.create({
   dateHint: {
     fontSize: 12,
     marginLeft: 4,
+  },
+  activityTimeRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  timeCard: {
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  timeText: {
+    fontSize: 15,
+    fontWeight: '500',
   },
   modalOverlay: {
     flex: 1,

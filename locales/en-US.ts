@@ -211,6 +211,7 @@ export const enUS = {
     saveErrorMessage: 'Error creating contact, please retry',
     deleteError: 'Failed to delete contact',
     ok: 'OK',
+    noContactInfo: 'No contact info',
   },
   lastInteraction: {
     never: 'Never contacted',
@@ -244,6 +245,11 @@ export const enUS = {
     selectDate: 'Select Date & Time',
     selectTime: 'Select Time',
     customTime: 'Custom Time',
+    customDate: 'Custom Date',
+    today: 'Today',
+    yesterday: 'Yesterday',
+    daysAgo2: '2 Days Ago',
+    daysAgo3: '3 Days Ago',
     valueExchange: 'Value Exchange',
     valueTypes: {
       neutral: 'None',

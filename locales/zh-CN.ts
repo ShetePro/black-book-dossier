@@ -222,6 +222,7 @@ export const zhCN = {
       ageSuffix: '岁',
     },
     ok: '确定',
+    noContactInfo: '暂无联系方式',
   },
   lastInteraction: {
     never: '从未联系',
@@ -255,6 +256,11 @@ export const zhCN = {
     selectDate: '选择日期和时间',
     selectTime: '选择时间',
     customTime: '自定义时间',
+    customDate: '自定义日期',
+    today: '今天',
+    yesterday: '昨天',
+    daysAgo2: '前天',
+    daysAgo3: '大前天',
     valueExchange: '价值交换',
     valueTypes: {
       neutral: '无',

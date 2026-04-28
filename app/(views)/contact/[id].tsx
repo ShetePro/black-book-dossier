@@ -207,6 +207,14 @@ export default function ContactDetailScreen() {
             {contact.phone && <InfoRow icon="call" label={t('contact.phone')} value={contact.phone} colors={colors} />}
             {contact.email && <InfoRow icon="mail" label={t('contact.email')} value={contact.email} colors={colors} />}
             {contact.company && <InfoRow icon="business" label={t('contact.company')} value={contact.company} colors={colors} />}
+            {!contact.phone && !contact.email && !contact.company && (
+              <View style={styles.emptyState}>
+                <Ionicons name="document-text-outline" size={24} color={colors.textMuted} />
+                <Text style={[styles.emptyStateText, { color: colors.textMuted }]}>
+                  {t('contact.noContactInfo')}
+                </Text>
+              </View>
+            )}
           </View>
         </View>
 
@@ -763,5 +771,15 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
     fontStyle: 'italic',
+  },
+  emptyState: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+    gap: 8,
+  },
+  emptyStateText: {
+    fontSize: 14,
   },
 });

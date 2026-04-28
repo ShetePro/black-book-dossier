@@ -39,14 +39,14 @@
   "contactMatch": {
     "found": false,
     "matchedName": null,
-    "suggestedName": "施佳祺",
+    "suggestedName": "张三",
     "confidence": 0.85,
     "reason": "拼音相似，都是三个字的名字"
   },
   "corrections": [
     {
       "original": "斯加奇",
-      "corrected": "施佳祺",
+      "corrected": "张三",
       "type": "name"
     },
     {
@@ -222,7 +222,7 @@ const applyInsightsToContact = async (contactId: string, insights: Insights) => 
 ├─────────────────────────────────┤
 │ 🤖 LLM 推理过程                 │
 │ ├─ 联系人匹配                   │
-│ │  "斯加奇" → 可能是 "施佳祺"  │
+│ │  "斯加奇" → 可能是 "张三"  │
 │ ├─ 文本修正                     │
 │ │  "代碼" → "代码"              │
 │ └─ 情境分析                     │
@@ -236,7 +236,7 @@ const applyInsightsToContact = async (contactId: string, insights: Insights) => 
 │ [人物] [时间] [活动] ...        │
 ├─────────────────────────────────┤
 │ 👤 匹配联系人                    │
-│ 施佳祺 (85% 匹配)               │
+│ 张三 (85% 匹配)               │
 └─────────────────────────────────┘
 ```
 

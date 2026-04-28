@@ -179,29 +179,50 @@ export const parseRelativeTime = (text: string): TimeParseResult => {
   }
 
   if (!dateTimestamp) {
-    const weekRelativePatterns = [
-      { pattern: /上周(?:一|周一|星期一)/, offset: -7, dayOfWeek: 1 },
-      { pattern: /上周(?:二|周二|星期二)/, offset: -7, dayOfWeek: 2 },
-      { pattern: /上周(?:三|周三|星期三)/, offset: -7, dayOfWeek: 3 },
-      { pattern: /上周(?:四|周四|星期四)/, offset: -7, dayOfWeek: 4 },
-      { pattern: /上周(?:五|周五|星期五)/, offset: -7, dayOfWeek: 5 },
-      { pattern: /上周(?:六|周六|星期六)/, offset: -7, dayOfWeek: 6 },
-      { pattern: /上周(?:日|周日|星期日|天|星期天)/, offset: -7, dayOfWeek: 0 },
-      { pattern: /本周(?:一|周一|星期一)/, offset: 0, dayOfWeek: 1 },
-      { pattern: /本周(?:二|周二|星期二)/, offset: 0, dayOfWeek: 2 },
-      { pattern: /本周(?:三|周三|星期三)/, offset: 0, dayOfWeek: 3 },
-      { pattern: /本周(?:四|周四|星期四)/, offset: 0, dayOfWeek: 4 },
-      { pattern: /本周(?:五|周五|星期五)/, offset: 0, dayOfWeek: 5 },
-      { pattern: /本周(?:六|周六|星期六)/, offset: 0, dayOfWeek: 6 },
-      { pattern: /本周(?:日|周日|星期日|天|星期天)/, offset: 0, dayOfWeek: 0 },
-      { pattern: /下周(?:一|周一|星期一)/, offset: 7, dayOfWeek: 1 },
-      { pattern: /下周(?:二|周二|星期二)/, offset: 7, dayOfWeek: 2 },
-      { pattern: /下周(?:三|周三|星期三)/, offset: 7, dayOfWeek: 3 },
-      { pattern: /下周(?:四|周四|星期四)/, offset: 7, dayOfWeek: 4 },
-      { pattern: /下周(?:五|周五|星期五)/, offset: 7, dayOfWeek: 5 },
-      { pattern: /下周(?:六|周六|星期六)/, offset: 7, dayOfWeek: 6 },
-      { pattern: /下周(?:日|周日|星期日|天|星期天)/, offset: 7, dayOfWeek: 0 },
-    ];
+const weekRelativePatterns = [
+    { pattern: /上(?:个)?星期(?:一|周一)/, offset: -7, dayOfWeek: 1 },
+    { pattern: /上(?:个)?星期(?:二|周二)/, offset: -7, dayOfWeek: 2 },
+    { pattern: /上(?:个)?星期(?:三|周三)/, offset: -7, dayOfWeek: 3 },
+    { pattern: /上(?:个)?星期(?:四|周四)/, offset: -7, dayOfWeek: 4 },
+    { pattern: /上(?:个)?星期(?:五|周五)/, offset: -7, dayOfWeek: 5 },
+    { pattern: /上(?:个)?星期(?:六|周六)/, offset: -7, dayOfWeek: 6 },
+    { pattern: /上(?:个)?星期(?:日|周七|七)/, offset: -7, dayOfWeek: 0 },
+    { pattern: /上周(?:一|周一|星期一)/, offset: -7, dayOfWeek: 1 },
+    { pattern: /上周(?:二|周二|星期二)/, offset: -7, dayOfWeek: 2 },
+    { pattern: /上周(?:三|周三|星期三)/, offset: -7, dayOfWeek: 3 },
+    { pattern: /上周(?:四|周四|星期四)/, offset: -7, dayOfWeek: 4 },
+    { pattern: /上周(?:五|周五|星期五)/, offset: -7, dayOfWeek: 5 },
+    { pattern: /上周(?:六|周六|星期六)/, offset: -7, dayOfWeek: 6 },
+    { pattern: /上周(?:日|周日|星期日|天|星期天)/, offset: -7, dayOfWeek: 0 },
+    { pattern: /本(?:个)?星期(?:一|周一)/, offset: 0, dayOfWeek: 1 },
+    { pattern: /本(?:个)?星期(?:二|周二)/, offset: 0, dayOfWeek: 2 },
+    { pattern: /本(?:个)?星期(?:三|周三)/, offset: 0, dayOfWeek: 3 },
+    { pattern: /本(?:个)?星期(?:四|周四)/, offset: 0, dayOfWeek: 4 },
+    { pattern: /本(?:个)?星期(?:五|周五)/, offset: 0, dayOfWeek: 5 },
+    { pattern: /本(?:个)?星期(?:六|周六)/, offset: 0, dayOfWeek: 6 },
+    { pattern: /本(?:个)?星期(?:日|周七|七)/, offset: 0, dayOfWeek: 0 },
+    { pattern: /本周(?:一|周一|星期一)/, offset: 0, dayOfWeek: 1 },
+    { pattern: /本周(?:二|周二|星期二)/, offset: 0, dayOfWeek: 2 },
+    { pattern: /本周(?:三|周三|星期三)/, offset: 0, dayOfWeek: 3 },
+    { pattern: /本周(?:四|周四|星期四)/, offset: 0, dayOfWeek: 4 },
+    { pattern: /本周(?:五|周五|星期五)/, offset: 0, dayOfWeek: 5 },
+    { pattern: /本周(?:六|周六|星期六)/, offset: 0, dayOfWeek: 6 },
+    { pattern: /本周(?:日|周日|星期日|天|星期天)/, offset: 0, dayOfWeek: 0 },
+    { pattern: /下(?:个)?星期(?:一|周一)/, offset: 7, dayOfWeek: 1 },
+    { pattern: /下(?:个)?星期(?:二|周二)/, offset: 7, dayOfWeek: 2 },
+    { pattern: /下(?:个)?星期(?:三|周三)/, offset: 7, dayOfWeek: 3 },
+    { pattern: /下(?:个)?星期(?:四|周四)/, offset: 7, dayOfWeek: 4 },
+    { pattern: /下(?:个)?星期(?:五|周五)/, offset: 7, dayOfWeek: 5 },
+    { pattern: /下(?:个)?星期(?:六|周六)/, offset: 7, dayOfWeek: 6 },
+    { pattern: /下(?:个)?星期(?:日|周七|七)/, offset: 7, dayOfWeek: 0 },
+    { pattern: /下周(?:一|周一|星期一)/, offset: 7, dayOfWeek: 1 },
+    { pattern: /下周(?:二|周二|星期二)/, offset: 7, dayOfWeek: 2 },
+    { pattern: /下周(?:三|周三|星期三)/, offset: 7, dayOfWeek: 3 },
+    { pattern: /下周(?:四|周四|星期四)/, offset: 7, dayOfWeek: 4 },
+    { pattern: /下周(?:五|周五|星期五)/, offset: 7, dayOfWeek: 5 },
+    { pattern: /下周(?:六|周六|星期六)/, offset: 7, dayOfWeek: 6 },
+    { pattern: /下周(?:日|周日|星期日|天|星期天)/, offset: 7, dayOfWeek: 0 },
+  ];
 
     for (const { pattern, offset, dayOfWeek } of weekRelativePatterns) {
       const match = normalizedText.match(pattern);
@@ -320,6 +341,22 @@ export const extractAndParseTimeFromTags = (suggestedTags: string[]): TimeParseR
   }
 
   const timeText = timeTags[0].replace('time:', '');
+  const dateMatch = timeText.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (dateMatch) {
+    const year = parseInt(dateMatch[1], 10);
+    const month = parseInt(dateMatch[2], 10) - 1;
+    const day = parseInt(dateMatch[3], 10);
+    const parsedDate = new Date(year, month, day);
+    if (!isNaN(parsedDate.getTime())) {
+      return {
+        timestamp: parsedDate.getTime(),
+        originalText: timeText,
+        confidence: 0.95,
+        type: 'absolute',
+      };
+    }
+  }
+
   return parseRelativeTime(timeText);
 };
 

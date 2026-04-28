@@ -129,20 +129,49 @@ export const isLLMAvailable = async (): Promise<boolean> => {
  * 构建分析 Prompt
  */
 const buildAnalysisPrompt = (text: string, contacts: Contact[]): string => {
-  return `分析文本，提取所有人名、时间、地点、活动，返回JSON。
+  const today = new Date();
+  const dateStr = today.toISOString().split('T')[0];
+  const weekdayIndex = today.getDay();
+  const weekday = ['日', '一', '二', '三', '四', '五', '六'][weekdayIndex];
 
-示例1（单人）：
+  // 计算示例日期用于 prompt
+  const yesterday = new Date(today.getTime() - 86400000);
+  const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+  // 计算上周三（上个完整周的周三）
+  const daysToWednesday = 3 - weekdayIndex; // 本周距周三的天数差
+  const lastWednesday = new Date(today.getTime() + (daysToWednesday - 7) * 86400000);
+  const lastWednesdayStr = lastWednesday.toISOString().split('T')[0];
+
+  return `当前日期：${dateStr}（星期${weekday}）
+
+日期推理规则：
+- "今天" = ${dateStr}
+- "昨天" = ${yesterdayStr}
+- "上周三/上个周三" = 上个完整周的星期三 = ${lastWednesdayStr}
+- "本周三" = 本周的星期三（即使还未到来）
+- 所有相对时间都要根据当前日期计算为YYYY-MM-DD格式
+
+分析文本，提取所有人名、时间、地点、活动，返回JSON。
+时间必须推理为具体日期格式YYYY-MM-DD，在reasoning中展示计算过程。
+
+示例1：
 输入：昨天和李明在公园散步
-输出：{"reasoning":"提取到人名李明","suggestedTags":["李明","time:昨天","location:公园"],"insights":{"activities":["散步"],"preferences":[],"personality":[],"profession":null},"contactMatch":{"found":false,"matchedName":null,"suggestedName":null,"confidence":0,"reason":""},"corrections":[]}
+输出：{"reasoning":"提取到人名李明。日期：昨天=${yesterdayStr}（${dateStr}的前一天）","suggestedTags":["李明","time:${yesterdayStr}","location:公园"],"insights":{"activities":["散步"],"preferences":[],"personality":[],"profession":null},"contactMatch":{"found":false,"matchedName":null,"suggestedName":null,"confidence":0,"reason":""},"corrections":[]}
 
-示例2（多人）：
-输入：今天和施佳祺、胡方林去爬山
-输出：{"reasoning":"提取到人名施佳祺、胡方林","suggestedTags":["施佳祺","胡方林","time:今天","location:山"],"insights":{"activities":["爬山"],"preferences":[],"personality":[],"profession":null},"contactMatch":{"found":false,"matchedName":null,"suggestedName":null,"confidence":0,"reason":""},"corrections":[]}
+示例2：
+输入：上周三和张三喝茶
+输出：{"reasoning":"提取到人名张三。日期：上周三=${lastWednesdayStr}（上个完整周的星期三）","suggestedTags":["张三","time:${lastWednesdayStr}","location:茶馆"],"insights":{"activities":["喝茶"],"preferences":[],"personality":[],"profession":null},"contactMatch":{"found":false,"matchedName":null,"suggestedName":null,"confidence":0,"reason":""},"corrections":[]}
+
+示例3：
+输入：今天和李四、王五去爬山
+输出：{"reasoning":"提取到人名李四、王五。日期：今天=${dateStr}","suggestedTags":["李四","王五","time:${dateStr}","location:山"],"insights":{"activities":["爬山"],"preferences":[],"personality":[],"profession":null},"contactMatch":{"found":false,"matchedName":null,"suggestedName":null,"confidence":0,"reason":""},"corrections":[]}
 
 输入：${text}
 
 输出：`;
 };
+
 /**
  * 解析 LLM 输出
  */

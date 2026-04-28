@@ -7,14 +7,12 @@ import {
   TextInput,
   StyleSheet,
   Alert,
-  Platform,
   Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import DatePicker from 'expo-datepicker';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import { useInteractionStore } from '@/store/interactions/interactionStore';
 import { useContactStore } from '@/store';
@@ -89,8 +87,8 @@ export default function NewInteractionScreen() {
   }, [params.activityDate]);
 
   const [activityDate, setActivityDate] = useState(initialActivityDate);
+  const [showDatePickerModal, setShowDatePickerModal] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
-  const [datePickerKey, setDatePickerKey] = useState(0);
 
   const safeFormatDate = (timestamp: number): string => {
     try {
@@ -99,6 +97,20 @@ export default function NewInteractionScreen() {
       return date.toISOString().split('T')[0];
     } catch {
       return new Date().toISOString().split('T')[0];
+    }
+  };
+
+  const safeFormatDateDisplay = (timestamp: number): string => {
+    try {
+      const date = new Date(timestamp);
+      if (isNaN(date.getTime())) {
+        const now = new Date();
+        return `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日`;
+      }
+      return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
+    } catch {
+      const now = new Date();
+      return `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日`;
     }
   };
 
@@ -275,27 +287,17 @@ export default function NewInteractionScreen() {
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('interaction.activityTime')}</Text>
           <View style={styles.activityTimeRow}>
-            <View style={[styles.dateCard, { backgroundColor: colors.surface }]}>
-              <DatePicker
-                key={datePickerKey}
-                date={safeFormatDate(activityDate)}
-                onChange={(dateStr: string) => {
-                  const newDate = new Date(dateStr);
-                  if (isNaN(newDate.getTime())) return;
-                  const current = getSafeDate(activityDate);
-                  newDate.setHours(current.getHours());
-                  newDate.setMinutes(current.getMinutes());
-                  setActivityDate(newDate.getTime());
-                  setDatePickerKey(prev => prev + 1);
-                }}
-                backgroundColor={colors.elevated}
-                borderColor={colors.border}
-                modalBackgroundColor={colors.surface}
-                selectedColor={colors.primary}
-                selectedTextColor="#0a0a0a"
-                icon={<Ionicons name="calendar-outline" size={18} color={colors.primary} />}
-              />
-            </View>
+            <TouchableOpacity
+              style={[styles.dateCard, { backgroundColor: colors.surface }]}
+              onPress={() => setShowDatePickerModal(true)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="calendar-outline" size={18} color={colors.primary} />
+              <Text style={[styles.dateText, { color: colors.text }]}>
+                {safeFormatDateDisplay(activityDate)}
+              </Text>
+              <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+            </TouchableOpacity>
             <TouchableOpacity
               style={[styles.timeCard, { backgroundColor: colors.surface }]}
               onPress={() => setShowTimePicker(true)}
@@ -308,6 +310,103 @@ export default function NewInteractionScreen() {
             </TouchableOpacity>
           </View>
         </View>
+
+        <Modal
+          visible={showDatePickerModal}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setShowDatePickerModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
+              <View style={styles.modalHeader}>
+                <Text style={[styles.modalTitle, { color: colors.text }]}>
+                  {t('interaction.selectDate')}
+                </Text>
+                <TouchableOpacity onPress={() => setShowDatePickerModal(false)}>
+                  <Ionicons name="close" size={24} color={colors.textMuted} />
+                </TouchableOpacity>
+              </View>
+              <View style={styles.quickDateOptions}>
+                {[
+                  { label: t('interaction.today'), offset: 0 },
+                  { label: t('interaction.yesterday'), offset: -1 },
+                  { label: t('interaction.daysAgo2'), offset: -2 },
+                  { label: t('interaction.daysAgo3'), offset: -3 },
+                ].map((option) => {
+                  const targetDate = new Date();
+                  targetDate.setHours(0, 0, 0, 0);
+                  targetDate.setDate(targetDate.getDate() + option.offset);
+                  const isSelected = safeFormatDate(activityDate) === targetDate.toISOString().split('T')[0];
+                  return (
+                    <TouchableOpacity
+                      key={option.offset}
+                      style={[
+                        styles.quickDateButton,
+                        {
+                          backgroundColor: isSelected ? colors.primary : colors.elevated,
+                          borderColor: isSelected ? colors.primary : colors.border,
+                        },
+                      ]}
+                      onPress={() => {
+                        const newDate = new Date(targetDate);
+                        const current = getSafeDate(activityDate);
+                        newDate.setHours(current.getHours());
+                        newDate.setMinutes(current.getMinutes());
+                        setActivityDate(newDate.getTime());
+                      }}
+                    >
+                      <Text style={[
+                        styles.quickDateText,
+                        { color: isSelected ? '#0a0a0a' : colors.text },
+                      ]}>
+                        {option.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              <View style={styles.customDateSection}>
+                <Text style={[styles.customDateLabel, { color: colors.textMuted }]}>
+                  {t('interaction.customDate')}
+                </Text>
+                <View style={styles.dateAdjustRow}>
+                  <TouchableOpacity
+                    style={[styles.dateAdjustButton, { backgroundColor: colors.elevated }]}
+                    onPress={() => {
+                      const newDate = getSafeDate(activityDate);
+                      newDate.setDate(newDate.getDate() - 1);
+                      setActivityDate(newDate.getTime());
+                    }}
+                  >
+                    <Ionicons name="remove" size={20} color={colors.text} />
+                  </TouchableOpacity>
+                  <View style={[styles.dateDisplayBox, { backgroundColor: colors.elevated }]}>
+                    <Text style={[styles.dateDisplayText, { color: colors.text }]}>
+                      {safeFormatDateDisplay(activityDate)}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    style={[styles.dateAdjustButton, { backgroundColor: colors.elevated }]}
+                    onPress={() => {
+                      const newDate = getSafeDate(activityDate);
+                      newDate.setDate(newDate.getDate() + 1);
+                      setActivityDate(newDate.getTime());
+                    }}
+                  >
+                    <Ionicons name="add" size={20} color={colors.text} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+              <TouchableOpacity
+                style={[styles.modalButton, { backgroundColor: colors.primary }]}
+                onPress={() => setShowDatePickerModal(false)}
+              >
+                <Text style={styles.modalButtonText}>{t('common.confirm')}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
 
         <Modal
           visible={showTimePicker}
@@ -573,9 +672,13 @@ const styles = StyleSheet.create({
     marginHorizontal: 6,
   },
   dateCard: {
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    flex: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   dateRow: {
     flexDirection: 'row',
@@ -583,7 +686,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   dateText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '500',
     flex: 1,
   },
@@ -593,15 +696,65 @@ const styles = StyleSheet.create({
   },
   activityTimeRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
+  },
+  datePickerWrapper: {
+    flex: 1,
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
   timeCard: {
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  quickDateOptions: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 20,
+  },
+  quickDateButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  quickDateText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  customDateSection: {
+    marginBottom: 20,
+  },
+  customDateLabel: {
+    fontSize: 13,
+    marginBottom: 12,
+  },
+  dateAdjustRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  dateAdjustButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dateDisplayBox: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+  },
+  dateDisplayText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
   timeText: {
     fontSize: 15,

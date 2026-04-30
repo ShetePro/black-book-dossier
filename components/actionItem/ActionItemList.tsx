@@ -20,12 +20,12 @@ interface ActionItemListProps {
   actionItems: ActionItem[];
   contacts?: Contact[];
   isLoading?: boolean;
-  onToggleComplete: (id: string, completed: boolean) => Promise<void>;
-  onDelete: (id: string) => Promise<void>;
+  onToggleComplete?: (id: string, completed: boolean) => Promise<void>;
+  onDelete?: (id: string) => Promise<void>;
   onItemPress?: (actionItem: ActionItem) => void;
   emptyText?: string;
-  /** 是否在 ScrollView 内使用。为 true 时使用 View 而非 FlatList，以避免嵌套报错 */
   scrollable?: boolean;
+  readonly?: boolean;
 }
 
 const priorityConfig = {
@@ -57,11 +57,13 @@ export const ActionItemList: React.FC<ActionItemListProps> = ({
   onItemPress,
   emptyText = '暂无待办事项',
   scrollable = true,
+  readonly = false,
 }) => {
   const colors = useThemeColor();
 
   const handleLongPress = useCallback(
     (actionItem: ActionItem) => {
+      if (readonly || !onDelete) return;
       Alert.alert(
         '删除待办',
         `确定要删除 "${actionItem.description}" 吗？`,
@@ -75,19 +77,34 @@ export const ActionItemList: React.FC<ActionItemListProps> = ({
         ]
       );
     },
-    [onDelete]
+    [onDelete, readonly]
   );
 
-  const formatDate = useCallback((timestamp?: number): string => {
+  const formatDate = useCallback((timestamp?: number, isDueDate: boolean = true): string => {
     if (!timestamp) return '';
     const date = new Date(timestamp);
     const now = new Date();
     const isToday = date.toDateString() === now.toDateString();
-    const isTomorrow = new Date(now.setDate(now.getDate() + 1)).toDateString() === date.toDateString();
     
-    if (isToday) return '今天';
-    if (isTomorrow) return '明天';
-    return `${date.getMonth() + 1}月${date.getDate()}日`;
+    if (isDueDate) {
+      // 截止时间：显示今天/明天/X月X日
+      const tomorrow = new Date(now);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const isTomorrow = tomorrow.toDateString() === date.toDateString();
+      
+      if (isToday) return '今天';
+      if (isTomorrow) return '明天';
+      return `${date.getMonth() + 1}月${date.getDate()}日`;
+    } else {
+      // 创建时间：显示相对时间（X天前）
+      const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+      
+      if (diffDays === 0) return '今天创建';
+      if (diffDays === 1) return '昨天创建';
+      if (diffDays < 7) return `${diffDays}天前创建`;
+      if (diffDays < 30) return `${Math.floor(diffDays / 7)}周前创建`;
+      return `${date.getMonth() + 1}月${date.getDate()}日创建`;
+    }
   }, []);
 
   const isOverdue = useCallback((timestamp?: number): boolean => {
@@ -129,8 +146,9 @@ export const ActionItemList: React.FC<ActionItemListProps> = ({
                 backgroundColor: item.completed ? colors.primary : 'transparent',
               },
             ]}
-            onPress={() => onToggleComplete(item.id, !item.completed)}
+            onPress={() => !readonly && onToggleComplete?.(item.id, !item.completed)}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            disabled={readonly}
           >
             {item.completed && (
               <Ionicons name="checkmark" size={14} color="#0a0a0a" />
@@ -163,10 +181,9 @@ export const ActionItemList: React.FC<ActionItemListProps> = ({
                 </Text>
               </View>
 
-              {item.dueDate && (
-                <View style={styles.dueDate}>
+              <View style={styles.dueDate}>
                   <Ionicons
-                    name="calendar-outline"
+                    name={item.dueDate ? 'calendar-outline' : 'time-outline'}
                     size={12}
                     color={overdue ? '#ef4444' : colors.textMuted}
                   />
@@ -179,11 +196,11 @@ export const ActionItemList: React.FC<ActionItemListProps> = ({
                       },
                     ]}
                   >
-                    {overdue ? '已逾期 · ' : ''}
-                    {formatDate(item.dueDate)}
+                    {item.dueDate
+                      ? `${overdue ? '已逾期 · ' : ''}${formatDate(item.dueDate, true)}`
+                      : formatDate(item.createdAt, false)}
                   </Text>
                 </View>
-              )}
 
               {contact && (
                 <View style={styles.contactInfo}>
@@ -198,7 +215,7 @@ export const ActionItemList: React.FC<ActionItemListProps> = ({
         </AnimatedTouchable>
       );
     },
-    [colors, contacts, onToggleComplete, handleLongPress, onItemPress, formatDate, isOverdue]
+    [colors, contacts, onToggleComplete, handleLongPress, onItemPress, formatDate, isOverdue, readonly]
   );
 
   const renderEmpty = useCallback(() => {

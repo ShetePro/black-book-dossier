@@ -212,6 +212,16 @@ export const enUS = {
     deleteError: 'Failed to delete contact',
     ok: 'OK',
     noContactInfo: 'No contact info',
+    interactions: 'Interactions',
+    actionItems: 'Action Items',
+    intelligence: {
+      title: 'Intelligence',
+      health: 'Health',
+      preferences: 'Preferences',
+      taboos: 'Taboos',
+      family: 'Family',
+      ageSuffix: '',
+    },
   },
   lastInteraction: {
     never: 'Never contacted',

@@ -213,6 +213,7 @@ export const zhCN = {
     back: '返回',
     add: '添加',
     interactions: '交往记录',
+    actionItems: '待办事项',
     intelligence: {
       title: '情报档案',
       health: '健康状况',

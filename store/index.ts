@@ -10,6 +10,9 @@ export { useRecordingStore, type RecordingState } from './recording/recordingSto
 // Interaction Store
 export { useInteractionStore, type InteractionState } from './interactions/interactionStore';
 
+// Action Item Store
+export { useActionItemStore, type ActionItemState } from './actionItems/actionItemStore';
+
 // Settings Store (保留原有设置)
 export { 
   useSettingsStore, 

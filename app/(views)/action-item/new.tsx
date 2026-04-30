@@ -353,45 +353,10 @@ export default function NewActionItemScreen() {
                 { backgroundColor: colors.surface, borderColor: colors.border },
               ]}
             >
-              <TouchableOpacity
-                onPress={() => {
-                  setRelatedContactId(undefined);
-                  setShowContactSelector(false);
-                }}
-                style={[
-                  styles.contactItem,
-                  {
-                    borderBottomColor: colors.border,
-                    backgroundColor:
-                      relatedContactId === undefined
-                        ? `${colors.primary}15`
-                        : 'transparent',
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.contactItemText,
-                    {
-                      color:
-                        relatedContactId === undefined
-                          ? colors.primary
-                          : colors.text,
-                    },
-                  ]}
-                >
-                  {t('actionItem.noContact')}
-                </Text>
-                {relatedContactId === undefined && (
-                  <Ionicons name="checkmark" size={18} color={colors.primary} />
-                )}
-              </TouchableOpacity>
-
-              {contacts.map((contact, index) => (
+              <ScrollView style={styles.contactScrollView} nestedScrollEnabled>
                 <TouchableOpacity
-                  key={contact.id}
                   onPress={() => {
-                    setRelatedContactId(contact.id);
+                    setRelatedContactId(undefined);
                     setShowContactSelector(false);
                   }}
                   style={[
@@ -399,11 +364,9 @@ export default function NewActionItemScreen() {
                     {
                       borderBottomColor: colors.border,
                       backgroundColor:
-                        relatedContactId === contact.id
+                        relatedContactId === undefined
                           ? `${colors.primary}15`
                           : 'transparent',
-                      borderBottomWidth:
-                        index === contacts.length - 1 ? 0 : StyleSheet.hairlineWidth,
                     },
                   ]}
                 >
@@ -412,19 +375,58 @@ export default function NewActionItemScreen() {
                       styles.contactItemText,
                       {
                         color:
-                          relatedContactId === contact.id
+                          relatedContactId === undefined
                             ? colors.primary
                             : colors.text,
                       },
                     ]}
                   >
-                    {contact.name}
+                    {t('actionItem.noContact')}
                   </Text>
-                  {relatedContactId === contact.id && (
+                  {relatedContactId === undefined && (
                     <Ionicons name="checkmark" size={18} color={colors.primary} />
                   )}
                 </TouchableOpacity>
-              ))}
+
+                {contacts.map((contact, index) => (
+                  <TouchableOpacity
+                    key={contact.id}
+                    onPress={() => {
+                      setRelatedContactId(contact.id);
+                      setShowContactSelector(false);
+                    }}
+                    style={[
+                      styles.contactItem,
+                      {
+                        borderBottomColor: colors.border,
+                        backgroundColor:
+                          relatedContactId === contact.id
+                            ? `${colors.primary}15`
+                            : 'transparent',
+                        borderBottomWidth:
+                          index === contacts.length - 1 ? 0 : StyleSheet.hairlineWidth,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.contactItemText,
+                        {
+                          color:
+                            relatedContactId === contact.id
+                              ? colors.primary
+                              : colors.text,
+                        },
+                      ]}
+                    >
+                      {contact.name}
+                    </Text>
+                    {relatedContactId === contact.id && (
+                      <Ionicons name="checkmark" size={18} color={colors.primary} />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
             </Animated.View>
           )}
         </Animated.View>
@@ -620,6 +622,9 @@ const styles = StyleSheet.create({
     marginTop: 8,
     borderRadius: 10,
     borderWidth: 1,
+    maxHeight: 200,
+  },
+  contactScrollView: {
     maxHeight: 200,
   },
   contactItem: {

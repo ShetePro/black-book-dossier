@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,12 +12,12 @@ import Animated, {
 import { useThemeColor } from '@/hooks/useThemeColor';
 import { useContact } from '@/hooks/contact';
 import { useInteractions } from '@/hooks/interaction';
-import { useContactStore } from '@/store';
+import { useContactStore, useActionItemStore } from '@/store';
 import { DefaultAvatar } from '@/components/DefaultAvatar';
 import { ContactSkeleton } from '@/components/contact/ContactSkeleton';
 import { InteractionList } from '@/components/interaction';
-import type { FamilyMember } from '@/types';
-import type { Interaction } from '@/types';
+import { ActionItemList } from '@/components/actionItem/ActionItemList';
+import type { FamilyMember, Interaction, ActionItem } from '@/types';
 
 function getLastInteractionInfo(interactions: Interaction[]): {
   days: number;
@@ -69,7 +69,19 @@ export default function ContactDetailScreen() {
   const colors = useThemeColor();
   const { contact, isLoading: isContactLoading } = useContact(id as string);
   const { interactions, isLoading: isInteractionsLoading, deleteInteraction } = useInteractions(id as string);
+  const { actionItems: allActionItems, isLoading: isActionItemsLoading, loadActionItems, toggleComplete, deleteActionItem } = useActionItemStore();
   const { deleteContact } = useContactStore();
+
+  useEffect(() => {
+    if (allActionItems.length === 0) {
+      loadActionItems();
+    }
+  }, [loadActionItems, allActionItems.length]);
+
+  const contactActionItems = useMemo(
+    () => allActionItems.filter((item: ActionItem) => item.relatedContactId === id),
+    [allActionItems, id]
+  );
 
   const scrollY = useSharedValue(0);
 
@@ -246,6 +258,27 @@ export default function ContactDetailScreen() {
             onDelete={deleteInteraction}
           />
         </View>
+
+        {contactActionItems.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('contact.actionItems')}</Text>
+              <TouchableOpacity
+                onPress={() => router.push(`/(views)/action-item/new?contactId=${id}` as any)}
+                style={[styles.addButton, { backgroundColor: colors.primary }]}
+              >
+                <Ionicons name="add" size={18} color="#0a0a0a" />
+                <Text style={styles.addButtonText}>{t('common.add')}</Text>
+              </TouchableOpacity>
+            </View>
+            <ActionItemList
+              actionItems={contactActionItems}
+              isLoading={isActionItemsLoading}
+              scrollable={false}
+              readonly
+            />
+          </View>
+        )}
 
         <View style={{ height: 40 }} />
       </Animated.ScrollView>

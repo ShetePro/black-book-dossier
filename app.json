@@ -4,7 +4,7 @@
     "slug": "black-book",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/black-book-logo.jpg",
     "scheme": "blackbook",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
@@ -19,7 +19,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/icon.png",
+        "foregroundImage": "./assets/images/black-book-logo.jpg",
         "backgroundColor": "#0a0a0a"
       },
       "permissions": [
@@ -36,7 +36,7 @@
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/icon.png"
+      "favicon": "./assets/images/black-book-logo.jpg"
     },
     "plugins": [
       "expo-router",
@@ -51,7 +51,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/icon.png",
+          "image": "./assets/images/black-book-logo.jpg",
           "imageWidth": 120,
           "resizeMode": "contain",
           "backgroundColor": "#0a0a0a"

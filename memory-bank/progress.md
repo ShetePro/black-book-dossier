@@ -1,7 +1,7 @@
 # Progress Status
 
 ## Status
-**Phase 1 - 联系人列表开发中**
+**订阅功能设计已确认，暂停开发，等待后续迭代**
 
 ## Phase Overview
 
@@ -73,6 +73,86 @@
 
 ---
 
+### Phase 5: 订阅功能（暂停开发，设计已确认）
+**状态**: ⏸️ 暂停 - 等待后续迭代
+**时间**: 未定
+**进度**: 0%（设计已确认，代码未开始）
+
+#### 需求确认
+1. **订阅等级**: Free（10 联系人）+ Pro（无限联系人 + 云备份）
+2. **平台**: 仅 iOS，expo-storekit
+3. **验证方式**: 方案 A（纯本地验证），预留后端验证扩展点
+4. **联系人限制**: Free 版 10 个（本地模型性能限制）
+5. **云备份**: iCloud / Google Drive 直接集成（无用户系统）
+6. **云端 AI**: 先不做，后续迭代
+
+#### 已确认设计（架构概览）
+```
+services/subscription/
+├── types.ts              # SubscriptionTier, SubscriptionStatus, ValidationResult
+├── productIds.ts         # PRODUCT_IDS 常量（iOS/Android 预留）
+├── validators/
+│   ├── localValidator.ts # 本地 Receipt 验证（当前）
+│   └── serverValidator.ts # 服务端验证（预留，暂不实现）
+│   └── index.ts          # Validator 接口 + 切换逻辑
+├── storeKitService.ts    # expo-storekit 封装
+└── subscriptionService.ts # 统一接口（调用 validator + storeKit）
+
+store/subscription/
+└── subscriptionStore.ts  # Zustand 状态（预留 serverSync 字段）
+
+components/subscription/
+├── PaywallScreen.tsx
+├── SubscriptionBadge.tsx
+└── RestorePurchaseButton.tsx
+```
+
+#### 类型定义（已确认）
+```typescript
+// services/subscription/types.ts
+
+export enum SubscriptionTier {
+  FREE = 'free',
+  PRO = 'pro',
+}
+
+export type SubscriptionStatus =
+  | 'active' | 'expired' | 'grace' | 'unknown';
+
+export interface ValidationResult {
+  tier: SubscriptionTier;
+  status: SubscriptionStatus;
+  expiresAt?: number;
+  purchaseDate?: number;
+  productId?: string;
+}
+
+export type ValidationMode = 'local' | 'server';
+
+export const SUBSCRIPTION_LIMITS = {
+  [SubscriptionTier.FREE]: { maxContacts: 10, cloudBackup: false },
+  [SubscriptionTier.PRO]: { maxContacts: Infinity, cloudBackup: true },
+} as const;
+```
+
+#### Validator 接口（已确认）
+- `SubscriptionValidator.validate(receipt)` 接口统一
+- `createValidator(mode: 'local' | 'server')` 支持未来切换
+- `LocalValidator` 解析 iOS receipt + SecureStore 缓存
+- `ServerValidator` 预留接口，暂不实现
+
+#### 扩展预留点
+- `validators/` 目录分离本地/服务端逻辑
+- Store 预留 `serverValidationStatus`、`lastServerSyncTime` 字段
+- `SubscriptionService.checkStatus(validationMode)` 参数支持
+
+#### 技术选型
+- expo-storekit（iOS IAP）
+- expo-secure-store（订阅状态缓存）
+- 无需 prebuild
+
+---
+
 ## Completed ✅
 
 ### 基础设施
@@ -123,4 +203,4 @@
 - ⚠️ 依赖版本冲突已解决：expo-linking 锁定 @8.0.11，expo-contacts 锁定 @14.0.5
 
 ## Last Updated
-2026-03-28 - Phase 1-4 全部完成，MVP 核心功能开发完成
+2026-05-05 - Phase 5 订阅功能设计已确认，暂停开发

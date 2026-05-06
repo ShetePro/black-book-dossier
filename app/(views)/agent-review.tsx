@@ -23,7 +23,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useThemeColor } from '@/hooks/useThemeColor';
-import { extractEntities } from '@/services/ai/entityExtractor';
 import { analyzeWithLLM, LLMAnalysisResult } from '@/services/ai/llmAnalyzer';
 import { extractAndParseTimeFromTags, formatTimestamp } from '@/services/ai/timeParser';
 import { LLMReasoningCard } from '@/components/analysis/LLMReasoningCard';
@@ -146,21 +145,25 @@ export default function AgentReviewScreen() {
     try {
       setIsAnalyzing(true);
 
-      // 检查是否可以使用本地 LLM
       const hasLocalModel = await hasAnyModelDownloaded();
       const useLLM = hasLocalModel && settings.ai.localModel.enabled;
       setUsingLocalLLM(useLLM);
-      let result;
 
-      if (useLLM) {
-        // 使用本地 LLM 进行分析
-        console.log('[AgentReview] Using local LLM for analysis');
-        result = await analyzeWithLocalLLM(transcription);
-      } else {
-        // 使用规则引擎
-        console.log('[AgentReview] Using rule-based extraction');
-        result = await extractEntities(transcription);
+      if (!useLLM) {
+        console.warn('[AgentReview] No local LLM available, returning empty result');
+        setAnalyzedData({
+          transcription,
+          entities: [],
+          actionItems: [],
+          contactName: undefined,
+          summary: t('agentReview.summary.noLLM'),
+        });
+        setIsAnalyzing(false);
+        return;
       }
+
+      console.log('[AgentReview] Using local LLM for analysis');
+      const result = await analyzeWithLocalLLM(transcription);
 
       setAnalyzedData({
         transcription,
@@ -170,7 +173,6 @@ export default function AgentReviewScreen() {
         summary: generateSummary(result.entities, result.actionItems),
       });
 
-      // 2. 匹配现有联系人
       const localResult = result as any;
       if (localResult.matchedContacts && localResult.matchedContacts.length > 0) {
         setMatchedContacts(localResult.matchedContacts);

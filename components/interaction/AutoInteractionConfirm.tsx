@@ -1,19 +1,18 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { View, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ThemedText } from '@/components/ThemedText';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import { Contact } from '@/types';
-import { SmartAnalysisResult } from '@/services/ai/smartAnalyzer';
+import { LLMAnalysisResult } from '@/services/ai/llmAnalyzer';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 
 interface AutoInteractionConfirmProps {
   visible: boolean;
-  analysis: SmartAnalysisResult | null;
+  analysis: LLMAnalysisResult | null;
   matchedContact: Contact | null;
   onConfirm: () => void;
   onCancel: () => void;
-  onEdit?: (editedAnalysis: SmartAnalysisResult) => void;
 }
 
 export const AutoInteractionConfirm: React.FC<AutoInteractionConfirmProps> = ({
@@ -22,36 +21,12 @@ export const AutoInteractionConfirm: React.FC<AutoInteractionConfirmProps> = ({
   matchedContact,
   onConfirm,
   onCancel,
-  onEdit,
 }) => {
   const colors = useThemeColor();
-  const [isEditing, setIsEditing] = useState(false);
 
   if (!visible || !analysis) return null;
 
-  const getEventTypeLabel = (type: string) => {
-    const labels: Record<string, string> = {
-      activity: '活动',
-      meeting: '会议',
-      meal: '用餐',
-      call: '通话',
-      gift: '送礼',
-      other: '其他',
-    };
-    return labels[type] || '其他';
-  };
-
-  const getEventTypeIcon = (type: string): React.ComponentProps<typeof Ionicons>['name'] => {
-    const icons: Record<string, React.ComponentProps<typeof Ionicons>['name']> = {
-      activity: 'fitness',
-      meeting: 'people',
-      meal: 'restaurant',
-      call: 'call',
-      gift: 'gift',
-      other: 'ellipsis-horizontal',
-    };
-    return icons[type] || 'ellipsis-horizontal';
-  };
+  const confidence = analysis.contactMatch.confidence || 0;
 
   return (
     <View style={styles.overlay}>
@@ -59,7 +34,6 @@ export const AutoInteractionConfirm: React.FC<AutoInteractionConfirmProps> = ({
         entering={FadeInUp.duration(300).springify()}
         style={[styles.container, { backgroundColor: colors.surface }]}
       >
-        {/* 标题 */}
         <View style={styles.header}>
           <View style={[styles.iconContainer, { backgroundColor: `${colors.primary}20` }]}>
             <Ionicons name="sparkles" size={28} color={colors.primary} />
@@ -68,88 +42,70 @@ export const AutoInteractionConfirm: React.FC<AutoInteractionConfirmProps> = ({
             智能识别结果
           </ThemedText>
           <ThemedText style={[styles.subtitle, { color: colors.textMuted }]}>
-            已自动提取以下信息
+            {analysis.reasoning}
           </ThemedText>
         </View>
 
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          {/* 联系人 */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Ionicons name="person" size={16} color={colors.primary} />
-              <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>
-                联系人
-              </ThemedText>
-            </View>
-            <View style={[styles.card, { backgroundColor: colors.elevated }]}>
-              {matchedContact ? (
-                <>
-                  <ThemedText style={[styles.contactName, { color: colors.text }]}>
-                    {matchedContact.name}
-                  </ThemedText>
-                  {matchedContact.company && (
-                    <ThemedText style={[styles.contactInfo, { color: colors.textMuted }]}>
-                      {matchedContact.company}
-                    </ThemedText>
-                  )}
-                  <View style={[styles.confidenceBadge, { backgroundColor: `${colors.success}20` }]}>
-                    <ThemedText style={[styles.confidenceText, { color: colors.success }]}>
-                      匹配度 {Math.round(analysis.confidence * 100)}%
-                    </ThemedText>
-                  </View>
-                </>
-              ) : (
-                <ThemedText style={[styles.noMatch, { color: colors.textMuted }]}>
-                  未匹配到联系人
+          {matchedContact && (
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Ionicons name="person" size={16} color={colors.primary} />
+                <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>
+                  联系人
                 </ThemedText>
-              )}
-            </View>
-          </View>
-
-          {/* 事件 */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Ionicons name={getEventTypeIcon(analysis.eventType)} size={16} color={colors.primary} />
-              <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>
-                事件
-              </ThemedText>
-            </View>
-            <View style={[styles.card, { backgroundColor: colors.elevated }]}>
-              <View style={styles.eventTypeRow}>
-                <View style={[styles.eventTypeBadge, { backgroundColor: `${colors.primary}20` }]}>
-                  <ThemedText style={[styles.eventTypeText, { color: colors.primary }]}>
-                    {getEventTypeLabel(analysis.eventType)}
+              </View>
+              <View style={[styles.card, { backgroundColor: colors.elevated }]}>
+                <ThemedText style={[styles.contactName, { color: colors.text }]}>
+                  {matchedContact.name}
+                </ThemedText>
+                {matchedContact.company && (
+                  <ThemedText style={[styles.contactInfo, { color: colors.textMuted }]}>
+                    {matchedContact.company}
+                  </ThemedText>
+                )}
+                <View style={[styles.confidenceBadge, { backgroundColor: `${colors.success}20` }]}>
+                  <ThemedText style={[styles.confidenceText, { color: colors.success }]}>
+                    匹配度 {Math.round(confidence * 100)}%
                   </ThemedText>
                 </View>
               </View>
-              <ThemedText style={[styles.eventDescription, { color: colors.text }]}>
-                {analysis.eventDescription}
-              </ThemedText>
             </View>
-          </View>
+          )}
 
-          {/* 时间 */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Ionicons name="calendar" size={16} color={colors.primary} />
-              <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>
-                时间
-              </ThemedText>
-            </View>
-            <View style={[styles.card, { backgroundColor: colors.elevated }]}>
-              <ThemedText style={[styles.dateText, { color: colors.text }]}>
-                {analysis.date}
-              </ThemedText>
-              {analysis.time && (
-                <ThemedText style={[styles.timeText, { color: colors.textMuted }]}>
-                  {analysis.time}
+          {analysis.entities.events.length > 0 && (
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Ionicons name="calendar" size={16} color={colors.primary} />
+                <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>
+                  事件
                 </ThemedText>
-              )}
+              </View>
+              <View style={[styles.card, { backgroundColor: colors.elevated }]}>
+                <ThemedText style={[styles.contentText, { color: colors.text }]}>
+                  {analysis.entities.events.join(', ')}
+                </ThemedText>
+              </View>
             </View>
-          </View>
+          )}
 
-          {/* 地点 */}
-          {analysis.location && (
+          {analysis.entities.times.length > 0 && (
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Ionicons name="time" size={16} color={colors.primary} />
+                <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>
+                  时间
+                </ThemedText>
+              </View>
+              <View style={[styles.card, { backgroundColor: colors.elevated }]}>
+                <ThemedText style={[styles.contentText, { color: colors.text }]}>
+                  {analysis.entities.times.join(', ')}
+                </ThemedText>
+              </View>
+            </View>
+          )}
+
+          {analysis.entities.locations.length > 0 && (
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <Ionicons name="location" size={16} color={colors.primary} />
@@ -158,15 +114,14 @@ export const AutoInteractionConfirm: React.FC<AutoInteractionConfirmProps> = ({
                 </ThemedText>
               </View>
               <View style={[styles.card, { backgroundColor: colors.elevated }]}>
-                <ThemedText style={[styles.locationText, { color: colors.text }]}>
-                  {analysis.location}
+                <ThemedText style={[styles.contentText, { color: colors.text }]}>
+                  {analysis.entities.locations.join(', ')}
                 </ThemedText>
               </View>
             </View>
           )}
 
-          {/* 参与人 */}
-          {analysis.participants.length > 0 && (
+          {analysis.entities.persons.length > 0 && (
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <Ionicons name="people" size={16} color={colors.primary} />
@@ -175,14 +130,14 @@ export const AutoInteractionConfirm: React.FC<AutoInteractionConfirmProps> = ({
                 </ThemedText>
               </View>
               <View style={[styles.card, { backgroundColor: colors.elevated }]}>
-                <View style={styles.participantsRow}>
-                  {analysis.participants.map((participant, index) => (
+                <View style={styles.tagsRow}>
+                  {analysis.entities.persons.map((person, index) => (
                     <View
                       key={index}
-                      style={[styles.participantBadge, { backgroundColor: `${colors.primary}15` }]}
+                      style={[styles.tagBadge, { backgroundColor: `${colors.primary}15` }]}
                     >
-                      <ThemedText style={[styles.participantText, { color: colors.primary }]}>
-                        {participant}
+                      <ThemedText style={[styles.tagText, { color: colors.primary }]}>
+                        {person}
                       </ThemedText>
                     </View>
                   ))}
@@ -192,7 +147,6 @@ export const AutoInteractionConfirm: React.FC<AutoInteractionConfirmProps> = ({
           )}
         </ScrollView>
 
-        {/* 按钮 */}
         <View style={styles.footer}>
           <TouchableOpacity
             style={[styles.button, styles.secondaryButton, { borderColor: colors.border }]}
@@ -251,6 +205,7 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 14,
     marginTop: 4,
+    textAlign: 'center',
   },
   content: {
     paddingHorizontal: 20,
@@ -292,49 +247,21 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
-  noMatch: {
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  eventTypeRow: {
-    marginBottom: 8,
-  },
-  eventTypeBadge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  eventTypeText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  eventDescription: {
+  contentText: {
     fontSize: 15,
     lineHeight: 22,
   },
-  dateText: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  timeText: {
-    fontSize: 13,
-    marginTop: 2,
-  },
-  locationText: {
-    fontSize: 15,
-  },
-  participantsRow: {
+  tagsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
   },
-  participantBadge: {
+  tagBadge: {
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
   },
-  participantText: {
+  tagText: {
     fontSize: 13,
     fontWeight: '500',
   },

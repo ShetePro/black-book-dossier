@@ -11,7 +11,7 @@ import { initLlama } from 'llama.rn';
 import { Platform } from 'react-native';
 
 /**
- * LLM 分析结果类型
+ * LLM 分析结果类型（统一实体提取）
  */
 export interface LLMAnalysisResult {
   reasoning: string;
@@ -27,6 +27,17 @@ export interface LLMAnalysisResult {
     corrected: string;
     type: 'name' | 'typo' | 'grammar';
   }>;
+  entities: {
+    persons: string[];
+    times: string[];
+    locations: string[];
+    events: string[];
+    needs: string[];
+    preferences: string[];
+    health: string[];
+    suggestions: string[];
+    organizations: string[];
+  };
   insights: {
     activities: string[];
     preferences: string[];
@@ -125,63 +136,61 @@ export const isLLMAvailable = async (): Promise<boolean> => {
   return await initializeLLM(modelId);
 };
 
-/**
- * 构建分析 Prompt
- */
 const buildAnalysisPrompt = (text: string, contacts: Contact[]): string => {
   const today = new Date();
   const dateStr = today.toISOString().split('T')[0];
   const weekdayIndex = today.getDay();
   const weekday = ['日', '一', '二', '三', '四', '五', '六'][weekdayIndex];
 
-  // 计算示例日期用于 prompt
   const yesterday = new Date(today.getTime() - 86400000);
   const yesterdayStr = yesterday.toISOString().split('T')[0];
 
-  // 计算上周三（上个完整周的周三）
-  const daysToWednesday = 3 - weekdayIndex; // 本周距周三的天数差
+  const daysToWednesday = 3 - weekdayIndex;
   const lastWednesday = new Date(today.getTime() + (daysToWednesday - 7) * 86400000);
   const lastWednesdayStr = lastWednesday.toISOString().split('T')[0];
+
+  const contactList = contacts
+    .slice(0, 20)
+    .map(c => c.name)
+    .join(',');
 
   return `当前日期：${dateStr}（星期${weekday}）
 
 日期推理规则：
 - "今天" = ${dateStr}
 - "昨天" = ${yesterdayStr}
-- "上周三/上个周三" = 上个完整周的星期三 = ${lastWednesdayStr}
-- "本周三" = 本周的星期三（即使还未到来）
-- 所有相对时间都要根据当前日期计算为YYYY-MM-DD格式
+- "上周三" = ${lastWednesdayStr}
+- 所有相对时间转换为YYYY-MM-DD格式
 
-分析文本，提取所有人名、时间、地点、活动，返回JSON。
-时间必须推理为具体日期格式YYYY-MM-DD，在reasoning中展示计算过程。
+分析文本，提取以下9种实体，返回JSON：
 
-示例1：
-输入：昨天和李明在公园散步
-输出：{"reasoning":"提取到人名李明。日期：昨天=${yesterdayStr}（${dateStr}的前一天）","suggestedTags":["李明","time:${yesterdayStr}","location:公园"],"insights":{"activities":["散步"],"preferences":[],"personality":[],"profession":null},"contactMatch":{"found":false,"matchedName":null,"suggestedName":null,"confidence":0,"reason":""},"corrections":[]}
+1. persons: 人名（从文本中提取）
+2. times: 时间（YYYY-MM-DD格式）
+3. locations: 地点
+4. events: 事件/活动
+5. needs: 需求/意图（需要、想要、缺）
+6. preferences: 偏好（喜欢、不喜欢、禁忌）
+7. health: 健康信息（疾病、过敏、用药）
+8. suggestions: 建议行动（应该、建议、提醒）
+9. organizations: 组织/公司
 
-示例2：
-输入：上周三和张三喝茶
-输出：{"reasoning":"提取到人名张三。日期：上周三=${lastWednesdayStr}（上个完整周的星期三）","suggestedTags":["张三","time:${lastWednesdayStr}","location:茶馆"],"insights":{"activities":["喝茶"],"preferences":[],"personality":[],"profession":null},"contactMatch":{"found":false,"matchedName":null,"suggestedName":null,"confidence":0,"reason":""},"corrections":[]}
+已知联系人：${contactList}
 
-示例3：
-输入：今天和李四、王五去爬山
-输出：{"reasoning":"提取到人名李四、王五。日期：今天=${dateStr}","suggestedTags":["李四","王五","time:${dateStr}","location:山"],"insights":{"activities":["爬山"],"preferences":[],"personality":[],"profession":null},"contactMatch":{"found":false,"matchedName":null,"suggestedName":null,"confidence":0,"reason":""},"corrections":[]}
+示例输入：昨天和李明在星巴克喝茶，他最近胃不舒服，不能喝咖啡，建议下次约他去喝茶或者吃清淡的东西。他提到想找一份新工作。
+
+示例输出：
+{"reasoning":"提取人名李明（已知联系人）。时间：昨天=${yesterdayStr}。地点：星巴克。事件：喝茶。健康：胃不舒服、不能喝咖啡。偏好：不能喝咖啡（禁忌）。建议：下次喝茶或吃清淡。需求：找新工作。","entities":{"persons":["李明"],"times":["${yesterdayStr}"],"locations":["星巴克"],"events":["喝茶"],"needs":["找新工作"],"preferences":["不能喝咖啡"],"health":["胃不舒服"],"suggestions":["下次喝茶或吃清淡"],"organizations":[]},"suggestedTags":["李明","time:${yesterdayStr}","location:星巴克","health:胃不舒服","preference:不能喝咖啡"],"insights":{"activities":["喝茶"],"preferences":["不能喝咖啡"],"personality":[],"profession":null},"contactMatch":{"found":true,"matchedName":"李明","suggestedName":null,"confidence":0.95,"reason":"精确匹配已知联系人"},"corrections":[]}
 
 输入：${text}
 
 输出：`;
 };
 
-/**
- * 解析 LLM 输出
- */
 const parseLLMResult = (text: string): Partial<LLMAnalysisResult> | null => {
   try {
-    // 首先尝试找到第一个 JSON 对象（从第一个 { 开始）
     const firstBrace = text.indexOf('{');
     if (firstBrace === -1) return null;
 
-    // 使用括号计数找到匹配的结束位置
     let braceCount = 0;
     let jsonEnd = -1;
     let inString = false;
@@ -217,15 +226,24 @@ const parseLLMResult = (text: string): Partial<LLMAnalysisResult> | null => {
       }
     }
 
-    // 如果找到了完整的 JSON
     if (jsonEnd !== -1) {
       const jsonCandidate = text.substring(firstBrace, jsonEnd + 1);
       try {
         const parsed = JSON.parse(jsonCandidate);
         const tags: string[] = parsed.suggestedTags || [];
-        const uniqueTags = [...new Set(tags)];
         return {
           reasoning: parsed.reasoning || '未提供推理过程',
+          entities: parsed.entities || {
+            persons: [],
+            times: [],
+            locations: [],
+            events: [],
+            needs: [],
+            preferences: [],
+            health: [],
+            suggestions: [],
+            organizations: [],
+          },
           contactMatch: parsed.contactMatch || {
             found: false,
             matchedName: null,
@@ -240,14 +258,11 @@ const parseLLMResult = (text: string): Partial<LLMAnalysisResult> | null => {
             personality: [],
             profession: null,
           },
-          suggestedTags: uniqueTags,
+          suggestedTags: [...new Set(tags)],
         };
-      } catch {
-        // 解析失败
-      }
+      } catch {}
     }
 
-    // 回退：清理后尝试解析
     const cleanedText = text
       .replace(/```json\s*/gi, '')
       .replace(/```\s*$/gi, '')
@@ -262,9 +277,19 @@ const parseLLMResult = (text: string): Partial<LLMAnalysisResult> | null => {
       try {
         const parsed = JSON.parse(jsonCandidate);
         const tags: string[] = parsed.suggestedTags || [];
-        const uniqueTags = [...new Set(tags)];
         return {
           reasoning: parsed.reasoning || '未提供推理过程',
+          entities: parsed.entities || {
+            persons: [],
+            times: [],
+            locations: [],
+            events: [],
+            needs: [],
+            preferences: [],
+            health: [],
+            suggestions: [],
+            organizations: [],
+          },
           contactMatch: parsed.contactMatch || {
             found: false,
             matchedName: null,
@@ -279,11 +304,9 @@ const parseLLMResult = (text: string): Partial<LLMAnalysisResult> | null => {
             personality: [],
             profession: null,
           },
-          suggestedTags: uniqueTags,
+          suggestedTags: [...new Set(tags)],
         };
-      } catch {
-        // 解析失败
-      }
+      } catch {}
     }
   } catch (error) {
     console.error('[LLMAnalyzer] Failed to parse result:', error);
@@ -292,15 +315,23 @@ const parseLLMResult = (text: string): Partial<LLMAnalysisResult> | null => {
   return null;
 };
 
-/**
- * 使用 LLM 分析文本
- */
 export const analyzeWithLLM = async (
   text: string,
   contacts: Contact[]
 ): Promise<LLMAnalysisResult> => {
   const defaultResult: LLMAnalysisResult = {
     reasoning: 'LLM 分析失败，使用默认结果',
+    entities: {
+      persons: [],
+      times: [],
+      locations: [],
+      events: [],
+      needs: [],
+      preferences: [],
+      health: [],
+      suggestions: [],
+      organizations: [],
+    },
     contactMatch: {
       found: false,
       matchedName: null,
@@ -334,12 +365,12 @@ export const analyzeWithLLM = async (
 
     const prompt = buildAnalysisPrompt(text, contacts);
 
-    console.log("[LLMAnalyzer] Running inference...", prompt);
+    console.log("[LLMAnalyzer] Running inference...");
     const startTime = Date.now();
 
     const result = await llmContext.completion({
       prompt,
-      n_predict: 256,
+      n_predict: 512,
       temperature: 0.2,
       top_k: 15,
       top_p: 0.6,
@@ -348,35 +379,17 @@ export const analyzeWithLLM = async (
     });
 
     console.log('[LLMAnalyzer] Inference completed in', Date.now() - startTime, 'ms');
-    console.log('[LLMAnalyzer] Result length:', result.text ? result.text.length : 0);
-    console.log('[LLMAnalyzer] Full raw response:', result.text || 'EMPTY');
 
     if (!result.text || result.text.trim().length === 0) {
       console.warn('[LLMAnalyzer] Empty response');
       return defaultResult;
     }
 
-    console.log('[LLMAnalyzer] Raw response:', result.text.substring(0, 500));
-
     const parsed = parseLLMResult(result.text);
     if (parsed) {
       console.log('[LLMAnalyzer] Analysis successful');
-      console.log('[LLMAnalyzer] Parsed result:', JSON.stringify(parsed, null, 2));
 
-      // 打印分析过程
-      if (parsed.reasoning) {
-        console.log('[LLMAnalyzer] Reasoning:', parsed.reasoning);
-      }
-
-      // 打印提取的信息
-      console.log('[LLMAnalyzer] Extracted info:', {
-        suggestedTags: parsed.suggestedTags || [],
-        activities: parsed.insights?.activities || [],
-        preferences: parsed.insights?.preferences || [],
-      });
-
-      // 从 suggestedTags 获取提取到的人名，进行模糊匹配
-      const extractedNames = parsed.suggestedTags || [];
+      const extractedNames = parsed.entities?.persons || [];
       let contactMatch = parsed.contactMatch || defaultResult.contactMatch;
 
       for (const name of extractedNames) {
@@ -384,7 +397,6 @@ export const analyzeWithLLM = async (
 
         if (match) {
           if (shouldAutoSelect(match.confidence)) {
-            // 高置信度匹配
             contactMatch = {
               found: true,
               matchedName: match.contact.name,
@@ -392,9 +404,8 @@ export const analyzeWithLLM = async (
               confidence: match.confidence,
               reason: match.reason,
             };
-            break; // 找到高置信度匹配，停止
+            break;
           } else if (shouldShowSuggestion(match.confidence)) {
-            // 中置信度，显示建议
             contactMatch = {
               found: false,
               matchedName: null,
@@ -406,11 +417,12 @@ export const analyzeWithLLM = async (
         }
       }
 
-      // 打印最终匹配结果
-      console.log('[LLMAnalyzer] Contact match result:', contactMatch);
+      console.log('[LLMAnalyzer] Entities:', parsed.entities);
+      console.log('[LLMAnalyzer] Contact match:', contactMatch);
 
       return {
         reasoning: parsed.reasoning || defaultResult.reasoning,
+        entities: parsed.entities || defaultResult.entities,
         contactMatch,
         corrections: parsed.corrections || [],
         insights: parsed.insights || defaultResult.insights,

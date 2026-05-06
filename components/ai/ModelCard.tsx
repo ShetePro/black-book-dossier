@@ -14,6 +14,7 @@ interface ModelCardProps {
   name: string;
   description: string;
   size: number;
+  highlight?: string;
   isDownloaded: boolean;
   isEnabled?: boolean;
   isRecommended?: boolean;
@@ -28,6 +29,7 @@ export const ModelCard: React.FC<ModelCardProps> = ({
   name,
   description,
   size,
+  highlight,
   isDownloaded,
   isEnabled,
   isRecommended,
@@ -81,6 +83,15 @@ export const ModelCard: React.FC<ModelCardProps> = ({
       <Text style={[styles.description, { color: colors.textMuted }]}>
         {description}
       </Text>
+
+      {highlight && (
+        <View style={[styles.highlightContainer, { backgroundColor: `${colors.warning}15` }]}>
+          <Ionicons name="star" size={14} color={colors.warning} />
+          <Text style={[styles.highlightText, { color: colors.warning }]}>
+            {highlight}
+          </Text>
+        </View>
+      )}
 
       <View style={styles.footer}>
         <View style={styles.sizeContainer}>
@@ -191,7 +202,20 @@ const styles = StyleSheet.create({
   description: {
     fontSize: 13,
     lineHeight: 18,
+    marginBottom: 8,
+  },
+  highlightContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
     marginBottom: 12,
+    gap: 6,
+  },
+  highlightText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
   footer: {
     flexDirection: 'row',

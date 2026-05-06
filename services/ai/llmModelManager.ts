@@ -1,71 +1,116 @@
 import { Paths } from 'expo-file-system';
 import { useSettingsStore } from '@/store/settingsStore';
 
-// 可用模型配置列表
+// 模型分组类型
+export type ModelCategory = 'efficient' | 'powerful';
+
+// 可用模型配置列表（精简高效组 + 强性能组）
 export const AVAILABLE_MODELS = {
-  'qwen2.5-0.5b': {
-    id: 'qwen2.5-0.5b',
-    name: 'Qwen 2.5 (0.5B)',
-    description: '阿里通义千问，中文优化，适合中文语音识别',
-    filename: 'qwen2.5-0.5b-instruct-q4_k_m.gguf',
-    downloadUrl: 'https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q4_k_m.gguf',
-    size: 350, // MB
+  // === 精简高效组（节省空间）===
+'llama-3.2-1b': {
+    id: 'llama-3.2-1b',
+    name: 'Llama 3.2 1B',
+    description: 'Meta 最新，多语言支持，体积小性能均衡',
+    category: 'efficient' as ModelCategory,
+    filename: 'llama-3.2-1b-instruct-q4_k_m.gguf',
+    downloadUrl: 'https://huggingface.co/hugging-quants/Llama-3.2-1B-Instruct-Q4_K_M-GGUF/resolve/main/llama-3.2-1b-instruct-q4_k_m.gguf',
+    size: 808,
+    contextLength: 8000,
     format: 'gguf' as const,
     recommended: true,
+    highlight: '体积小，速度快',
   },
-  'tinyllama-1.1b': {
-    id: 'tinyllama-1.1b',
-    name: 'TinyLlama (1.1B)',
-    description: '轻量级英文模型，推理速度快',
-    filename: 'tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf',
-    downloadUrl: 'https://huggingface.co/TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF/resolve/main/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf',
-    size: 600, // MB
-    format: 'gguf' as const,
-    recommended: false,
-  },
-  'phi-2': {
-    id: 'phi-2',
-    name: 'Phi-2 (2.7B)',
-    description: '微软出品，性能优秀，多语言支持',
-    filename: 'phi-2.Q4_K_M.gguf',
-    downloadUrl: 'https://huggingface.co/TheBloke/phi-2-GGUF/resolve/main/phi-2.Q4_K_M.gguf',
-    size: 1600, // MB
-    format: 'gguf' as const,
-    recommended: false,
-  },
-  'gemma-2b': {
-    id: 'gemma-2b',
-    name: 'Gemma (2B)',
-    description: 'Google 出品，多语言支持',
-    filename: 'gemma-2b-it.Q4_K_M.gguf',
+  'gemma-2-2b': {
+    id: 'gemma-2-2b',
+    name: 'Gemma 2 2B',
+    description: 'Google 最新，多语言支持，8K 上下文',
+    category: 'efficient' as ModelCategory,
+    filename: 'gemma-2-2b-it-Q4_K_M.gguf',
     downloadUrl: 'https://huggingface.co/bartowski/gemma-2-2b-it-GGUF/resolve/main/gemma-2-2b-it-Q4_K_M.gguf',
-    size: 1500,
+    size: 1710,
+    contextLength: 8000,
     format: 'gguf' as const,
     recommended: false,
+    highlight: 'Google 最新',
   },
-  'llama-3.2-1b': {
-    id: 'llama-3.2-1b',
-    name: 'Llama 3.2 (1B)',
-    description: 'Meta 最新，多语言，长上下文',
-    filename: 'Llama-3.2-1B-Instruct.Q4_K_M.gguf',
-    downloadUrl: 'https://huggingface.co/hugging-quants/Llama-3.2-1B-Instruct-Q4_K_M-GGUF/resolve/main/llama-3.2-1b-instruct-q4_k_m.gguf',
-    size: 800,
+  'qwen-2.5-1.5b': {
+    id: 'qwen-2.5-1.5b',
+    name: 'Qwen 2.5 1.5B',
+    description: '阿里通义千问，中文优化最佳，32K 长上下文',
+    category: 'efficient' as ModelCategory,
+    filename: 'qwen2.5-1.5b-instruct-q4_k_m.gguf',
+    downloadUrl: 'https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf',
+    size: 1120,
+    contextLength: 32000,
     format: 'gguf' as const,
     recommended: false,
+    highlight: '中文最佳',
   },
-  'stablelm-2-1.6b': {
-    id: 'stablelm-2-1.6b',
-    name: 'Stable LM 2 (1.6B)',
-    description: 'Stability AI 出品，稳定高效',
-    filename: 'stablelm-2-1_6b-chat.Q4_K_M.gguf',
-    downloadUrl: 'https://huggingface.co/TheBloke/stablelm-2-1_6b-chat-GGUF/resolve/main/stablelm-2-1_6b-chat.Q4_K_M.gguf',
-    size: 1000, // MB
+
+  // === 强性能组（更好效果）===
+  'llama-3.2-3b': {
+    id: 'llama-3.2-3b',
+    name: 'Llama 3.2 3B',
+    description: 'Meta 最新，性能更强，多语言支持',
+    category: 'powerful' as ModelCategory,
+    filename: 'llama-3.2-3b-instruct-q4_k_m.gguf',
+    downloadUrl: 'https://huggingface.co/hugging-quants/Llama-3.2-3B-Instruct-Q4_K_M-GGUF/resolve/main/llama-3.2-3b-instruct-q4_k_m.gguf',
+    size: 2020,
+    contextLength: 8000,
     format: 'gguf' as const,
     recommended: false,
+    highlight: '性能强劲',
+  },
+  'gemma-2-9b': {
+    id: 'gemma-2-9b',
+    name: 'Gemma 2 9B',
+    description: 'Google 最新，最强性能，体积较大',
+    category: 'powerful' as ModelCategory,
+    filename: 'gemma-2-9b-it-Q4_K_M.gguf',
+    downloadUrl: 'https://huggingface.co/bartowski/gemma-2-9b-it-GGUF/resolve/main/gemma-2-9b-it-Q4_K_M.gguf',
+    size: 5760,
+    contextLength: 8000,
+    format: 'gguf' as const,
+    recommended: false,
+    highlight: '最强性能',
+  },
+  'qwen-2.5-3b': {
+    id: 'qwen-2.5-3b',
+    name: 'Qwen 2.5 3B',
+    description: '阿里通义千问，中文最佳性能，32K 长上下文',
+    category: 'powerful' as ModelCategory,
+    filename: 'qwen2.5-3b-instruct-q4_k_m.gguf',
+    downloadUrl: 'https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q4_k_m.gguf',
+    size: 1930,
+    contextLength: 32000,
+    format: 'gguf' as const,
+    recommended: false,
+    highlight: '中文最佳性能',
   },
 } as const;
 
 export type ModelId = keyof typeof AVAILABLE_MODELS;
+
+export type ModelConfig = {
+  id: ModelId;
+  name: string;
+  description: string;
+  category: ModelCategory;
+  filename: string;
+  downloadUrl: string;
+  size: number;
+  contextLength: number;
+  format: 'gguf';
+  recommended: boolean;
+  highlight: string;
+};
+
+export const getModelsByCategory = (category: ModelCategory): ModelConfig[] => {
+  return Object.values(AVAILABLE_MODELS).filter(m => m.category === category);
+};
+
+export const getEfficientModels = (): ModelConfig[] => getModelsByCategory('efficient');
+export const getPowerfulModels = (): ModelConfig[] => getModelsByCategory('powerful');
 
 // 获取模型配置
 export const getModelConfig = (modelId: ModelId) => {
@@ -79,7 +124,7 @@ export const getAllModels = () => {
 
 // 获取推荐的模型
 export const getRecommendedModel = () => {
-  return Object.values(AVAILABLE_MODELS).find(m => m.recommended) || AVAILABLE_MODELS['qwen2.5-0.5b'];
+  return Object.values(AVAILABLE_MODELS).find(m => m.recommended) || AVAILABLE_MODELS['llama-3.2-1b'];
 };
 
 // 模型存储路径

@@ -17,12 +17,15 @@ import { useSettingsStore } from '@/store/settingsStore';
 import {
   AVAILABLE_MODELS,
   ModelId,
+  ModelCategory,
   isModelDownloaded,
   downloadModel,
   deleteModel,
   getDownloadedModels,
   formatFileSize,
   getModelFileSize,
+  getEfficientModels,
+  getPowerfulModels,
 } from '@/services/ai/llmModelManager';
 import { ModelCard } from '@/components/ai/ModelCard';
 import { ModelDetailSheet } from '@/components/ai/ModelDetailSheet';
@@ -127,7 +130,8 @@ export default function AIModelsScreen() {
     setSelectedModel(null);
   };
 
-  const models = Object.values(AVAILABLE_MODELS);
+  const efficientModels = getEfficientModels();
+  const powerfulModels = getPowerfulModels();
   const selectedModelInfo = selectedModel ? AVAILABLE_MODELS[selectedModel] : null;
 
   // 获取当前启用的模型ID
@@ -137,7 +141,8 @@ export default function AIModelsScreen() {
     if (storedModelId && AVAILABLE_MODELS[storedModelId]) {
       return storedModelId;
     }
-    const enabledModel = models.find(m => m.name === settings.ai.localModel.modelName);
+    const allModels = Object.values(AVAILABLE_MODELS);
+    const enabledModel = allModels.find(m => m.name === settings.ai.localModel.modelName);
     return enabledModel?.id || null;
   };
 
@@ -186,45 +191,30 @@ export default function AIModelsScreen() {
           )}
         </View>
 
-        {/* Downloaded Models */}
-        {downloadedModels.length > 0 && (
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>
-              {t('aiModels.downloadedModels')}
-            </Text>
-            {downloadedModels.map((modelId) => (
-              <ModelCard
-                key={modelId}
-                modelId={modelId}
-                name={AVAILABLE_MODELS[modelId].name}
-                description={AVAILABLE_MODELS[modelId].description}
-                size={AVAILABLE_MODELS[modelId].size}
-                isDownloaded={true}
-                isEnabled={enabledModelId === modelId}
-                isRecommended={AVAILABLE_MODELS[modelId].recommended}
-                onDownload={() => handleDownload(modelId)}
-                onDelete={() => handleDelete(modelId)}
-                onPress={() => openDetail(modelId)}
-              />
-            ))}
-          </View>
-        )}
-
-        {/* Available Models */}
+        {/* 精简高效组（节省空间） */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>
-            {t('aiModels.availableModels')}
+          <View style={styles.categoryHeader}>
+            <Ionicons name="flash" size={18} color={colors.primary} />
+            <Text style={[styles.categoryTitle, { color: colors.text }]}>
+              {t('aiModels.efficientGroup')}
+            </Text>
+          </View>
+          <Text style={[styles.categoryDesc, { color: colors.textMuted }]}>
+            {t('aiModels.efficientGroupDesc')}
           </Text>
-          {models
-            .filter((model) => !downloadedModels.includes(model.id))
-            .map((model) => (
+          
+          {efficientModels.map((model) => {
+            const isDownloaded = downloadedModels.includes(model.id);
+            return (
               <ModelCard
                 key={model.id}
                 modelId={model.id}
                 name={model.name}
                 description={model.description}
                 size={model.size}
-                isDownloaded={false}
+                highlight={model.highlight}
+                isDownloaded={isDownloaded}
+                isEnabled={enabledModelId === model.id}
                 isRecommended={model.recommended}
                 onDownload={() => handleDownload(model.id)}
                 onDelete={() => handleDelete(model.id)}
@@ -232,7 +222,43 @@ export default function AIModelsScreen() {
                 isDownloading={downloadingModels.has(model.id)}
                 downloadProgress={downloadProgress[model.id]}
               />
-            ))}
+            );
+          })}
+        </View>
+
+        {/* 强性能组（更好效果） */}
+        <View style={styles.section}>
+          <View style={styles.categoryHeader}>
+            <Ionicons name="rocket" size={18} color={colors.warning} />
+            <Text style={[styles.categoryTitle, { color: colors.text }]}>
+              {t('aiModels.powerfulGroup')}
+            </Text>
+          </View>
+          <Text style={[styles.categoryDesc, { color: colors.textMuted }]}>
+            {t('aiModels.powerfulGroupDesc')}
+          </Text>
+          
+          {powerfulModels.map((model) => {
+            const isDownloaded = downloadedModels.includes(model.id);
+            return (
+              <ModelCard
+                key={model.id}
+                modelId={model.id}
+                name={model.name}
+                description={model.description}
+                size={model.size}
+                highlight={model.highlight}
+                isDownloaded={isDownloaded}
+                isEnabled={enabledModelId === model.id}
+                isRecommended={model.recommended}
+                onDownload={() => handleDownload(model.id)}
+                onDelete={() => handleDelete(model.id)}
+                onPress={() => openDetail(model.id)}
+                isDownloading={downloadingModels.has(model.id)}
+                downloadProgress={downloadProgress[model.id]}
+              />
+            );
+          })}
         </View>
 
         {/* Storage Info */}
@@ -333,6 +359,23 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+    marginBottom: 12,
+    marginLeft: 4,
+  },
+  categoryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    marginLeft: 4,
+    gap: 8,
+  },
+  categoryTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  categoryDesc: {
+    fontSize: 13,
+    lineHeight: 18,
     marginBottom: 12,
     marginLeft: 4,
   },

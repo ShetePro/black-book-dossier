@@ -150,15 +150,15 @@ export default function AgentReviewScreen() {
       setUsingLocalLLM(useLLM);
 
       if (!useLLM) {
-        console.warn('[AgentReview] No local LLM available, returning empty result');
-        setAnalyzedData({
-          transcription,
-          entities: [],
-          actionItems: [],
-          contactName: undefined,
-          summary: t('agentReview.summary.noLLM'),
-        });
         setIsAnalyzing(false);
+        Alert.alert(
+          t('agentReview.noLLMTitle'),
+          t('agentReview.noLLMMessage'),
+          [
+            { text: t('agentReview.cancel'), style: 'cancel' },
+            { text: t('agentReview.downloadModel'), onPress: () => router.push('/ai-models') },
+          ]
+        );
         return;
       }
 

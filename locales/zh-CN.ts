@@ -556,6 +556,10 @@ export const zhCN = {
     audioPlayError: '无法播放音频',
     selectContact: '请选择联系人',
     selectContactMessage: '请先选择一个要更新的联系人',
+    noLLMTitle: '需要下载 AI 模型',
+    noLLMMessage: 'AI 智能分析功能需要下载本地大模型才能使用。是否前往下载？',
+    cancel: '取消',
+    downloadModel: '下载模型',
     matchReasons: {
       exact: '姓名完全匹配',
       contains: '姓名包含匹配',

@@ -554,6 +554,10 @@ export const enUS = {
     audioPlayError: 'Unable to play audio',
     selectContact: 'Select Contact',
     selectContactMessage: 'Please select a contact to update first.',
+    noLLMTitle: 'AI Model Required',
+    noLLMMessage: 'AI analysis requires a local LLM model. Would you like to download one?',
+    cancel: 'Cancel',
+    downloadModel: 'Download Model',
     matchReasons: {
       exact: 'Exact name match',
       contains: 'Name contains match',

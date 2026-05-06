@@ -284,7 +284,7 @@ export default function AgentReviewScreen() {
     }
 
     // 2. 添加活动实体
-    result.insights.activities.forEach(activity => {
+    result.insights?.activities?.forEach(activity => {
       entities.push({
         type: 'event',
         value: activity,
@@ -292,8 +292,8 @@ export default function AgentReviewScreen() {
       });
     });
 
-    // 3. 添加偏好实体
-    result.insights.preferences.forEach(pref => {
+    // 3. 添加偏好实体（从 entities 对象获取）
+    result.entities?.preferences?.forEach(pref => {
       entities.push({
         type: 'preference',
         value: pref,
@@ -302,7 +302,7 @@ export default function AgentReviewScreen() {
     });
 
     // 4. 添加时间和地点实体
-    result.suggestedTags.forEach(tag => {
+    result.suggestedTags?.forEach(tag => {
       if (tag.startsWith('time:')) {
         entities.push({
           type: 'date',

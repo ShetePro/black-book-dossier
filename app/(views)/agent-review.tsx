@@ -755,6 +755,7 @@ export default function AgentReviewScreen() {
   // 创建新联系人并带入数据
   const handleCreateContactWithData = async () => {
     const suggestedName = llmAnalysis?.contactMatch?.suggestedName ||
+                         llmAnalysis?.entities?.persons?.[0] ||
                          analyzedData?.contactName || '';
 
     // 准备传递的数据
@@ -973,7 +974,7 @@ export default function AgentReviewScreen() {
                 { borderColor: colors.border }
               ]}
               onPress={() => {
-                const suggestedName = llmAnalysis?.contactMatch?.suggestedName || analyzedData?.contactName || '';
+                const suggestedName = llmAnalysis?.contactMatch?.suggestedName || llmAnalysis?.entities?.persons?.[0] || analyzedData?.contactName || '';
                 const activities = llmAnalysis?.insights?.activities || [];
                 const preferences = llmAnalysis?.insights?.preferences || [];
 

@@ -727,7 +727,14 @@ export default function AgentReviewScreen() {
     const targetContacts = matchedContacts.map(m => m.contact);
 
     if (targetContacts.length === 0) {
-      Alert.alert(t('common.notice'), t('agentReview.noMatchedContacts'));
+      Alert.alert(
+        t('common.notice'),
+        t('agentReview.noMatchedContacts'),
+        [
+          { text: t('common.cancel'), style: 'cancel' },
+          { text: t('agentReview.createContact'), onPress: handleCreateContactWithData },
+        ]
+      );
       return;
     }
 
